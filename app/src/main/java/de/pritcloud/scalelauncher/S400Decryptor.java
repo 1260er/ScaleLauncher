@@ -14,7 +14,7 @@ import java.nio.ByteOrder;
  *
  * Based on the GPLv3 S400 implementation in openScale. The scale sends two
  * complementary packets per weighing:
- * A: weight + heart rate + high-frequency impedance
+ * A: weight + high-frequency impedance
  * B: zero weight + low-frequency impedance
  */
 public final class S400Decryptor {
@@ -24,13 +24,10 @@ public final class S400Decryptor {
         public final float weightKg;
         public final Float impedanceHigh;
         public final Float impedanceLow;
-        public final Integer heartRate;
-
-        Measurement(float weightKg, Float impedanceHigh, Float impedanceLow, Integer heartRate) {
+        Measurement(float weightKg, Float impedanceHigh, Float impedanceLow) {
             this.weightKg = weightKg;
             this.impedanceHigh = impedanceHigh;
             this.impedanceLow = impedanceLow;
-            this.heartRate = heartRate;
         }
 
         public boolean isPacketA() {
@@ -77,17 +74,15 @@ public final class S400Decryptor {
         int value = ByteBuffer.wrap(slice(object, 1, 5)).order(ByteOrder.LITTLE_ENDIAN).getInt();
 
         int weightRaw = value & 0x7ff;
-        int heartRaw = (value >> 11) & 0x7f;
         int impedanceRaw = value >> 18;
 
         float weight = weightRaw / 10.0f;
-        Integer heart = heartRaw >= 1 && heartRaw <= 126 ? heartRaw + 50 : null;
         Float impedanceHigh = weightRaw != 0 && impedanceRaw != 0 ? impedanceRaw / 10.0f : null;
         Float impedanceLow = weightRaw == 0 && impedanceRaw != 0 ? impedanceRaw / 10.0f : null;
 
         // Packet A carries weight/high impedance; packet B carries low impedance.
         if (weightRaw == 0 && impedanceLow == null) return null;
-        return new Measurement(weight, impedanceHigh, impedanceLow, heart);
+        return new Measurement(weight, impedanceHigh, impedanceLow);
     }
 
     public static boolean isValidBindKey(String key) {

@@ -211,7 +211,7 @@ public final class OpenScaleProvider {
                 JsonSummary summary = summarizeValuesJson(cursor.getString(jsonColumn));
                 boolean hasAdditional = summary.keys.contains("BONE")
                         || summary.keys.contains("PROTEIN")
-                        || summary.keys.contains("HEART_RATE")
+                        || summary.keys.contains("BMI")
                         || summary.count > 4;
                 return new Verification(true, hasAdditional, summary.count);
             }
@@ -268,8 +268,6 @@ public final class OpenScaleProvider {
             add(values, 7, "BONE", "Bone mass", "kg", "FLOAT", composition.boneKg);
             add(values, 12, "VISCERAL_FAT", "Visceral fat", "", "FLOAT", composition.visceralFatIndex);
             add(values, 21, "BMR", "Basal metabolic rate", "kcal", "FLOAT", composition.basalMetabolicRateKcal);
-            add(values, 23, "HEART_RATE", "Heart rate", "/min", "INT",
-                    measurement.heartRate == null ? null : measurement.heartRate.floatValue());
             add(values, 29, "IMPEDANCE", "Impedance high", "Ohm", "FLOAT", measurement.impedanceHigh);
             add(values, 30, "IMPEDANCE_LOW", "Impedance low", "Ohm", "FLOAT", measurement.impedanceLow);
             add(values, 31, "ECW", "Extracellular water", "%", "FLOAT", composition.extracellularWaterPercent);

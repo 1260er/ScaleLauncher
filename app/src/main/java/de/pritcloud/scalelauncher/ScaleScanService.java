@@ -26,7 +26,7 @@ import java.util.Locale;
 
 public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
-    private static final String CHANNEL_MONITOR = "scale_monitor_v8";
+    private static final String CHANNEL_MONITOR = "scale_monitor_v9";
     private static final int NOTIFICATION_MONITOR = 10;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -45,7 +45,7 @@ public final class ScaleScanService extends Service {
         startForeground(
                 NOTIFICATION_MONITOR,
                 monitorNotification("BLE-Überwachung wird gestartet …"));
-        EventLog.info(this, "Dienst gestartet – S400-Direktübernahme 2.8");
+        EventLog.info(this, "Dienst gestartet – S400-Direktübernahme 2.9");
         startScan();
     }
 
@@ -196,9 +196,8 @@ public final class ScaleScanService extends Service {
             S400Aggregator.Finalized value = outcome.finalized;
             EventLog.info(this, String.format(
                     Locale.GERMANY,
-                    "Messung erkannt: %.1f kg%s",
-                    value.weightKg,
-                    value.heartRate == null ? "" : " | Puls " + value.heartRate));
+                    "Messung erkannt: %.1f kg",
+                    value.weightKg));
             EventLog.debug(this, String.format(
                     Locale.GERMANY,
                     "S400 entschlüsselt: %.1f kg | Impedanz %.1f/%.1f Ω",
@@ -296,6 +295,7 @@ public final class ScaleScanService extends Service {
                 this,
                 timestamp,
                 scaleMac,
+                prefs.getFloat("height_cm", 0f),
                 measurement,
                 composition,
                 selection,
@@ -363,6 +363,7 @@ public final class ScaleScanService extends Service {
                 "S400 ausgewertet (Alter %d): %.1f kg",
                 age,
                 measurement.weightKg));
+        appendValue(text, "BMI", composition.bmi, "");
         appendPercent(text, "Fett", composition.bodyFatPercent);
         appendPercent(text, "Wasser", composition.totalBodyWaterPercent);
         appendPercent(text, "Muskel", composition.skeletalMusclePercent);
@@ -374,9 +375,6 @@ public final class ScaleScanService extends Service {
         appendPercent(text, "ECW", composition.extracellularWaterPercent);
         appendPercent(text, "ICW", composition.intracellularWaterPercent);
         appendKg(text, "BCM", composition.bodyCellMassKg);
-        if (measurement.heartRate != null) {
-            text.append(" | Puls ").append(measurement.heartRate);
-        }
         text.append(" | Qualität ").append(composition.reliability.name());
         return text.toString();
     }

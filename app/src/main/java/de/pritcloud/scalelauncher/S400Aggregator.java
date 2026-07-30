@@ -29,16 +29,14 @@ final class S400Aggregator {
         final float weightKg;
         final float impedanceHigh;
         final Float impedanceLow;
-        final Integer heartRate;
         final boolean timedOut;
         final long timestampMs;
 
         Finalized(float weightKg, float impedanceHigh, Float impedanceLow,
-                  Integer heartRate, boolean timedOut, long timestampMs) {
+                  boolean timedOut, long timestampMs) {
             this.weightKg = weightKg;
             this.impedanceHigh = impedanceHigh;
             this.impedanceLow = impedanceLow;
-            this.heartRate = heartRate;
             this.timedOut = timedOut;
             this.timestampMs = timestampMs;
         }
@@ -48,7 +46,6 @@ final class S400Aggregator {
         Float weightKg;
         Float impedanceHigh;
         Float impedanceLow;
-        Integer heartRate;
         long firstSeenAt;
     }
 
@@ -76,7 +73,6 @@ final class S400Aggregator {
         if (packet.weightKg > 0f) session.weightKg = packet.weightKg;
         if (packet.impedanceHigh != null) session.impedanceHigh = packet.impedanceHigh;
         if (packet.impedanceLow != null) session.impedanceLow = packet.impedanceLow;
-        if (packet.heartRate != null) session.heartRate = packet.heartRate;
 
         if (session.weightKg == null || session.impedanceHigh == null) {
             return Outcome.pending();
@@ -121,7 +117,6 @@ final class S400Aggregator {
                 current.weightKg,
                 current.impedanceHigh,
                 current.impedanceLow,
-                current.heartRate,
                 timedOut,
                 current.firstSeenAt));
     }

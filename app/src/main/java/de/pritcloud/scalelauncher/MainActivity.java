@@ -54,7 +54,7 @@ public final class MainActivity extends Activity {
     private CheckBox hcBoneMass;
     private CheckBox hcLeanBodyMass;
     private CheckBox hcBmr;
-    private CheckBox hcHeartRate;
+    private CheckBox hcBmi;
     private CheckBox diagnosticLogging;
     private RadioButton sexMale;
     private Spinner userSpinner;
@@ -83,7 +83,7 @@ public final class MainActivity extends Activity {
         hcBoneMass = findViewById(R.id.hcBoneMass);
         hcLeanBodyMass = findViewById(R.id.hcLeanBodyMass);
         hcBmr = findViewById(R.id.hcBmr);
-        hcHeartRate = findViewById(R.id.hcHeartRate);
+        hcBmi = findViewById(R.id.hcBmi);
         diagnosticLogging = findViewById(R.id.diagnosticLogging);
         sexMale = findViewById(R.id.sexMale);
         userSpinner = findViewById(R.id.openScaleUser);
@@ -151,7 +151,7 @@ public final class MainActivity extends Activity {
         hcBoneMass.setOnCheckedChangeListener(selectionListener);
         hcLeanBodyMass.setOnCheckedChangeListener(selectionListener);
         hcBmr.setOnCheckedChangeListener(selectionListener);
-        hcHeartRate.setOnCheckedChangeListener(selectionListener);
+        hcBmi.setOnCheckedChangeListener(selectionListener);
 
         diagnosticLogging.setOnCheckedChangeListener((button, enabled) -> {
             getSharedPreferences("prefs", MODE_PRIVATE).edit()
@@ -260,7 +260,7 @@ public final class MainActivity extends Activity {
         hcBoneMass.setChecked(selection.boneMass);
         hcLeanBodyMass.setChecked(selection.leanBodyMass);
         hcBmr.setChecked(selection.basalMetabolicRate);
-        hcHeartRate.setChecked(selection.heartRate);
+        hcBmi.setChecked(selection.bmi);
     }
 
     private HealthConnectSelection healthConnectSelectionFromUi() {
@@ -271,7 +271,7 @@ public final class MainActivity extends Activity {
                 hcBoneMass.isChecked(),
                 hcLeanBodyMass.isChecked(),
                 hcBmr.isChecked(),
-                hcHeartRate.isChecked());
+                hcBmi.isChecked());
     }
 
     @Override protected void onResume() {
@@ -463,14 +463,16 @@ public final class MainActivity extends Activity {
             return;
         }
 
+        int required = HealthConnectSupport.requiredPermissionCount(selection);
         int granted = HealthConnectSupport.grantedWritePermissionCount(this, selection);
-        if (granted == selected) {
+        if (granted == required) {
             healthConnectStatus.setText(
-                    "Health Connect bereit – " + selected + " ausgewählte Schreibrechte vorhanden");
+                    "Health Connect bereit – " + selected + " Werte ausgewählt, "
+                            + required + " Schreibrechte vorhanden");
         } else {
             healthConnectStatus.setText(
-                    "Health Connect: " + granted + "/" + selected
-                            + " Rechte für die ausgewählten Werte vorhanden");
+                    "Health Connect: " + granted + "/" + required
+                            + " benötigte Rechte vorhanden");
             if (healthConnectEnabled.isChecked()) healthConnectEnabled.setChecked(false);
         }
     }

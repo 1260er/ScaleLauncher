@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ScaleLauncher 2.8"
+            android:text="ScaleLauncher 2.9"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textStyle="bold" />
 
@@ -137,10 +137,10 @@
             android:text="Grundumsatz" />
 
         <CheckBox
-            android:id="@+id/hcHeartRate"
+            android:id="@+id/hcBmi"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Puls" />
+            android:text="BMI ermöglichen (Gewicht + Größe übertragen)" />
 
         <Button
             android:id="@+id/connectHealthConnect"
@@ -157,7 +157,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="ScaleLauncher liest keine Daten aus Health Connect. Nicht ausgewählte Werte werden nicht geschrieben, auch wenn Android dafür früher bereits eine Berechtigung erteilt hat." />
+            android:text="ScaleLauncher liest keine Daten aus Health Connect. Health Connect besitzt keinen eigenen BMI-Datentyp. Bei aktivierter BMI-Option werden Gewicht und Körpergröße übertragen, damit kompatible Apps den BMI berechnen können. Nicht ausgewählte Werte werden nicht geschrieben." />
 
         <TextView
             android:layout_width="wrap_content"

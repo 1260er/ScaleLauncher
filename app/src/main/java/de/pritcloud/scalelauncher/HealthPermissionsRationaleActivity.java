@@ -29,8 +29,9 @@ public final class HealthPermissionsRationaleActivity extends Activity {
         TextView text = new TextView(this);
         text.setText("ScaleLauncher verarbeitet die Messdaten der Xiaomi S400 lokal auf dem Gerät. "
                 + "Du kannst selbst auswählen, welche der unterstützten Werte – Gewicht, Körperfett, "
-                + "Körperwasser, Knochenmasse, fettfreie Masse, Grundumsatz und Puls – nach "
-                + "Health Connect geschrieben werden.\n\n"
+                + "Körperwasser, Knochenmasse, fettfreie Masse und Grundumsatz – nach "
+                + "Health Connect geschrieben werden. Für die BMI-Option werden Gewicht und "
+                + "Körpergröße übertragen, da Health Connect keinen eigenen BMI-Datentyp besitzt.\n\n"
                 + "Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen "
                 + "Internetzugriff und übermittelt keine Daten an Xiaomi oder andere Server. "
                 + "Die Berechtigungen können jederzeit in den Health-Connect-Einstellungen "

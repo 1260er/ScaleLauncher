@@ -9,11 +9,12 @@ import android.health.connect.datatypes.BodyFatRecord;
 import android.health.connect.datatypes.BodyWaterMassRecord;
 import android.health.connect.datatypes.BoneMassRecord;
 import android.health.connect.datatypes.Device;
-import android.health.connect.datatypes.HeartRateRecord;
+import android.health.connect.datatypes.HeightRecord;
 import android.health.connect.datatypes.LeanBodyMassRecord;
 import android.health.connect.datatypes.Metadata;
 import android.health.connect.datatypes.Record;
 import android.health.connect.datatypes.WeightRecord;
+import android.health.connect.datatypes.units.Length;
 import android.health.connect.datatypes.units.Mass;
 import android.health.connect.datatypes.units.Percentage;
 import android.health.connect.datatypes.units.Power;
@@ -23,7 +24,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -53,6 +53,7 @@ final class HealthConnectWriter {
     static void write(Context context,
                       long timestampMs,
                       String scaleMac,
+                      float heightCm,
                       S400Aggregator.Finalized measurement,
                       S400BodyComposition.Result composition,
                       HealthConnectSelection selection,
@@ -80,6 +81,7 @@ final class HealthConnectWriter {
             BuiltRecords built = buildRecords(
                     timestampMs,
                     scaleMac,
+                    heightCm,
                     measurement,
                     composition,
                     selection);
@@ -118,6 +120,7 @@ final class HealthConnectWriter {
 
     private static BuiltRecords buildRecords(long timestampMs,
                                               String scaleMac,
+                                              float heightCm,
                                               S400Aggregator.Finalized measurement,
                                               S400BodyComposition.Result composition,
                                               HealthConnectSelection selection) {
@@ -136,13 +139,24 @@ final class HealthConnectWriter {
 
         BuiltRecords built = new BuiltRecords();
 
-        if (selection.weight && isPositive(measurement.weightKg)) {
+        // Health Connect has no separate BMI record. For the BMI option we write
+        // the measured weight and configured height so receiving apps can derive BMI.
+        if ((selection.weight || selection.bmi) && isPositive(measurement.weightKg)) {
             built.add(new WeightRecord.Builder(
                     metadata(baseId + "-weight", scale),
                     time,
                     kilograms(measurement.weightKg))
                     .setZoneOffset(offset)
-                    .build(), "Gewicht");
+                    .build(), selection.weight ? "Gewicht" : "Gewicht (BMI)");
+        }
+
+        if (selection.bmi && isValidHeight(heightCm)) {
+            built.add(new HeightRecord.Builder(
+                    metadata(baseId + "-height", scale),
+                    time,
+                    Length.fromMeters(heightCm / 100.0d))
+                    .setZoneOffset(offset)
+                    .build(), "Größe (BMI)");
         }
 
         if (selection.bodyFat && isPercent(composition.bodyFatPercent)) {
@@ -191,23 +205,6 @@ final class HealthConnectWriter {
                     .build(), "Grundumsatz");
         }
 
-        if (selection.heartRate
-                && measurement.heartRate != null
-                && measurement.heartRate > 0
-                && measurement.heartRate <= 300) {
-            Instant endTime = time.plusSeconds(1);
-            HeartRateRecord.HeartRateSample sample =
-                    new HeartRateRecord.HeartRateSample(measurement.heartRate, time);
-            built.add(new HeartRateRecord.Builder(
-                    metadata(baseId + "-heart-rate", scale),
-                    time,
-                    endTime,
-                    Collections.singletonList(sample))
-                    .setStartZoneOffset(offset)
-                    .setEndZoneOffset(offset)
-                    .build(), "Puls");
-        }
-
         return built;
     }
 
@@ -222,6 +219,10 @@ final class HealthConnectWriter {
 
     private static Mass kilograms(double value) {
         return Mass.fromGrams(value * 1_000.0d);
+    }
+
+    private static boolean isValidHeight(float heightCm) {
+        return Float.isFinite(heightCm) && heightCm >= 100f && heightCm <= 230f;
     }
 
     private static boolean isPositive(Float value) {
