@@ -1,7 +1,6 @@
 package de.pritcloud.scalelauncher;
 
 import android.Manifest;
-import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -14,8 +13,8 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
-import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.IBinder;
@@ -24,70 +23,136 @@ import android.os.SystemClock;
 
 import java.util.Collections;
 
-public class ScaleScanService extends Service {
-    private static final String CHANNEL_MONITOR = "scale_monitor";
-    private static final String CHANNEL_DETECTED = "scale_detected";
-    private static final int NOTIFICATION_ID = 10;
-    private static final long STARTUP_GRACE_MS = 10_000;
-    private static final long ABSENT_REARM_MS = 8_000;
-    private static final long MIN_TRIGGER_GAP_MS = 15_000;
+public final class ScaleScanService extends Service {
+    public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
+    public static final String ACTION_TEST_OPEN = "de.pritcloud.scalelauncher.TEST_OPEN";
+
+    private static final String CHANNEL_MONITOR = "scale_monitor_v2";
+    private static final String CHANNEL_DETECTED = "scale_detected_v2";
+    private static final int NOTIFICATION_MONITOR = 10;
+    private static final int NOTIFICATION_DETECTED = 11;
+    private static final long WATCHDOG_MS = 1_000L;
+    private static final long PACKET_WINDOW_MS = 1_500L;
+    private static final int REQUIRED_PACKETS = 2;
+    private static final long SCAN_RESTART_MS = 10 * 60_000L;
+
+    private enum State {
+        WAITING_FOR_ABSENCE,
+        ARMED,
+        ACTIVE
+    }
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private BluetoothLeScanner scanner;
-    private ScanCallback callback;
-    private long serviceStartedAt;
-    private long lastSeenAt;
-    private long lastTriggeredAt;
-    private boolean encounterActive;
-    private boolean armed;
+    private ScanCallback scanCallback;
+    private State state = State.WAITING_FOR_ABSENCE;
+    private long serviceStartedAt = -1L;
+    private long lastSeenAt = -1L;
+    private long firstPacketAt = -1L;
+    private long scanStartedAt = -1L;
+    private int packetCount = 0;
+    private boolean scanRunning = false;
+    private boolean waitingPresenceLogged = false;
 
-    private final Runnable rearmCheck = new Runnable() {
+    private final Runnable watchdog = new Runnable() {
         @Override public void run() {
-            long now = SystemClock.elapsedRealtime();
-            if (encounterActive && now - lastSeenAt >= ABSENT_REARM_MS) {
-                encounterActive = false;
-                armed = true;
-                EventLog.add(ScaleScanService.this, "Waage nicht mehr sichtbar – erneut bereit");
+            final long now = SystemClock.elapsedRealtime();
+            final long absenceMs = getAbsenceMs();
+
+            long reference = lastSeenAt > 0 ? lastSeenAt : serviceStartedAt;
+            if (reference > 0 && now - reference >= absenceMs && state != State.ARMED) {
+                state = State.ARMED;
+                packetCount = 0;
+                firstPacketAt = -1L;
+                waitingPresenceLogged = false;
+                EventLog.add(ScaleScanService.this, "Waage ist aus – bereit für die nächste Messung");
+                updateMonitorNotification("Bereit – warte auf die Waage");
             }
-            handler.postDelayed(this, 2_000);
+
+            if (scanRunning && scanStartedAt > 0 && now - scanStartedAt >= SCAN_RESTART_MS) {
+                EventLog.add(ScaleScanService.this, "BLE-Scan wird vorsorglich neu gestartet");
+                restartScan(750L);
+            }
+
+            handler.postDelayed(this, WATCHDOG_MS);
         }
     };
 
     @Override public void onCreate() {
         super.onCreate();
         serviceStartedAt = SystemClock.elapsedRealtime();
-        createChannels();
-        startForeground(NOTIFICATION_ID, monitoringNotification("Warte auf die Waage …"));
-        EventLog.add(this, "Überwachung gestartet");
+        createNotificationChannels();
+        startForeground(NOTIFICATION_MONITOR, buildMonitorNotification("Initialisierung …"));
+        EventLog.add(this, "Dienst gestartet");
+        EventLog.add(this, "Warte zunächst, bis die Waage vollständig ausgeschaltet ist");
         startScan();
-        handler.post(rearmCheck);
+        handler.post(watchdog);
+    }
+
+    @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        if (intent != null && ACTION_TEST_OPEN.equals(intent.getAction())) {
+            launchOpenScale(false);
+        }
+        return START_STICKY;
     }
 
     private void startScan() {
         if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
             EventLog.add(this, "Bluetooth-Scan-Berechtigung fehlt");
-            stopSelf();
-            return;
-        }
-        BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
-        BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
-        scanner = adapter == null ? null : adapter.getBluetoothLeScanner();
-        String mac = getSharedPreferences("prefs", MODE_PRIVATE).getString("mac", "");
-        if (scanner == null || mac.isEmpty()) {
-            EventLog.add(this, scanner == null ? "Bluetooth-Scanner nicht verfügbar" : "Keine Waage ausgewählt");
+            updateMonitorNotification("Berechtigung fehlt");
             stopSelf();
             return;
         }
 
-        callback = new ScanCallback() {
+        BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
+        BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
+        if (adapter == null || !adapter.isEnabled()) {
+            EventLog.add(this, "Bluetooth ist ausgeschaltet oder nicht verfügbar");
+            updateMonitorNotification("Bluetooth ist ausgeschaltet");
+            stopSelf();
+            return;
+        }
+
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        String mac = prefs.getString("mac", "");
+        if (mac == null || mac.isBlank()) {
+            EventLog.add(this, "Keine Waage ausgewählt");
+            updateMonitorNotification("Keine Waage ausgewählt");
+            stopSelf();
+            return;
+        }
+
+        scanner = adapter.getBluetoothLeScanner();
+        if (scanner == null) {
+            EventLog.add(this, "Bluetooth-Scanner nicht verfügbar");
+            updateMonitorNotification("Bluetooth-Scanner nicht verfügbar");
+            stopSelf();
+            return;
+        }
+
+        final String targetMac = mac;
+        scanCallback = new ScanCallback() {
             @Override public void onScanResult(int callbackType, ScanResult result) {
-                if (result.getDevice() != null && mac.equalsIgnoreCase(result.getDevice().getAddress())) {
-                    onScaleSeen(result.getRssi());
+                if (result.getDevice() != null
+                        && targetMac.equalsIgnoreCase(result.getDevice().getAddress())) {
+                    onTargetSeen(result.getRssi());
+                }
+            }
+
+            @Override public void onBatchScanResults(java.util.List<ScanResult> results) {
+                for (ScanResult result : results) {
+                    onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, result);
                 }
             }
 
             @Override public void onScanFailed(int errorCode) {
-                EventLog.add(ScaleScanService.this, "BLE-Scan fehlgeschlagen: " + errorCode);
+                scanRunning = false;
+                EventLog.add(ScaleScanService.this, "BLE-Scan fehlgeschlagen (Code " + errorCode + ") – Neustart folgt");
+                restartScan(2_000L);
             }
         };
 
@@ -95,111 +160,208 @@ public class ScaleScanService extends Service {
         ScanSettings settings = new ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
                 .build();
-        scanner.startScan(Collections.singletonList(filter), settings, callback);
-        EventLog.add(this, "BLE-Scan aktiv für " + mac);
+
+        try {
+            scanner.startScan(Collections.singletonList(filter), settings, scanCallback);
+            scanRunning = true;
+            scanStartedAt = SystemClock.elapsedRealtime();
+            EventLog.add(this, "BLE-Scan aktiv für " + mac);
+            updateMonitorNotification("Warte, bis die Waage ausgeschaltet ist");
+        } catch (SecurityException | IllegalStateException e) {
+            EventLog.add(this, "BLE-Scan konnte nicht gestartet werden: " + e.getClass().getSimpleName());
+            stopSelf();
+        }
     }
 
-    private void onScaleSeen(int rssi) {
+    private void onTargetSeen(int rssi) {
         long now = SystemClock.elapsedRealtime();
         lastSeenAt = now;
 
-        if (now - serviceStartedAt < STARTUP_GRACE_MS) {
-            encounterActive = true;
-            EventLog.add(this, "Waage während Startphase gesehen (RSSI " + rssi + ") – ignoriert");
+        if (state == State.WAITING_FOR_ABSENCE) {
+            if (!waitingPresenceLogged) {
+                waitingPresenceLogged = true;
+                EventLog.add(this, "Waage ist beim Dienststart noch aktiv (RSSI " + rssi + ") – warte auf Ausschalten");
+                updateMonitorNotification("Waage noch aktiv – warte auf Ausschalten");
+            }
             return;
         }
 
-        if (encounterActive || !armed) return;
-        if (now - lastTriggeredAt < MIN_TRIGGER_GAP_MS) return;
+        if (state == State.ACTIVE) {
+            return;
+        }
 
-        encounterActive = true;
-        armed = false;
-        lastTriggeredAt = now;
-        EventLog.add(this, "Waage erkannt (RSSI " + rssi + ")");
-        launchOrNotify();
+        if (firstPacketAt < 0 || now - firstPacketAt > PACKET_WINDOW_MS) {
+            firstPacketAt = now;
+            packetCount = 1;
+            return;
+        }
+
+        packetCount++;
+        if (packetCount < REQUIRED_PACKETS) {
+            return;
+        }
+
+        state = State.ACTIVE;
+        packetCount = 0;
+        firstPacketAt = -1L;
+        EventLog.add(this, "Neue Waagenaktivität erkannt (RSSI " + rssi + ")");
+        updateMonitorNotification("Waage erkannt – openScale wird geöffnet");
+        launchOpenScale(true);
     }
 
-    private void launchOrNotify() {
-        Intent launch = openScaleIntent();
+    private void launchOpenScale(boolean measurementTrigger) {
+        Intent launch = findOpenScaleLaunchIntent();
         if (launch == null) {
-            EventLog.add(this, "openScale nicht gefunden");
-            notifyUser("openScale wurde nicht gefunden.", null);
+            EventLog.add(this, "openScale wurde nicht gefunden");
+            showDetectedNotification("openScale wurde nicht gefunden.", null);
             return;
         }
 
-        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
-        boolean locked = km != null && km.isKeyguardLocked();
-        if (locked) {
-            EventLog.add(this, "Telefon gesperrt – Android erlaubt keinen zuverlässigen Direktstart");
-            notifyUser("Telefon entsperren und tippen, um openScale zu öffnen.", launch);
-            return;
-        }
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         try {
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(launch);
-            EventLog.add(this, "openScale-Start angefordert");
-        } catch (Exception blocked) {
-            EventLog.add(this, "Direktstart blockiert: " + blocked.getClass().getSimpleName());
-            notifyUser("Waage erkannt – tippen, um openScale zu öffnen.", launch);
+            EventLog.add(this, measurementTrigger
+                    ? "openScale-Start angefordert"
+                    : "Teststart von openScale angefordert");
+            // Android kann einen Hintergrundstart ohne Exception ablehnen. Darum gibt es
+            // zusätzlich eine stille, antippbare Ersatzmeldung.
+            if (measurementTrigger) {
+                handler.postDelayed(() -> showDetectedNotification(
+                        "Falls openScale nicht geöffnet wurde: hier tippen.", launch), 1_500L);
+            }
+        } catch (RuntimeException e) {
+            EventLog.add(this, "Direktstart nicht möglich: " + e.getClass().getSimpleName());
+            showDetectedNotification("Waage erkannt – tippen, um openScale zu öffnen.", launch);
         }
     }
 
-    private Intent openScaleIntent() {
-        String[] packages = {"com.health.openscale.oss", "com.health.openscale.beta", "com.health.openscale"};
-        for (String pkg : packages) {
-            Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
-            if (i != null) return i;
+    private Intent findOpenScaleLaunchIntent() {
+        String[] packages = {
+                "com.health.openscale.oss",
+                "com.health.openscale.beta",
+                "com.health.openscale"
+        };
+        for (String packageName : packages) {
+            Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
+            if (intent != null) {
+                return intent;
+            }
         }
         return null;
     }
 
-    private Notification monitoringNotification(String text) {
-        Intent i = new Intent(this, MainActivity.class);
-        PendingIntent pi = PendingIntent.getActivity(this, 1, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    private long getAbsenceMs() {
+        int seconds = getSharedPreferences("prefs", MODE_PRIVATE).getInt("absence_seconds", 8);
+        return Math.max(4, Math.min(seconds, 30)) * 1_000L;
+    }
+
+    private void restartScan(long delayMs) {
+        stopScan();
+        handler.postDelayed(this::startScan, delayMs);
+    }
+
+    private void stopScan() {
+        if (scanner != null && scanCallback != null && scanRunning
+                && checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
+            try {
+                scanner.stopScan(scanCallback);
+            } catch (RuntimeException ignored) {
+                // Scanner can already be shutting down.
+            }
+        }
+        scanRunning = false;
+        scanCallback = null;
+    }
+
+    private Notification buildMonitorNotification(String text) {
+        PendingIntent openApp = PendingIntent.getActivity(
+                this,
+                1,
+                new Intent(this, MainActivity.class),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent stop = PendingIntent.getService(
+                this,
+                2,
+                new Intent(this, ScaleScanService.class).setAction(ACTION_STOP),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
         return new Notification.Builder(this, CHANNEL_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                 .setContentTitle("ScaleLauncher aktiv")
                 .setContentText(text)
-                .setContentIntent(pi)
+                .setContentIntent(openApp)
+                .addAction(new Notification.Action.Builder(null, "Stoppen", stop).build())
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
+                .setCategory(Notification.CATEGORY_SERVICE)
                 .build();
     }
 
-    private void notifyUser(String text, Intent launch) {
-        PendingIntent pi = launch == null ? null : PendingIntent.getActivity(this, 2, launch,
-                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification.Builder b = new Notification.Builder(this, CHANNEL_DETECTED)
+    private void updateMonitorNotification(String text) {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        manager.notify(NOTIFICATION_MONITOR, buildMonitorNotification(text));
+    }
+
+    private void showDetectedNotification(String text, Intent launchIntent) {
+        Notification.Builder builder = new Notification.Builder(this, CHANNEL_DETECTED)
                 .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                 .setContentTitle("Xiaomi-Waage erkannt")
                 .setContentText(text)
-                .setAutoCancel(true);
-        if (pi != null) b.setContentIntent(pi);
-        ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).notify(11, b.build());
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_REMINDER);
+
+        if (launchIntent != null) {
+            PendingIntent openScale = PendingIntent.getActivity(
+                    this,
+                    3,
+                    launchIntent,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            builder.setContentIntent(openScale);
+        }
+        ((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
+                .notify(NOTIFICATION_DETECTED, builder.build());
     }
 
-    private void createChannels() {
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        NotificationChannel monitor = new NotificationChannel(CHANNEL_MONITOR, "Waagenüberwachung", NotificationManager.IMPORTANCE_LOW);
-        monitor.setDescription("Dauerhafte, stille Anzeige des Hintergrunddienstes.");
-        monitor.setShowBadge(false);
-        nm.createNotificationChannel(monitor);
+    private void createNotificationChannels() {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
-        NotificationChannel detected = new NotificationChannel(CHANNEL_DETECTED, "Waage erkannt", NotificationManager.IMPORTANCE_DEFAULT);
-        detected.setDescription("Hinweis, wenn openScale nicht direkt geöffnet werden kann.");
-        nm.createNotificationChannel(detected);
+        NotificationChannel monitor = new NotificationChannel(
+                CHANNEL_MONITOR,
+                "Waagenüberwachung",
+                NotificationManager.IMPORTANCE_LOW);
+        monitor.setDescription("Erforderliche stille Anzeige des laufenden Bluetooth-Dienstes.");
+        monitor.setShowBadge(false);
+        monitor.enableVibration(false);
+        monitor.setSound(null, null);
+        manager.createNotificationChannel(monitor);
+
+        NotificationChannel detected = new NotificationChannel(
+                CHANNEL_DETECTED,
+                "Waage erkannt",
+                NotificationManager.IMPORTANCE_DEFAULT);
+        detected.setDescription("Antippbarer Ersatz, wenn Android openScale nicht direkt öffnet.");
+        manager.createNotificationChannel(detected);
+    }
+
+    @Override public void onTaskRemoved(Intent rootIntent) {
+        EventLog.add(this, "App-Oberfläche geschlossen – Dienst läuft weiter");
+        super.onTaskRemoved(rootIntent);
     }
 
     @Override public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
-        if (scanner != null && callback != null && checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
-            scanner.stopScan(callback);
-        }
-        EventLog.add(this, "Überwachung gestoppt");
+        stopScan();
+        EventLog.add(this, "Dienst gestoppt");
         super.onDestroy();
     }
 
-    @Override public IBinder onBind(Intent intent) { return null; }
+    @Override public IBinder onBind(Intent intent) {
+        return null;
+    }
 }

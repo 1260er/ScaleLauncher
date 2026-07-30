@@ -1,33 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="22dp">
+        android:padding="20dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ScaleLauncher"
-            android:textSize="28sp"
+            android:text="ScaleLauncher 1.0"
+            android:textAppearance="?android:attr/textAppearanceLarge"
             android:textStyle="bold" />
 
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Erkennt das Einschalten deiner BLE-Waage und öffnet openScale. Beim Start wartet der Dienst zuerst, bis die Waage wirklich aus ist." />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Xiaomi-Waage erkennen und openScale öffnen"
-            android:paddingBottom="18dp" />
+            android:layout_marginTop="18dp"
+            android:text="Bluetooth-Adresse der Waage" />
 
         <EditText
             android:id="@+id/macAddress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Bluetooth-MAC-Adresse"
-            android:inputType="textCapCharacters" />
+            android:hint="AA:BB:CC:DD:EE:FF"
+            android:inputType="textCapCharacters"
+            android:maxLines="1" />
 
         <Button
             android:id="@+id/scanDevice"
@@ -35,9 +43,23 @@
             android:layout_height="wrap_content"
             android:text="Waage suchen und auswählen" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Waage gilt nach so vielen Sekunden ohne Signal als ausgeschaltet" />
+
+        <EditText
+            android:id="@+id/absenceSeconds"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="8"
+            android:inputType="number"
+            android:maxLines="1" />
+
         <CheckBox
             android:id="@+id/autoStart"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Nach Neustart automatisch starten" />
 
@@ -53,48 +75,69 @@
             android:layout_height="wrap_content"
             android:text="Überwachung stoppen" />
 
+        <Button
+            android:id="@+id/testOpenScale"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="openScale testweise öffnen" />
+
         <TextView
             android:id="@+id/status"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Status: bereit"
-            android:textStyle="bold"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp" />
+            android:layout_marginTop="12dp"
+            android:text="Status: unbekannt"
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/notificationSettings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Benachrichtigung einstellen" />
+            android:layout_marginTop="8dp"
+            android:text="Benachrichtigungseinstellungen öffnen" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Hinweis: Android verlangt für die dauerhafte Bluetooth-Überwachung einen Vordergrunddienst. Die Dienstmeldung kann in den Systemeinstellungen stumm geschaltet bzw. je nach System ausgeblendet werden." />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
             android:text="Ereignisprotokoll"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:paddingTop="18dp" />
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/refreshLog"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Aktualisieren" />
+
+            <Button
+                android:id="@+id/clearLog"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Leeren" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/log"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#11000000"
             android:fontFamily="monospace"
-            android:textIsSelectable="true"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp" />
-
-        <Button
-            android:id="@+id/refreshLog"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Protokoll aktualisieren" />
-
-        <Button
-            android:id="@+id/clearLog"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Protokoll löschen" />
+            android:minHeight="180dp"
+            android:padding="10dp"
+            android:text="Noch kein Ereignis" />
     </LinearLayout>
 </ScrollView>

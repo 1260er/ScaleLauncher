@@ -8,8 +8,8 @@ android {
         applicationId = "de.pritcloud.scalelauncher"
         minSdk = 31
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 10
+        versionName = "1.0.0"
     }
 
     buildTypes {
