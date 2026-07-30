@@ -30,6 +30,7 @@ public final class MainActivity extends Activity {
     private static final int REQ_PERMISSIONS = 100;
     private static final int REQ_SCAN = 101;
     private static final int REQ_OPENSCALE_PERMISSION = 102;
+    private static final int REQ_HEALTH_CONNECT = 103;
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-F]{2}:){5}[0-9A-F]{2}$");
     private static final Pattern KEY_PATTERN = Pattern.compile("^[0-9a-fA-F]{32}$");
 
@@ -46,11 +47,13 @@ public final class MainActivity extends Activity {
     private EditText birthDate;
     private EditText heightCm;
     private CheckBox autoStart;
+    private CheckBox healthConnectEnabled;
     private RadioButton sexMale;
     private Spinner userSpinner;
     private TextView status;
     private TextView log;
     private TextView openScaleStatus;
+    private TextView healthConnectStatus;
     private String openScaleAuthority;
     private OpenScaleProvider.Meta openScaleMeta = new OpenScaleProvider.Meta(1, -1);
     private List<OpenScaleProvider.User> users = new ArrayList<>();
@@ -65,11 +68,13 @@ public final class MainActivity extends Activity {
         birthDate = findViewById(R.id.birthDate);
         heightCm = findViewById(R.id.heightCm);
         autoStart = findViewById(R.id.autoStart);
+        healthConnectEnabled = findViewById(R.id.healthConnectEnabled);
         sexMale = findViewById(R.id.sexMale);
         userSpinner = findViewById(R.id.openScaleUser);
         status = findViewById(R.id.status);
         log = findViewById(R.id.log);
         openScaleStatus = findViewById(R.id.openScaleStatus);
+        healthConnectStatus = findViewById(R.id.healthConnectStatus);
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         macAddress.setText(prefs.getString("mac", ""));
@@ -79,6 +84,9 @@ public final class MainActivity extends Activity {
         float storedHeight = prefs.getFloat("height_cm", 0f);
         heightCm.setText(storedHeight == 0f ? "" : String.valueOf(storedHeight));
         autoStart.setChecked(prefs.getBoolean("autoStart", false));
+        healthConnectEnabled.setChecked(
+                prefs.getBoolean("health_connect_enabled", false)
+                        && HealthConnectSupport.hasAllWritePermissions(this));
         if (prefs.getInt("sex", 0) == 1) sexMale.setChecked(true);
         else ((RadioButton) findViewById(R.id.sexFemale)).setChecked(true);
 
@@ -91,6 +99,8 @@ public final class MainActivity extends Activity {
             }
         });
         findViewById(R.id.loadOpenScaleUsers).setOnClickListener(v -> prepareOpenScaleAccess());
+        findViewById(R.id.connectHealthConnect).setOnClickListener(
+                v -> requestHealthConnectPermissions());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
         findViewById(R.id.stop).setOnClickListener(v -> {
             stopService(new Intent(this, ScaleScanService.class));
@@ -113,6 +123,7 @@ public final class MainActivity extends Activity {
         requestNeededPermissions();
         refreshLog();
         prepareOpenScaleAccess();
+        refreshHealthConnectStatus();
     }
 
     private void showBirthDatePicker() {
@@ -192,6 +203,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        refreshHealthConnectStatus();
         refreshHandler.post(refreshTask);
     }
 
@@ -222,6 +234,18 @@ public final class MainActivity extends Activity {
             } else {
                 openScaleStatus.setText("openScale-Zugriff wurde nicht erlaubt");
             }
+            return;
+        }
+        if (requestCode == REQ_HEALTH_CONNECT) {
+            refreshHealthConnectStatus();
+            boolean granted = HealthConnectSupport.hasAllWritePermissions(this);
+            healthConnectEnabled.setChecked(granted);
+            Toast.makeText(
+                    this,
+                    granted
+                            ? "Health Connect verbunden."
+                            : "Nicht alle Health-Connect-Schreibrechte wurden erlaubt.",
+                    Toast.LENGTH_LONG).show();
         }
     }
 
@@ -246,6 +270,15 @@ public final class MainActivity extends Activity {
                 || userSpinner.getSelectedItemPosition() < 0) {
             Toast.makeText(this,
                     "Bitte zuerst openScale verbinden und einen Benutzer auswählen.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (healthConnectEnabled.isChecked()
+                && !HealthConnectSupport.hasAllWritePermissions(this)) {
+            requestHealthConnectPermissions();
+            Toast.makeText(this,
+                    "Bitte zuerst alle Health-Connect-Schreibrechte erlauben.",
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -285,12 +318,15 @@ public final class MainActivity extends Activity {
                 .putFloat("height_cm", parsedHeight)
                 .putInt("sex", sexMale.isChecked() ? 1 : 0)
                 .putBoolean("autoStart", autoStart.isChecked())
+                .putBoolean("health_connect_enabled", healthConnectEnabled.isChecked())
                 .apply();
 
         EventLog.add(this,
                 "Konfiguration gespeichert – openScale-Benutzer: " + user.name
                         + " | Provider-API " + openScaleMeta.apiVersion
-                        + " | Alter aktuell " + currentAge);
+                        + " | Alter aktuell " + currentAge
+                        + " | Health Connect "
+                        + (healthConnectEnabled.isChecked() ? "aktiv" : "aus"));
         if (!openScaleMeta.supportsGenericValues()) {
             EventLog.add(this,
                     "Hinweis: Provider-API 1 speichert extern nur Gewicht, Fett, Wasser und Muskel. "
@@ -298,6 +334,45 @@ public final class MainActivity extends Activity {
         }
         startForegroundService(new Intent(this, ScaleScanService.class));
         status.setText("Status: Überwachung angefordert");
+    }
+
+    private void requestHealthConnectPermissions() {
+        if (!HealthConnectSupport.isSupported()) {
+            Toast.makeText(this,
+                    "Direkte Health-Connect-Übertragung benötigt Android 14 oder neuer.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        requestPermissions(HealthConnectSupport.WRITE_PERMISSIONS, REQ_HEALTH_CONNECT);
+    }
+
+    private void refreshHealthConnectStatus() {
+        if (healthConnectStatus == null || healthConnectEnabled == null) return;
+        android.view.View connectButton = findViewById(R.id.connectHealthConnect);
+        if (!HealthConnectSupport.isSupported()) {
+            healthConnectStatus.setText(
+                    "Health Connect: nicht verfügbar – direkte Übertragung benötigt Android 14+");
+            healthConnectEnabled.setChecked(false);
+            healthConnectEnabled.setEnabled(false);
+            connectButton.setEnabled(false);
+            return;
+        }
+
+        healthConnectEnabled.setEnabled(true);
+        connectButton.setEnabled(true);
+        int granted = HealthConnectSupport.grantedWritePermissionCount(this);
+        if (granted == HealthConnectSupport.WRITE_PERMISSIONS.length) {
+            healthConnectStatus.setText(
+                    "Health Connect verbunden – 7 Schreibrechte vorhanden");
+        } else {
+            healthConnectStatus.setText(
+                    "Health Connect nicht vollständig verbunden – "
+                            + granted
+                            + "/"
+                            + HealthConnectSupport.WRITE_PERMISSIONS.length
+                            + " Schreibrechte");
+            healthConnectEnabled.setChecked(false);
+        }
     }
 
     private boolean hasBluetoothPermissions() {

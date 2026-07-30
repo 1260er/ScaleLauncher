@@ -26,7 +26,7 @@ import java.util.Locale;
 
 public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
-    private static final String CHANNEL_MONITOR = "scale_monitor_v6";
+    private static final String CHANNEL_MONITOR = "scale_monitor_v7";
     private static final int NOTIFICATION_MONITOR = 10;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -44,7 +44,7 @@ public final class ScaleScanService extends Service {
         startForeground(
                 NOTIFICATION_MONITOR,
                 monitorNotification("BLE-Überwachung wird gestartet …"));
-        EventLog.add(this, "Dienst gestartet – S400-Direktübernahme 2.6");
+        EventLog.add(this, "Dienst gestartet – S400-Direktübernahme 2.7");
         startScan();
     }
 
@@ -199,7 +199,9 @@ public final class ScaleScanService extends Service {
         LocalDate birthDate = BirthDateUtils.parseIso(prefs.getString("birth_date", ""));
         float height = prefs.getFloat("height_cm", 0f);
         boolean male = prefs.getInt("sex", 0) == 1;
-        long timestamp = System.currentTimeMillis();
+        long timestamp = measurement.timestampMs > 0L
+                ? measurement.timestampMs
+                : System.currentTimeMillis();
         int age = BirthDateUtils.ageOn(birthDate, timestamp);
 
         if (age < 18 || age > 120) {
@@ -253,8 +255,40 @@ public final class ScaleScanService extends Service {
                             + e.getClass().getSimpleName()
                             + " – "
                             + e.getMessage());
-            updateMonitor("Übergabe fehlgeschlagen");
+            updateMonitor("openScale-Übergabe fehlgeschlagen");
         }
+
+        writeToHealthConnect(prefs, timestamp, measurement, composition);
+    }
+
+    private void writeToHealthConnect(SharedPreferences prefs,
+                                      long timestamp,
+                                      S400Aggregator.Finalized measurement,
+                                      S400BodyComposition.Result composition) {
+        if (!prefs.getBoolean("health_connect_enabled", false)) return;
+
+        String scaleMac = prefs.getString("mac", "");
+        HealthConnectWriter.write(
+                this,
+                timestamp,
+                scaleMac,
+                measurement,
+                composition,
+                new HealthConnectWriter.Callback() {
+                    @Override public void onSuccess(int writtenRecordCount) {
+                        EventLog.add(
+                                ScaleScanService.this,
+                                "Health Connect: "
+                                        + writtenRecordCount
+                                        + " Werte gespeichert");
+                    }
+
+                    @Override public void onError(String message) {
+                        EventLog.add(
+                                ScaleScanService.this,
+                                "Health Connect fehlgeschlagen: " + message);
+                    }
+                });
     }
 
     private void logProviderResult(OpenScaleProvider.InsertResult result) {

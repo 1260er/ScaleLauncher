@@ -31,14 +31,16 @@ final class S400Aggregator {
         final Float impedanceLow;
         final Integer heartRate;
         final boolean timedOut;
+        final long timestampMs;
 
         Finalized(float weightKg, float impedanceHigh, Float impedanceLow,
-                  Integer heartRate, boolean timedOut) {
+                  Integer heartRate, boolean timedOut, long timestampMs) {
             this.weightKg = weightKg;
             this.impedanceHigh = impedanceHigh;
             this.impedanceLow = impedanceLow;
             this.heartRate = heartRate;
             this.timedOut = timedOut;
+            this.timestampMs = timestampMs;
         }
     }
 
@@ -120,7 +122,8 @@ final class S400Aggregator {
                 current.impedanceHigh,
                 current.impedanceLow,
                 current.heartRate,
-                timedOut));
+                timedOut,
+                current.firstSeenAt));
     }
 
     void reset() {

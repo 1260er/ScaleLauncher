@@ -9,6 +9,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Health Connect: ScaleLauncher writes measurements but never reads health data. -->
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
+    <uses-permission android:name="android.permission.health.WRITE_BODY_FAT" />
+    <uses-permission android:name="android.permission.health.WRITE_BODY_WATER_MASS" />
+    <uses-permission android:name="android.permission.health.WRITE_BONE_MASS" />
+    <uses-permission android:name="android.permission.health.WRITE_LEAN_BODY_MASS" />
+    <uses-permission android:name="android.permission.health.WRITE_BASAL_METABOLIC_RATE" />
+    <uses-permission android:name="android.permission.health.WRITE_HEART_RATE" />
+
     <uses-permission android:name="com.health.openscale.READ_WRITE_DATA" />
     <uses-permission android:name="com.health.openscale.oss.READ_WRITE_DATA" />
     <uses-permission android:name="com.health.openscale.beta.READ_WRITE_DATA" />
@@ -32,6 +41,22 @@
         android:usesCleartextTraffic="false">
 
         <activity android:name=".DeviceScanActivity" android:exported="false" />
+
+        <activity
+            android:name=".HealthPermissionsRationaleActivity"
+            android:exported="false" />
+
+        <!-- Android 14+: privacy/rationale link in the Health Connect permission UI. -->
+        <activity-alias
+            android:name=".ViewHealthPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".HealthPermissionsRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>

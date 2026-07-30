@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ScaleLauncher 2.6"
+            android:text="ScaleLauncher 2.7"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textStyle="bold" />
 
@@ -21,7 +21,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Entschlüsselt S400-Werbepakete und schreibt Messungen direkt in openScale. openScale muss beim Wiegen nicht geöffnet sein." />
+            android:text="Entschlüsselt S400-Werbepakete und schreibt Messungen direkt in openScale sowie optional parallel nach Health Connect. Keine der beiden Apps muss beim Wiegen geöffnet sein." />
 
         <TextView
             android:layout_width="wrap_content"
@@ -84,7 +84,37 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="18dp"
+            android:text="Health Connect"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/connectHealthConnect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Health Connect verbinden" />
+
+        <TextView
+            android:id="@+id/healthConnectStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Health Connect: noch nicht geprüft" />
+
+        <CheckBox
+            android:id="@+id/healthConnectEnabled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Messungen parallel nach Health Connect schreiben" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Übertragen werden Gewicht, Körperfett, Körperwasser, Knochenmasse, fettfreie Masse, Grundumsatz und Puls. ScaleLauncher liest keine Daten aus Health Connect." />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
             android:text="Körperdaten für die vollständige Körperanalyse" />
 
         <EditText
