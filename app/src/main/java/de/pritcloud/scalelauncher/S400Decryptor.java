@@ -9,18 +9,36 @@ import org.bouncycastle.crypto.params.KeyParameter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+/**
+ * AES-CCM decoder for Xiaomi Body Composition Scale S400 advertisements.
+ *
+ * Based on the GPLv3 S400 implementation in openScale. The scale sends two
+ * complementary packets per weighing:
+ * A: weight + heart rate + high-frequency impedance
+ * B: zero weight + low-frequency impedance
+ */
 public final class S400Decryptor {
     private S400Decryptor() {}
 
     public static final class Measurement {
         public final float weightKg;
-        public final Float impedance;
+        public final Float impedanceHigh;
+        public final Float impedanceLow;
         public final Integer heartRate;
 
-        Measurement(float weightKg, Float impedance, Integer heartRate) {
+        Measurement(float weightKg, Float impedanceHigh, Float impedanceLow, Integer heartRate) {
             this.weightKg = weightKg;
-            this.impedance = impedance;
+            this.impedanceHigh = impedanceHigh;
+            this.impedanceLow = impedanceLow;
             this.heartRate = heartRate;
+        }
+
+        public boolean isPacketA() {
+            return weightKg > 0f && impedanceHigh != null;
+        }
+
+        public boolean isPacketB() {
+            return weightKg == 0f && impedanceLow != null;
         }
     }
 
