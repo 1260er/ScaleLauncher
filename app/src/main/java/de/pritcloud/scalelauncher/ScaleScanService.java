@@ -22,6 +22,11 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.provider.Settings;
+import android.graphics.PixelFormat;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowManager;
 
 import java.util.Collections;
 
@@ -41,12 +46,14 @@ public final class ScaleScanService extends Service {
     private String lastLoggedSignature;
     private boolean armed = true;
     private int consecutiveIdlePackets;
+    private WindowManager windowManager;
+    private View overlayView;
 
     @Override public void onCreate() {
         super.onCreate();
         createChannels();
         startForeground(NOTIFICATION_MONITOR, monitorNotification("BLE-Analyse wird gestartet …"));
-        EventLog.add(this, "Dienst gestartet – BLE-Paketanalyse 2.0");
+        EventLog.add(this, "Dienst gestartet – BLE-Paketanalyse 2.2");
         EventLog.add(this, "Bitte zunächst 10 Sekunden nicht auf die Waage stellen, danach einmal wiegen");
         startScan();
     }
@@ -121,18 +128,77 @@ public final class ScaleScanService extends Service {
 
     private void launchOpenScale(boolean trigger) {
         Intent launch = findOpenScaleLaunchIntent();
-        if (launch == null) { EventLog.add(this, "openScale wurde nicht gefunden"); return; }
+        if (launch == null) {
+            EventLog.add(this, "openScale wurde nicht gefunden");
+            return;
+        }
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        if (trigger && Settings.canDrawOverlays(this)) {
+            EventLog.add(this, "Overlay-Berechtigung vorhanden – Hintergrundstart wird vorbereitet");
+            if (showLaunchOverlay()) {
+                handler.postDelayed(() -> startOpenScaleActivity(launch, true), 200L);
+                handler.postDelayed(this::removeLaunchOverlay, 1_500L);
+                return;
+            }
+        }
+
+        if (trigger && !Settings.canDrawOverlays(this)) {
+            EventLog.add(this, "Overlay-Berechtigung fehlt – Direktstart kann im Hintergrund blockiert werden");
+        }
+        startOpenScaleActivity(launch, trigger);
+    }
+
+    private void startOpenScaleActivity(Intent launch, boolean trigger) {
         try {
             startActivity(launch);
             EventLog.add(this, trigger ? "openScale-Start angefordert" : "Teststart von openScale angefordert");
-            if (trigger && isDeviceLockedOrScreenOff()) {
+            if (trigger && isDeviceLockedOrScreenOff() && !Settings.canDrawOverlays(this)) {
                 showDetected("Telefon ist gesperrt – tippen, um openScale zu öffnen.", launch);
             }
         } catch (RuntimeException e) {
             EventLog.add(this, "Direktstart blockiert: " + e.getClass().getSimpleName());
             showDetected("Waage erkannt – tippen, um openScale zu öffnen.", launch);
         }
+    }
+
+    private boolean showLaunchOverlay() {
+        removeLaunchOverlay();
+        try {
+            windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+            if (windowManager == null) return false;
+
+            overlayView = new View(this);
+            overlayView.setBackgroundColor(0x01000000);
+            WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                    1,
+                    1,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    PixelFormat.TRANSLUCENT);
+            params.gravity = Gravity.TOP | Gravity.START;
+            params.x = 0;
+            params.y = 0;
+            windowManager.addView(overlayView, params);
+            EventLog.add(this, "Temporäres Start-Overlay eingeblendet");
+            return true;
+        } catch (RuntimeException e) {
+            overlayView = null;
+            EventLog.add(this, "Overlay konnte nicht eingeblendet werden: " + e.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    private void removeLaunchOverlay() {
+        if (windowManager != null && overlayView != null) {
+            try {
+                windowManager.removeView(overlayView);
+            } catch (RuntimeException ignored) {
+            }
+        }
+        overlayView = null;
     }
 
 
@@ -178,6 +244,6 @@ public final class ScaleScanService extends Service {
         }
         scanRunning = false;
     }
-    @Override public void onDestroy() { handler.removeCallbacksAndMessages(null); stopScan(); EventLog.add(this, "Dienst gestoppt"); super.onDestroy(); }
+    @Override public void onDestroy() { handler.removeCallbacksAndMessages(null); removeLaunchOverlay(); stopScan(); EventLog.add(this, "Dienst gestoppt"); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
 }

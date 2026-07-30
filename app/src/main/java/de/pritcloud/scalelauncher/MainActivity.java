@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.net.Uri;
 import android.provider.Settings;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -37,6 +38,7 @@ public final class MainActivity extends Activity {
     private CheckBox autoStart;
     private TextView status;
     private TextView log;
+    private TextView overlayStatus;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -47,6 +49,7 @@ public final class MainActivity extends Activity {
         autoStart = findViewById(R.id.autoStart);
         status = findViewById(R.id.status);
         log = findViewById(R.id.log);
+        overlayStatus = findViewById(R.id.overlayStatus);
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         macAddress.setText(prefs.getString("mac", ""));
@@ -81,6 +84,11 @@ public final class MainActivity extends Activity {
             EventLog.clear(this);
             refreshLog();
         });
+        findViewById(R.id.overlayPermission).setOnClickListener(v -> {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        });
         findViewById(R.id.notificationSettings).setOnClickListener(v -> {
             Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
@@ -93,6 +101,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        updateOverlayStatus();
         refreshHandler.post(refreshTask);
     }
 
@@ -163,6 +172,13 @@ public final class MainActivity extends Activity {
                     Manifest.permission.BLUETOOTH_CONNECT
             }, REQ_PERMISSIONS);
         }
+    }
+
+    private void updateOverlayStatus() {
+        boolean allowed = Settings.canDrawOverlays(this);
+        overlayStatus.setText(allowed
+                ? "Overlay-Berechtigung: erlaubt"
+                : "Overlay-Berechtigung: nicht erlaubt");
     }
 
     private void refreshLog() {

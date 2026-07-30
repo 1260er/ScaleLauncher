@@ -1,20 +1,13 @@
-# ScaleLauncher 2.0 – BLE-Diagnose
+# ScaleLauncher 2.2
 
-Eigenständiges Projekt. Diese Version analysiert die tatsächlichen BLE-Werbepakete der ausgewählten Waage, statt auf ein vollständiges Verschwinden des Geräts zu warten.
+Unabhängige Begleit-App für openScale. ScaleLauncher überwacht die BLE-Werbepakete einer Xiaomi S400 und öffnet openScale beim erkannten Messbeginn.
 
-## Neu
+## Neu in 2.2
 
-- Protokolliert das erste BLE-Muster und jede Änderung der Rohdaten.
-- Zeigt RSSI, Connectable, TX-Power, Manufacturer Data, Service Data, UUIDs und RAW-Paket.
-- Startet openScale versuchsweise, wenn nach einer 8-sekündigen Lernphase ein anderes BLE-Muster erscheint.
-- 25 Sekunden Auslösesperre gegen Mehrfachstarts.
-- Schaltfläche **Kopieren**, die das komplette Protokoll in die Zwischenablage legt.
-- Keine Internetberechtigung, keine Tracker, keine Cloud.
+- Berechtigung **„Über anderen Apps einblenden“** im Manifest
+- Schaltfläche **„Hintergrundstart erlauben“**
+- winziges, nicht bedienbares und nur kurz sichtbares Overlay vor dem Start von openScale
+- Protokollierung des Overlay-Status
+- bisherige einmalige Aktivitätserkennung und Wiederbereitschaft bleiben erhalten
 
-## Testablauf
-
-1. Überwachung starten und die Waage 10 Sekunden nicht betreten.
-2. Danach einmal normal auf die Waage stellen.
-3. Protokoll mit **Kopieren** kopieren und zur Auswertung bereitstellen.
-
-Die automatische Erkennung ist in 2.0 bewusst experimentell. Entscheidend sind zunächst die protokollierten Paketänderungen.
+Die Overlay-Berechtigung muss einmal manuell in den Android-Systemeinstellungen erteilt werden.
