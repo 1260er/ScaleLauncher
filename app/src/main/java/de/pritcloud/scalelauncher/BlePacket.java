@@ -14,15 +14,17 @@ import java.util.Map;
 final class BlePacket {
     final String signature;
     final String details;
+    final boolean activityPacket;
 
-    private BlePacket(String signature, String details) {
+    private BlePacket(String signature, String details, boolean activityPacket) {
         this.signature = signature;
         this.details = details;
+        this.activityPacket = activityPacket;
     }
 
     static BlePacket from(ScanResult result) {
         ScanRecord record = result.getScanRecord();
-        if (record == null) return new BlePacket("no-record", "Kein ScanRecord; RSSI " + result.getRssi());
+        if (record == null) return new BlePacket("no-record", "Kein ScanRecord; RSSI " + result.getRssi(), false);
 
         StringBuilder stable = new StringBuilder();
         StringBuilder out = new StringBuilder();
@@ -45,12 +47,21 @@ final class BlePacket {
             out.append("\nHersteller ").append(String.format(Locale.US, "0x%04X", id)).append(": ").append(value);
         }
 
+        boolean activityPacket = false;
         Map<ParcelUuid, byte[]> serviceData = record.getServiceData();
         if (serviceData != null) {
             for (Map.Entry<ParcelUuid, byte[]> entry : serviceData.entrySet()) {
                 String value = hex(entry.getValue());
                 stable.append("|S").append(entry.getKey()).append(':').append(value);
                 out.append("\nServiceData ").append(entry.getKey()).append(": ").append(value);
+                String uuid = entry.getKey().toString().toLowerCase(Locale.US);
+                byte[] data = entry.getValue();
+                // Xiaomi S400: idle advertisements use a short FE95 packet beginning with 0x10.
+                // Measurement/activity packets are longer and begin with 0x48.
+                if (uuid.startsWith("0000fe95") && data != null
+                        && (data.length > 11 || (data.length > 0 && (data[0] & 0xFF) == 0x48))) {
+                    activityPacket = true;
+                }
             }
         }
 
@@ -62,7 +73,7 @@ final class BlePacket {
             out.append("\nUUIDs: ").append(String.join(", ", names));
         }
 
-        return new BlePacket(shortHash(stable.toString()), out.toString());
+        return new BlePacket(shortHash(stable.toString()), out.toString(), activityPacket);
     }
 
     private static String shortHash(String value) {

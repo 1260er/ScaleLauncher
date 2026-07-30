@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.KeyguardManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
@@ -19,6 +20,7 @@ import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
 
 import java.util.Collections;
@@ -30,22 +32,18 @@ public final class ScaleScanService extends Service {
     private static final String CHANNEL_DETECTED = "scale_detected_v3";
     private static final int NOTIFICATION_MONITOR = 10;
     private static final int NOTIFICATION_DETECTED = 11;
-    private static final long BASELINE_LEARNING_MS = 8_000L;
-    private static final long TRIGGER_COOLDOWN_MS = 25_000L;
+    private static final int IDLE_PACKETS_TO_REARM = 3;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private BluetoothLeScanner scanner;
     private ScanCallback callback;
     private boolean scanRunning;
-    private long startedAt;
-    private long lastTriggerAt = -1L;
-    private String baselineSignature;
     private String lastLoggedSignature;
-    private int baselineCount;
+    private boolean armed = true;
+    private int consecutiveIdlePackets;
 
     @Override public void onCreate() {
         super.onCreate();
-        startedAt = SystemClock.elapsedRealtime();
         createChannels();
         startForeground(NOTIFICATION_MONITOR, monitorNotification("BLE-Analyse wird gestartet …"));
         EventLog.add(this, "Dienst gestartet – BLE-Paketanalyse 2.0");
@@ -89,35 +87,35 @@ public final class ScaleScanService extends Service {
     }
 
     private void analyze(ScanResult result) {
-        long now = SystemClock.elapsedRealtime();
         BlePacket packet = BlePacket.from(result);
 
-        if (baselineSignature == null) {
-            baselineSignature = packet.signature;
-            baselineCount = 1;
+        if (lastLoggedSignature == null) {
             lastLoggedSignature = packet.signature;
             EventLog.add(this, "Erstes BLE-Muster " + packet.signature + "\n" + packet.details);
-            return;
-        }
-
-        if (packet.signature.equals(baselineSignature)) baselineCount++;
-
-        if (!packet.signature.equals(lastLoggedSignature)) {
+        } else if (!packet.signature.equals(lastLoggedSignature)) {
             EventLog.add(this, "BLE-Muster geändert: " + lastLoggedSignature + " → " + packet.signature + "\n" + packet.details);
             lastLoggedSignature = packet.signature;
         }
 
-        boolean learningDone = now - startedAt >= BASELINE_LEARNING_MS;
-        if (!learningDone) return;
+        if (packet.activityPacket) {
+            consecutiveIdlePackets = 0;
+            if (armed) {
+                armed = false;
+                EventLog.add(this, "Messaktivität erkannt – openScale wird einmalig angefordert");
+                updateMonitor("Messaktivität erkannt");
+                launchOpenScale(true);
+            }
+            return;
+        }
 
-        if (!packet.signature.equals(baselineSignature)
-                && (lastTriggerAt < 0 || now - lastTriggerAt >= TRIGGER_COOLDOWN_MS)) {
-            lastTriggerAt = now;
-            EventLog.add(this, "Aktivitätsmuster erkannt – openScale wird angefordert");
-            updateMonitor("Waagenaktivität erkannt");
-            launchOpenScale(true);
-        } else if (baselineCount == 1 && packet.signature.equals(baselineSignature)) {
-            // no-op; baseline remains the first observed idle pattern
+        if (!armed) {
+            consecutiveIdlePackets++;
+            if (consecutiveIdlePackets >= IDLE_PACKETS_TO_REARM) {
+                armed = true;
+                consecutiveIdlePackets = 0;
+                EventLog.add(this, "Ruhemuster wieder stabil – bereit für die nächste Messung");
+                updateMonitor("Bereit für die nächste Messung");
+            }
         }
     }
 
@@ -128,13 +126,23 @@ public final class ScaleScanService extends Service {
         try {
             startActivity(launch);
             EventLog.add(this, trigger ? "openScale-Start angefordert" : "Teststart von openScale angefordert");
-            if (trigger) handler.postDelayed(() -> showDetected("Falls openScale nicht geöffnet wurde: hier tippen.", launch), 1500L);
+            if (trigger && isDeviceLockedOrScreenOff()) {
+                showDetected("Telefon ist gesperrt – tippen, um openScale zu öffnen.", launch);
+            }
         } catch (RuntimeException e) {
             EventLog.add(this, "Direktstart blockiert: " + e.getClass().getSimpleName());
             showDetected("Waage erkannt – tippen, um openScale zu öffnen.", launch);
         }
     }
 
+
+    private boolean isDeviceLockedOrScreenOff() {
+        KeyguardManager keyguard = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
+        boolean locked = keyguard != null && keyguard.isKeyguardLocked();
+        boolean screenOff = power != null && !power.isInteractive();
+        return locked || screenOff;
+    }
     private Intent findOpenScaleLaunchIntent() {
         for (String p : new String[]{"com.health.openscale.oss", "com.health.openscale.beta", "com.health.openscale"}) {
             Intent i = getPackageManager().getLaunchIntentForPackage(p); if (i != null) return i;
@@ -160,7 +168,9 @@ public final class ScaleScanService extends Service {
         NotificationManager nm = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
         NotificationChannel monitor = new NotificationChannel(CHANNEL_MONITOR, "Waagenüberwachung", NotificationManager.IMPORTANCE_LOW);
         monitor.setSound(null, null); monitor.enableVibration(false); monitor.setShowBadge(false); nm.createNotificationChannel(monitor);
-        nm.createNotificationChannel(new NotificationChannel(CHANNEL_DETECTED, "Waage erkannt", NotificationManager.IMPORTANCE_DEFAULT));
+        NotificationChannel detected = new NotificationChannel(CHANNEL_DETECTED, "Waage erkannt", NotificationManager.IMPORTANCE_LOW);
+        detected.setSound(null, null); detected.enableVibration(false); detected.setShowBadge(false);
+        nm.createNotificationChannel(detected);
     }
     private void stopScan() {
         if (scanner != null && callback != null && scanRunning && checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
