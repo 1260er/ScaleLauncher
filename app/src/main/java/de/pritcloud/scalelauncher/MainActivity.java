@@ -10,20 +10,26 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.net.Uri;
 import android.provider.Settings;
+import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.RadioButton;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class MainActivity extends Activity {
     private static final int REQ_PERMISSIONS = 100;
     private static final int REQ_SCAN = 101;
+    private static final int REQ_OPENSCALE_PERMISSION = 102;
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-F]{2}:){5}[0-9A-F]{2}$");
+    private static final Pattern KEY_PATTERN = Pattern.compile("^[0-9a-fA-F]{32}$");
 
     private final Handler refreshHandler = new Handler(Looper.getMainLooper());
     private final Runnable refreshTask = new Runnable() {
@@ -34,74 +40,113 @@ public final class MainActivity extends Activity {
     };
 
     private EditText macAddress;
-    private EditText absenceSeconds;
+    private EditText bindKey;
+    private EditText age;
+    private EditText heightCm;
     private CheckBox autoStart;
+    private RadioButton sexMale;
+    private Spinner userSpinner;
     private TextView status;
     private TextView log;
-    private TextView overlayStatus;
+    private TextView openScaleStatus;
+    private String openScaleAuthority;
+    private List<OpenScaleProvider.User> users = new ArrayList<>();
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_main);
 
         macAddress = findViewById(R.id.macAddress);
-        absenceSeconds = findViewById(R.id.absenceSeconds);
+        bindKey = findViewById(R.id.bindKey);
+        age = findViewById(R.id.age);
+        heightCm = findViewById(R.id.heightCm);
         autoStart = findViewById(R.id.autoStart);
+        sexMale = findViewById(R.id.sexMale);
+        userSpinner = findViewById(R.id.openScaleUser);
         status = findViewById(R.id.status);
         log = findViewById(R.id.log);
-        overlayStatus = findViewById(R.id.overlayStatus);
+        openScaleStatus = findViewById(R.id.openScaleStatus);
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         macAddress.setText(prefs.getString("mac", ""));
-        absenceSeconds.setText(String.valueOf(prefs.getInt("absence_seconds", 8)));
+        bindKey.setText(prefs.getString("bind_key", ""));
+        int storedAge = prefs.getInt("age", 0);
+        float storedHeight = prefs.getFloat("height_cm", 0f);
+        age.setText(storedAge == 0 ? "" : String.valueOf(storedAge));
+        heightCm.setText(storedHeight == 0f ? "" : String.valueOf(storedHeight));
         autoStart.setChecked(prefs.getBoolean("autoStart", false));
+        if (prefs.getInt("sex", 0) == 1) sexMale.setChecked(true);
+        else ((RadioButton) findViewById(R.id.sexFemale)).setChecked(true);
 
         findViewById(R.id.scanDevice).setOnClickListener(v -> {
-            if (hasBluetoothPermissions()) {
-                startActivityForResult(new Intent(this, DeviceScanActivity.class), REQ_SCAN);
-            } else {
-                requestNeededPermissions();
-            }
+            if (hasBluetoothPermissions()) startActivityForResult(new Intent(this, DeviceScanActivity.class), REQ_SCAN);
+            else requestNeededPermissions();
         });
+        findViewById(R.id.loadOpenScaleUsers).setOnClickListener(v -> prepareOpenScaleAccess());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
         findViewById(R.id.stop).setOnClickListener(v -> {
             stopService(new Intent(this, ScaleScanService.class));
             status.setText("Status: gestoppt");
         });
-        findViewById(R.id.testOpenScale).setOnClickListener(v -> {
-            Intent intent = new Intent(this, ScaleScanService.class).setAction(ScaleScanService.ACTION_TEST_OPEN);
-            startForegroundService(intent);
-            Toast.makeText(this, "Teststart angefordert", Toast.LENGTH_SHORT).show();
-        });
         findViewById(R.id.refreshLog).setOnClickListener(v -> refreshLog());
         findViewById(R.id.copyLog).setOnClickListener(v -> {
-            String text = EventLog.read(this);
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            clipboard.setPrimaryClip(ClipData.newPlainText("ScaleLauncher-Protokoll", text));
+            clipboard.setPrimaryClip(ClipData.newPlainText("ScaleLauncher-Protokoll", EventLog.read(this)));
             Toast.makeText(this, "Protokoll kopiert", Toast.LENGTH_SHORT).show();
         });
         findViewById(R.id.clearLog).setOnClickListener(v -> {
             EventLog.clear(this);
             refreshLog();
         });
-        findViewById(R.id.overlayPermission).setOnClickListener(v -> {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-            startActivity(intent);
-        });
-        findViewById(R.id.notificationSettings).setOnClickListener(v -> {
-            Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
-            startActivity(intent);
-        });
+        findViewById(R.id.notificationSettings).setOnClickListener(v -> startActivity(
+                new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())));
 
         requestNeededPermissions();
         refreshLog();
+        prepareOpenScaleAccess();
+    }
+
+    private void prepareOpenScaleAccess() {
+        openScaleAuthority = OpenScaleProvider.findAuthority(this);
+        if (openScaleAuthority == null) {
+            openScaleStatus.setText("openScale-Provider nicht gefunden. Aktuelle openScale-Version installieren.");
+            users = new ArrayList<>();
+            updateUserSpinner(-1L);
+            return;
+        }
+        String permission = OpenScaleProvider.permissionForAuthority(openScaleAuthority);
+        if (permission != null && checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+            openScaleStatus.setText("openScale-Zugriff muss erlaubt werden");
+            requestPermissions(new String[]{permission}, REQ_OPENSCALE_PERMISSION);
+            return;
+        }
+        loadOpenScaleUsers();
+    }
+
+    private void loadOpenScaleUsers() {
+        try {
+            users = OpenScaleProvider.loadUsers(this, openScaleAuthority);
+            long storedUser = getSharedPreferences("prefs", MODE_PRIVATE).getLong("openscale_user_id", -1L);
+            updateUserSpinner(storedUser);
+            openScaleStatus.setText(users.isEmpty()
+                    ? "openScale gefunden, aber keine Benutzer verfügbar"
+                    : "openScale verbunden: " + users.size() + " Benutzer gefunden");
+        } catch (SecurityException e) {
+            openScaleStatus.setText("openScale-Zugriff verweigert");
+        } catch (RuntimeException e) {
+            openScaleStatus.setText("openScale-Abfrage fehlgeschlagen: " + e.getClass().getSimpleName());
+        }
+    }
+
+    private void updateUserSpinner(long selectedId) {
+        ArrayAdapter<OpenScaleProvider.User> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, users);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        userSpinner.setAdapter(adapter);
+        for (int i = 0; i < users.size(); i++) if (users.get(i).id == selectedId) userSpinner.setSelection(i);
     }
 
     @Override protected void onResume() {
         super.onResume();
-        updateOverlayStatus();
         refreshHandler.post(refreshTask);
     }
 
@@ -117,39 +162,63 @@ public final class MainActivity extends Activity {
             if (mac != null) {
                 macAddress.setText(mac);
                 EventLog.add(this, "Waage ausgewählt: " + mac);
-                refreshLog();
             }
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_OPENSCALE_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) loadOpenScaleUsers();
+            else openScaleStatus.setText("openScale-Zugriff wurde nicht erlaubt");
         }
     }
 
     private void saveAndStart() {
         if (!hasBluetoothPermissions()) {
             requestNeededPermissions();
-            Toast.makeText(this, "Bitte zuerst die Bluetooth-Berechtigungen erlauben.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Bitte zuerst Bluetooth erlauben.", Toast.LENGTH_LONG).show();
             return;
         }
-
         String mac = macAddress.getText().toString().trim().toUpperCase(Locale.ROOT);
+        String key = bindKey.getText().toString().trim().toLowerCase(Locale.ROOT);
         if (!MAC_PATTERN.matcher(mac).matches()) {
-            Toast.makeText(this, "Bitte eine gültige MAC-Adresse eintragen oder eine Waage auswählen.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Ungültige MAC-Adresse.", Toast.LENGTH_LONG).show();
             return;
         }
-
-        int absence = 8;
-        try {
-            absence = Integer.parseInt(absenceSeconds.getText().toString().trim());
-        } catch (NumberFormatException ignored) {
+        if (!KEY_PATTERN.matcher(key).matches()) {
+            Toast.makeText(this, "Der Bind-Key muss aus genau 32 Hex-Zeichen bestehen.", Toast.LENGTH_LONG).show();
+            return;
         }
-        absence = Math.max(4, Math.min(absence, 30));
-        absenceSeconds.setText(String.valueOf(absence));
-
+        if (openScaleAuthority == null || users.isEmpty() || userSpinner.getSelectedItemPosition() < 0) {
+            Toast.makeText(this, "Bitte zuerst openScale verbinden und einen Benutzer auswählen.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        int parsedAge;
+        float parsedHeight;
+        try {
+            parsedAge = Integer.parseInt(age.getText().toString().trim());
+            parsedHeight = Float.parseFloat(heightCm.getText().toString().trim().replace(',', '.'));
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "Bitte Alter und Größe korrekt eintragen.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (parsedAge < 10 || parsedAge > 120 || parsedHeight < 100f || parsedHeight > 250f) {
+            Toast.makeText(this, "Alter oder Größe liegt außerhalb des gültigen Bereichs.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        OpenScaleProvider.User user = users.get(userSpinner.getSelectedItemPosition());
         getSharedPreferences("prefs", MODE_PRIVATE).edit()
                 .putString("mac", mac)
-                .putInt("absence_seconds", absence)
+                .putString("bind_key", key)
+                .putString("openscale_authority", openScaleAuthority)
+                .putLong("openscale_user_id", user.id)
+                .putInt("age", parsedAge)
+                .putFloat("height_cm", parsedHeight)
+                .putInt("sex", sexMale.isChecked() ? 1 : 0)
                 .putBoolean("autoStart", autoStart.isChecked())
                 .apply();
-
-        EventLog.add(this, "Konfiguration gespeichert");
+        EventLog.add(this, "Konfiguration gespeichert – openScale-Benutzer: " + user.name);
         startForegroundService(new Intent(this, ScaleScanService.class));
         status.setText("Status: Überwachung angefordert");
     }
@@ -161,27 +230,11 @@ public final class MainActivity extends Activity {
 
     private void requestNeededPermissions() {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
-            requestPermissions(new String[]{
-                    Manifest.permission.BLUETOOTH_SCAN,
-                    Manifest.permission.BLUETOOTH_CONNECT,
-                    Manifest.permission.POST_NOTIFICATIONS
-            }, REQ_PERMISSIONS);
+            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.POST_NOTIFICATIONS}, REQ_PERMISSIONS);
         } else {
-            requestPermissions(new String[]{
-                    Manifest.permission.BLUETOOTH_SCAN,
-                    Manifest.permission.BLUETOOTH_CONNECT
-            }, REQ_PERMISSIONS);
+            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}, REQ_PERMISSIONS);
         }
     }
 
-    private void updateOverlayStatus() {
-        boolean allowed = Settings.canDrawOverlays(this);
-        overlayStatus.setText(allowed
-                ? "Overlay-Berechtigung: erlaubt"
-                : "Overlay-Berechtigung: nicht erlaubt");
-    }
-
-    private void refreshLog() {
-        log.setText(EventLog.read(this));
-    }
+    private void refreshLog() { log.setText(EventLog.read(this)); }
 }

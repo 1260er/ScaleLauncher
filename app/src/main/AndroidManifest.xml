@@ -8,12 +8,21 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <uses-permission android:name="com.health.openscale.READ_WRITE_DATA" />
+    <uses-permission android:name="com.health.openscale.oss.READ_WRITE_DATA" />
+    <uses-permission android:name="com.health.openscale.beta.READ_WRITE_DATA" />
+    <uses-permission android:name="com.health.openscale.debug.READ_WRITE_DATA" />
 
     <queries>
+        <package android:name="com.health.openscale" />
         <package android:name="com.health.openscale.oss" />
         <package android:name="com.health.openscale.beta" />
-        <package android:name="com.health.openscale" />
+        <package android:name="com.health.openscale.debug" />
+        <provider android:authorities="com.health.openscale.provider" />
+        <provider android:authorities="com.health.openscale.oss.provider" />
+        <provider android:authorities="com.health.openscale.beta.provider" />
+        <provider android:authorities="com.health.openscale.debug.provider" />
     </queries>
 
     <application
@@ -22,13 +31,9 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
 
-        <activity
-            android:name=".DeviceScanActivity"
-            android:exported="false" />
+        <activity android:name=".DeviceScanActivity" android:exported="false" />
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
+        <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -40,10 +45,7 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
-        <receiver
-            android:name=".BootReceiver"
-            android:enabled="true"
-            android:exported="false">
+        <receiver android:name=".BootReceiver" android:enabled="true" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>

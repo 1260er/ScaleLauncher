@@ -15,16 +15,18 @@ final class BlePacket {
     final String signature;
     final String details;
     final boolean activityPacket;
+    final byte[] activityData;
 
-    private BlePacket(String signature, String details, boolean activityPacket) {
+    private BlePacket(String signature, String details, boolean activityPacket, byte[] activityData) {
         this.signature = signature;
         this.details = details;
         this.activityPacket = activityPacket;
+        this.activityData = activityData;
     }
 
     static BlePacket from(ScanResult result) {
         ScanRecord record = result.getScanRecord();
-        if (record == null) return new BlePacket("no-record", "Kein ScanRecord; RSSI " + result.getRssi(), false);
+        if (record == null) return new BlePacket("no-record", "Kein ScanRecord; RSSI " + result.getRssi(), false, null);
 
         StringBuilder stable = new StringBuilder();
         StringBuilder out = new StringBuilder();
@@ -48,6 +50,7 @@ final class BlePacket {
         }
 
         boolean activityPacket = false;
+        byte[] activityData = null;
         Map<ParcelUuid, byte[]> serviceData = record.getServiceData();
         if (serviceData != null) {
             for (Map.Entry<ParcelUuid, byte[]> entry : serviceData.entrySet()) {
@@ -61,6 +64,7 @@ final class BlePacket {
                 if (uuid.startsWith("0000fe95") && data != null
                         && (data.length > 11 || (data.length > 0 && (data[0] & 0xFF) == 0x48))) {
                     activityPacket = true;
+                    activityData = data.clone();
                 }
             }
         }
@@ -73,7 +77,7 @@ final class BlePacket {
             out.append("\nUUIDs: ").append(String.join(", ", names));
         }
 
-        return new BlePacket(shortHash(stable.toString()), out.toString(), activityPacket);
+        return new BlePacket(shortHash(stable.toString()), out.toString(), activityPacket, activityData);
     }
 
     private static String shortHash(String value) {

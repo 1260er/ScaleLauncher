@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ScaleLauncher 2.3"
+            android:text="ScaleLauncher 2.4"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textStyle="bold" />
 
@@ -21,7 +21,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Analysiert die BLE-Werbepakete deiner Waage. Änderungen werden protokolliert und können openScale auslösen." />
+            android:text="Entschlüsselt S400-Werbepakete und schreibt Messungen direkt in openScale. openScale muss beim Wiegen nicht geöffnet sein." />
 
         <TextView
             android:layout_width="wrap_content"
@@ -47,15 +47,78 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Waage gilt nach so vielen Sekunden ohne Signal als ausgeschaltet" />
+            android:text="S400 Bind-Key (32 Hex-Zeichen)" />
 
         <EditText
-            android:id="@+id/absenceSeconds"
+            android:id="@+id/bindKey"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="8"
+            android:hint="00112233445566778899aabbccddeeff"
+            android:inputType="textNoSuggestions"
+            android:maxLength="32"
+            android:maxLines="1" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="openScale-Benutzer" />
+
+        <Spinner
+            android:id="@+id/openScaleUser"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/loadOpenScaleUsers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="openScale-Zugriff erlauben und Benutzer laden" />
+
+        <TextView
+            android:id="@+id/openScaleStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="openScale: noch nicht geprüft" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Körperdaten für Fett/Wasser/Muskel" />
+
+        <EditText
+            android:id="@+id/age"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Alter"
             android:inputType="number"
             android:maxLines="1" />
+
+        <EditText
+            android:id="@+id/heightCm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Größe in cm"
+            android:inputType="numberDecimal"
+            android:maxLines="1" />
+
+        <RadioGroup
+            android:id="@+id/sexGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <RadioButton
+                android:id="@+id/sexFemale"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Weiblich" />
+            <RadioButton
+                android:id="@+id/sexMale"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Männlich" />
+        </RadioGroup>
 
         <CheckBox
             android:id="@+id/autoStart"
@@ -75,12 +138,6 @@
             android:layout_height="wrap_content"
             android:text="Überwachung stoppen" />
 
-        <Button
-            android:id="@+id/testOpenScale"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="openScale testweise öffnen" />
-
         <TextView
             android:id="@+id/status"
             android:layout_width="match_parent"
@@ -90,31 +147,11 @@
             android:textStyle="bold" />
 
         <Button
-            android:id="@+id/overlayPermission"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Hintergrundstart erlauben" />
-
-        <TextView
-            android:id="@+id/overlayStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Overlay-Berechtigung: unbekannt" />
-
-        <Button
             android:id="@+id/notificationSettings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="Benachrichtigungseinstellungen öffnen" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="Hinweis: Android verlangt für die dauerhafte Bluetooth-Überwachung einen Vordergrunddienst. Die Dienstmeldung kann in den Systemeinstellungen stumm geschaltet bzw. je nach System ausgeblendet werden." />
 
         <TextView
             android:layout_width="wrap_content"
@@ -127,21 +164,18 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
-
             <Button
                 android:id="@+id/refreshLog"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Aktualisieren" />
-
             <Button
                 android:id="@+id/copyLog"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Kopieren" />
-
             <Button
                 android:id="@+id/clearLog"
                 android:layout_width="0dp"
