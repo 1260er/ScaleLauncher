@@ -83,5 +83,4 @@ final class BlePacket {
         return b.toString().trim();
     }
 
-    private BlePacket() {}
 }
