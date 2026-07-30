@@ -2,55 +2,99 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="22dp">
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="ScaleLauncher"
             android:textSize="28sp"
             android:textStyle="bold" />
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Erkennt die Xiaomi S400 per BLE und öffnet openScale. Keine Internetberechtigung." />
+            android:text="Xiaomi-Waage erkennen und openScale öffnen"
+            android:paddingBottom="18dp" />
+
         <EditText
             android:id="@+id/macAddress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:hint="MAC-Adresse, z. B. AA:BB:CC:DD:EE:FF"
+            android:hint="Bluetooth-MAC-Adresse"
             android:inputType="textCapCharacters" />
+
+        <Button
+            android:id="@+id/scanDevice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Waage suchen und auswählen" />
+
         <CheckBox
             android:id="@+id/autoStart"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Nach Neustart automatisch starten" />
+
         <Button
             android:id="@+id/saveStart"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
             android:text="Speichern und Überwachung starten" />
+
         <Button
             android:id="@+id/stop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Überwachung stoppen" />
+
         <TextView
             android:id="@+id/status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Status: bereit"
+            android:textStyle="bold"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp" />
+
+        <Button
+            android:id="@+id/notificationSettings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="Status: gestoppt" />
+            android:text="Benachrichtigung einstellen" />
+
         <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ereignisprotokoll"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:paddingTop="18dp" />
+
+        <TextView
+            android:id="@+id/log"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="Hinweis: Android kann das automatische Öffnen einer anderen App im Hintergrund blockieren. In diesem Fall erscheint eine Benachrichtigung, über die openScale geöffnet wird." />
+            android:fontFamily="monospace"
+            android:textIsSelectable="true"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
+
+        <Button
+            android:id="@+id/refreshLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Protokoll aktualisieren" />
+
+        <Button
+            android:id="@+id/clearLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Protokoll löschen" />
     </LinearLayout>
 </ScrollView>

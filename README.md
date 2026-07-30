@@ -1,23 +1,23 @@
 # ScaleLauncher
 
-Kleine, trackerfreie Android-App für die Xiaomi Body Composition Scale S400.
-Sie überwacht BLE-Werbepakete der eingetragenen MAC-Adresse und versucht bei Erkennung, openScale zu öffnen.
+ScaleLauncher erkennt eine ausgewählte BLE-Waage und öffnet openScale.
 
-## Datenschutz
-- Keine Internetberechtigung
-- Keine Werbung oder Tracker
-- Speicherung nur lokal auf dem Gerät
+## Version 0.2.0
 
-## Unterstützte openScale-Pakete
-- `com.health.openscale.oss`
-- `com.health.openscale.beta`
-- `com.health.openscale`
+- Waage per BLE-Scan auswählen
+- Ereignisprotokoll
+- kein unnötiger openScale-Start direkt beim Aktivieren
+- erneute Auslösung erst, nachdem die Waage wieder verschwunden war
+- stille Dienstbenachrichtigung mit eigenem Kanal
+- Hinweisbenachrichtigung bei gesperrtem Telefon
+- kein Internetzugriff, keine Tracker
 
-## Wichtige Android-Einschränkung
-Android kann das automatische Öffnen fremder Apps aus dem Hintergrund blockieren. In diesem Fall zeigt ScaleLauncher eine Benachrichtigung an. Das Verhalten hängt von Android-Version und Hersteller ab.
+## Wichtige Android-Grenze
 
-## Bauen
-Android Studio öffnen und `assembleDebug` oder `assembleRelease` ausführen. Benötigt JDK 17+ und Android SDK 35.
+Bei gesperrtem Telefon darf eine normale App openScale nicht zuverlässig im Hintergrund als sichtbare Activity starten. ScaleLauncher zeigt deshalb eine antippbare Benachrichtigung. openScale stellt derzeit keinen exportierten Hintergrunddienst bereit, den ScaleLauncher direkt aufrufen könnte.
 
-## Lizenz
-GPL-3.0-only
+## Build
+
+Der GitHub-Actions-Workflow erzeugt `app-debug.apk` und lädt sie als Artefakt hoch.
+
+Lizenz: GPL-3.0
