@@ -57,19 +57,14 @@ public final class S400Decryptor {
         if (decrypted.length < 12) return null;
         byte[] object = slice(decrypted, 3, 12);
         int value = ByteBuffer.wrap(slice(object, 1, 5)).order(ByteOrder.LITTLE_ENDIAN).getInt();
-
         int weightRaw = value & 0x7ff;
         int heartRaw = (value >> 11) & 0x7f;
         int impedanceRaw = value >> 18;
-
         float weight = weightRaw / 10.0f;
+        if (weight <= 0f) return null;
         Integer heart = heartRaw >= 1 && heartRaw <= 126 ? heartRaw + 50 : null;
-        Float impedanceHigh = weightRaw != 0 && impedanceRaw != 0 ? impedanceRaw / 10.0f : null;
-        Float impedanceLow = weightRaw == 0 && impedanceRaw != 0 ? impedanceRaw / 10.0f : null;
-
-        // Packet A carries weight/high impedance; packet B carries low impedance.
-        if (weightRaw == 0 && impedanceLow == null) return null;
-        return new Measurement(weight, impedanceHigh, impedanceLow, heart);
+        Float impedance = impedanceRaw != 0 ? impedanceRaw / 10.0f : null;
+        return new Measurement(weight, impedance, heart);
     }
 
     public static boolean isValidBindKey(String key) {
@@ -82,9 +77,7 @@ public final class S400Decryptor {
 
     private static byte[] hexToBytes(String value) {
         byte[] result = new byte[value.length() / 2];
-        for (int i = 0; i < result.length; i++) {
-            result[i] = (byte) Integer.parseInt(value.substring(i * 2, i * 2 + 2), 16);
-        }
+        for (int i = 0; i < result.length; i++) result[i] = (byte) Integer.parseInt(value.substring(i * 2, i * 2 + 2), 16);
         return result;
     }
 

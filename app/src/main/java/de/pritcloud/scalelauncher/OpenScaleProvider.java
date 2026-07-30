@@ -7,6 +7,10 @@ import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.net.Uri;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,18 +56,70 @@ public final class OpenScaleProvider {
         return users;
     }
 
-    public static boolean insertMeasurement(Context context, String authority, long userId, long timestamp,
-                                            float weightKg, Float fat, Float water, Float muscle) {
+    /**
+     * Inserts the four legacy provider fields plus all S400-specific values via values_json.
+     * The JSON key names and canonical units follow openScale's provider API.
+     */
+    public static boolean insertMeasurement(Context context,
+                                            String authority,
+                                            long userId,
+                                            long timestamp,
+                                            S400Aggregator.Finalized measurement,
+                                            S400BodyComposition.Result composition) {
         ContentValues values = new ContentValues();
         values.put("datetime", timestamp);
-        values.put("weight", weightKg);
-        if (fat != null) values.put("fat", fat);
-        if (water != null) values.put("water", water);
-        if (muscle != null) values.put("muscle", muscle);
+        values.put("weight", measurement.weightKg);
+        if (composition.bodyFatPercent != null) values.put("fat", composition.bodyFatPercent);
+        if (composition.totalBodyWaterPercent != null) values.put("water", composition.totalBodyWaterPercent);
+        if (composition.skeletalMusclePercent != null) values.put("muscle", composition.skeletalMusclePercent);
+        values.put("values_json", buildValuesJson(measurement, composition));
+
         Uri uri = Uri.parse("content://" + authority + "/measurements/" + userId);
         ContentResolver resolver = context.getContentResolver();
         resolver.insert(uri, values);
         // openScale currently returns null for compatibility even after a successful insert.
         return true;
+    }
+
+    private static String buildValuesJson(S400Aggregator.Finalized measurement,
+                                          S400BodyComposition.Result composition) {
+        JSONArray values = new JSONArray();
+        try {
+            add(values, 2, "BMI", "Body mass index", "", "FLOAT", composition.bmi);
+            add(values, 6, "LBM", "Lean body mass", "kg", "FLOAT", composition.fatFreeMassKg);
+            add(values, 7, "BONE", "Bone mass", "kg", "FLOAT", composition.boneKg);
+            add(values, 12, "VISCERAL_FAT", "Visceral fat", "", "FLOAT", composition.visceralFatIndex);
+            add(values, 21, "BMR", "Basal metabolic rate", "kcal", "FLOAT", composition.basalMetabolicRateKcal);
+            add(values, 23, "HEART_RATE", "Heart rate", "/min", "INT",
+                    measurement.heartRate == null ? null : measurement.heartRate.floatValue());
+            add(values, 29, "IMPEDANCE", "Impedance high", "Ohm", "FLOAT", measurement.impedanceHigh);
+            add(values, 30, "IMPEDANCE_LOW", "Impedance low", "Ohm", "FLOAT", measurement.impedanceLow);
+            add(values, 31, "ECW", "Extracellular water", "%", "FLOAT", composition.extracellularWaterPercent);
+            add(values, 32, "ICW", "Intracellular water", "%", "FLOAT", composition.intracellularWaterPercent);
+            add(values, 33, "PROTEIN", "Protein", "%", "FLOAT", composition.proteinPercent);
+            add(values, 34, "BCM", "Body cell mass", "kg", "FLOAT", composition.bodyCellMassKg);
+        } catch (JSONException e) {
+            throw new IllegalStateException("values_json konnte nicht erstellt werden", e);
+        }
+        return values.toString();
+    }
+
+    private static void add(JSONArray array,
+                            int typeId,
+                            String key,
+                            String name,
+                            String unit,
+                            String inputType,
+                            Float value) throws JSONException {
+        if (value == null || Float.isNaN(value) || Float.isInfinite(value)) return;
+        JSONObject item = new JSONObject();
+        item.put("typeId", typeId);
+        item.put("key", key);
+        item.put("name", name);
+        item.put("unit", unit);
+        item.put("inputType", inputType);
+        item.put("isDerived", false);
+        item.put("value", value.doubleValue());
+        array.put(item);
     }
 }

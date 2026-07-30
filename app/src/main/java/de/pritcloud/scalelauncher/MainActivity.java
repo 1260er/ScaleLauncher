@@ -203,8 +203,8 @@ public final class MainActivity extends Activity {
             Toast.makeText(this, "Bitte Alter und Größe korrekt eintragen.", Toast.LENGTH_LONG).show();
             return;
         }
-        if (parsedAge < 10 || parsedAge > 120 || parsedHeight < 100f || parsedHeight > 250f) {
-            Toast.makeText(this, "Alter oder Größe liegt außerhalb des gültigen Bereichs.", Toast.LENGTH_LONG).show();
+        if (parsedAge < 18 || parsedAge > 120 || parsedHeight < 100f || parsedHeight > 230f) {
+            Toast.makeText(this, "Für die Körperanalyse muss das Alter 18–120 Jahre und die Größe 100–230 cm betragen.", Toast.LENGTH_LONG).show();
             return;
         }
         OpenScaleProvider.User user = users.get(userSpinner.getSelectedItemPosition());
