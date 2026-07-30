@@ -1,13 +1,13 @@
-# ScaleLauncher 2.2
+# ScaleLauncher 2.3
 
 Unabhängige Begleit-App für openScale. ScaleLauncher überwacht die BLE-Werbepakete einer Xiaomi S400 und öffnet openScale beim erkannten Messbeginn.
 
-## Neu in 2.2
+## Neu in 2.3
 
-- Berechtigung **„Über anderen Apps einblenden“** im Manifest
-- Schaltfläche **„Hintergrundstart erlauben“**
-- winziges, nicht bedienbares und nur kurz sichtbares Overlay vor dem Start von openScale
-- Protokollierung des Overlay-Status
-- bisherige einmalige Aktivitätserkennung und Wiederbereitschaft bleiben erhalten
+- BLE-Scan wird unmittelbar vor dem Start von openScale gestoppt
+- 25 Sekunden Pause, damit openScale die Waage allein verwenden kann
+- automatischer Neustart des BLE-Scans nach der Pause
+- Overlay-Hintergrundstart aus Version 2.2 bleibt unverändert erhalten
+- Aktivitätserkennung wird weiterhin nur einmal pro Messung ausgelöst
 
-Die Overlay-Berechtigung muss einmal manuell in den Android-Systemeinstellungen erteilt werden.
+Die Overlay-Berechtigung **„Über anderen Apps einblenden“** muss einmal manuell erteilt werden.

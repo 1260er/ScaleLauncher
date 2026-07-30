@@ -38,6 +38,7 @@ public final class ScaleScanService extends Service {
     private static final int NOTIFICATION_MONITOR = 10;
     private static final int NOTIFICATION_DETECTED = 11;
     private static final int IDLE_PACKETS_TO_REARM = 3;
+    private static final long OPEN_SCALE_SCAN_PAUSE_MS = 25_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private BluetoothLeScanner scanner;
@@ -48,12 +49,13 @@ public final class ScaleScanService extends Service {
     private int consecutiveIdlePackets;
     private WindowManager windowManager;
     private View overlayView;
+    private boolean scanPausedForOpenScale;
 
     @Override public void onCreate() {
         super.onCreate();
         createChannels();
         startForeground(NOTIFICATION_MONITOR, monitorNotification("BLE-Analyse wird gestartet …"));
-        EventLog.add(this, "Dienst gestartet – BLE-Paketanalyse 2.2");
+        EventLog.add(this, "Dienst gestartet – BLE-Paketanalyse 2.3");
         EventLog.add(this, "Bitte zunächst 10 Sekunden nicht auf die Waage stellen, danach einmal wiegen");
         startScan();
     }
@@ -110,6 +112,7 @@ public final class ScaleScanService extends Service {
                 armed = false;
                 EventLog.add(this, "Messaktivität erkannt – openScale wird einmalig angefordert");
                 updateMonitor("Messaktivität erkannt");
+                pauseScanForOpenScale();
                 launchOpenScale(true);
             }
             return;
@@ -124,6 +127,20 @@ public final class ScaleScanService extends Service {
                 updateMonitor("Bereit für die nächste Messung");
             }
         }
+    }
+
+    private void pauseScanForOpenScale() {
+        if (scanPausedForOpenScale) return;
+        scanPausedForOpenScale = true;
+        stopScan();
+        EventLog.add(this, "BLE-Scan für openScale für 25 Sekunden pausiert");
+        updateMonitor("BLE-Scan für openScale pausiert");
+        handler.postDelayed(() -> {
+            if (!scanPausedForOpenScale) return;
+            scanPausedForOpenScale = false;
+            EventLog.add(ScaleScanService.this, "BLE-Scan wird nach openScale-Pause neu gestartet");
+            startScan();
+        }, OPEN_SCALE_SCAN_PAUSE_MS);
     }
 
     private void launchOpenScale(boolean trigger) {
@@ -244,6 +261,6 @@ public final class ScaleScanService extends Service {
         }
         scanRunning = false;
     }
-    @Override public void onDestroy() { handler.removeCallbacksAndMessages(null); removeLaunchOverlay(); stopScan(); EventLog.add(this, "Dienst gestoppt"); super.onDestroy(); }
+    @Override public void onDestroy() { scanPausedForOpenScale = false; handler.removeCallbacksAndMessages(null); removeLaunchOverlay(); stopScan(); EventLog.add(this, "Dienst gestoppt"); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
 }
