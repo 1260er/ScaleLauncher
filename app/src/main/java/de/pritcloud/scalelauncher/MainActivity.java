@@ -2,6 +2,7 @@ package de.pritcloud.scalelauncher;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.DatePickerDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
@@ -19,6 +20,7 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -41,7 +43,7 @@ public final class MainActivity extends Activity {
 
     private EditText macAddress;
     private EditText bindKey;
-    private EditText age;
+    private EditText birthDate;
     private EditText heightCm;
     private CheckBox autoStart;
     private RadioButton sexMale;
@@ -50,7 +52,9 @@ public final class MainActivity extends Activity {
     private TextView log;
     private TextView openScaleStatus;
     private String openScaleAuthority;
+    private OpenScaleProvider.Meta openScaleMeta = new OpenScaleProvider.Meta(1, -1);
     private List<OpenScaleProvider.User> users = new ArrayList<>();
+    private LocalDate selectedBirthDate;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -58,7 +62,7 @@ public final class MainActivity extends Activity {
 
         macAddress = findViewById(R.id.macAddress);
         bindKey = findViewById(R.id.bindKey);
-        age = findViewById(R.id.age);
+        birthDate = findViewById(R.id.birthDate);
         heightCm = findViewById(R.id.heightCm);
         autoStart = findViewById(R.id.autoStart);
         sexMale = findViewById(R.id.sexMale);
@@ -70,17 +74,21 @@ public final class MainActivity extends Activity {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         macAddress.setText(prefs.getString("mac", ""));
         bindKey.setText(prefs.getString("bind_key", ""));
-        int storedAge = prefs.getInt("age", 0);
+        selectedBirthDate = BirthDateUtils.parseIso(prefs.getString("birth_date", ""));
+        updateBirthDateText();
         float storedHeight = prefs.getFloat("height_cm", 0f);
-        age.setText(storedAge == 0 ? "" : String.valueOf(storedAge));
         heightCm.setText(storedHeight == 0f ? "" : String.valueOf(storedHeight));
         autoStart.setChecked(prefs.getBoolean("autoStart", false));
         if (prefs.getInt("sex", 0) == 1) sexMale.setChecked(true);
         else ((RadioButton) findViewById(R.id.sexFemale)).setChecked(true);
 
+        birthDate.setOnClickListener(v -> showBirthDatePicker());
         findViewById(R.id.scanDevice).setOnClickListener(v -> {
-            if (hasBluetoothPermissions()) startActivityForResult(new Intent(this, DeviceScanActivity.class), REQ_SCAN);
-            else requestNeededPermissions();
+            if (hasBluetoothPermissions()) {
+                startActivityForResult(new Intent(this, DeviceScanActivity.class), REQ_SCAN);
+            } else {
+                requestNeededPermissions();
+            }
         });
         findViewById(R.id.loadOpenScaleUsers).setOnClickListener(v -> prepareOpenScaleAccess());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
@@ -99,11 +107,37 @@ public final class MainActivity extends Activity {
             refreshLog();
         });
         findViewById(R.id.notificationSettings).setOnClickListener(v -> startActivity(
-                new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())));
+                new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())));
 
         requestNeededPermissions();
         refreshLog();
         prepareOpenScaleAccess();
+    }
+
+    private void showBirthDatePicker() {
+        LocalDate initial = selectedBirthDate != null
+                ? selectedBirthDate
+                : LocalDate.now().minusYears(40);
+        DatePickerDialog dialog = new DatePickerDialog(
+                this,
+                (view, year, month, dayOfMonth) -> {
+                    selectedBirthDate = LocalDate.of(year, month + 1, dayOfMonth);
+                    updateBirthDateText();
+                },
+                initial.getYear(),
+                initial.getMonthValue() - 1,
+                initial.getDayOfMonth());
+        dialog.getDatePicker().setMaxDate(System.currentTimeMillis());
+        dialog.show();
+    }
+
+    private void updateBirthDateText() {
+        birthDate.setText(BirthDateUtils.toDisplay(selectedBirthDate));
+        int currentAge = BirthDateUtils.ageToday(selectedBirthDate);
+        birthDate.setHint(currentAge >= 0
+                ? "Aktuell " + currentAge + " Jahre"
+                : "Geburtstag auswählen");
     }
 
     private void prepareOpenScaleAccess() {
@@ -125,12 +159,18 @@ public final class MainActivity extends Activity {
 
     private void loadOpenScaleUsers() {
         try {
+            openScaleMeta = OpenScaleProvider.readMeta(this, openScaleAuthority);
             users = OpenScaleProvider.loadUsers(this, openScaleAuthority);
-            long storedUser = getSharedPreferences("prefs", MODE_PRIVATE).getLong("openscale_user_id", -1L);
+            long storedUser = getSharedPreferences("prefs", MODE_PRIVATE)
+                    .getLong("openscale_user_id", -1L);
             updateUserSpinner(storedUser);
+
+            String apiStatus = openScaleMeta.supportsGenericValues()
+                    ? "Provider-API " + openScaleMeta.apiVersion + ": vollständige Messwerte möglich"
+                    : "Provider-API 1: extern nur Gewicht, Fett, Wasser und Muskel";
             openScaleStatus.setText(users.isEmpty()
-                    ? "openScale gefunden, aber keine Benutzer verfügbar"
-                    : "openScale verbunden: " + users.size() + " Benutzer gefunden");
+                    ? "openScale gefunden, aber keine Benutzer verfügbar – " + apiStatus
+                    : "openScale verbunden: " + users.size() + " Benutzer – " + apiStatus);
         } catch (SecurityException e) {
             openScaleStatus.setText("openScale-Zugriff verweigert");
         } catch (RuntimeException e) {
@@ -139,10 +179,15 @@ public final class MainActivity extends Activity {
     }
 
     private void updateUserSpinner(long selectedId) {
-        ArrayAdapter<OpenScaleProvider.User> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, users);
+        ArrayAdapter<OpenScaleProvider.User> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,
+                users);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         userSpinner.setAdapter(adapter);
-        for (int i = 0; i < users.size(); i++) if (users.get(i).id == selectedId) userSpinner.setSelection(i);
+        for (int i = 0; i < users.size(); i++) {
+            if (users.get(i).id == selectedId) userSpinner.setSelection(i);
+        }
     }
 
     @Override protected void onResume() {
@@ -166,11 +211,17 @@ public final class MainActivity extends Activity {
         }
     }
 
-    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    @Override public void onRequestPermissionsResult(int requestCode,
+                                                     String[] permissions,
+                                                     int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQ_OPENSCALE_PERMISSION) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) loadOpenScaleUsers();
-            else openScaleStatus.setText("openScale-Zugriff wurde nicht erlaubt");
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                loadOpenScaleUsers();
+            } else {
+                openScaleStatus.setText("openScale-Zugriff wurde nicht erlaubt");
+            }
         }
     }
 
@@ -190,51 +241,88 @@ public final class MainActivity extends Activity {
             Toast.makeText(this, "Der Bind-Key muss aus genau 32 Hex-Zeichen bestehen.", Toast.LENGTH_LONG).show();
             return;
         }
-        if (openScaleAuthority == null || users.isEmpty() || userSpinner.getSelectedItemPosition() < 0) {
-            Toast.makeText(this, "Bitte zuerst openScale verbinden und einen Benutzer auswählen.", Toast.LENGTH_LONG).show();
+        if (openScaleAuthority == null
+                || users.isEmpty()
+                || userSpinner.getSelectedItemPosition() < 0) {
+            Toast.makeText(this,
+                    "Bitte zuerst openScale verbinden und einen Benutzer auswählen.",
+                    Toast.LENGTH_LONG).show();
             return;
         }
-        int parsedAge;
+
+        int currentAge = BirthDateUtils.ageToday(selectedBirthDate);
+        if (currentAge < 18 || currentAge > 120) {
+            Toast.makeText(this,
+                    "Bitte einen gültigen Geburtstag wählen. Für die Körperanalyse gilt 18–120 Jahre.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
         float parsedHeight;
         try {
-            parsedAge = Integer.parseInt(age.getText().toString().trim());
-            parsedHeight = Float.parseFloat(heightCm.getText().toString().trim().replace(',', '.'));
+            parsedHeight = Float.parseFloat(
+                    heightCm.getText().toString().trim().replace(',', '.'));
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "Bitte Alter und Größe korrekt eintragen.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Bitte die Größe korrekt eintragen.", Toast.LENGTH_LONG).show();
             return;
         }
-        if (parsedAge < 18 || parsedAge > 120 || parsedHeight < 100f || parsedHeight > 230f) {
-            Toast.makeText(this, "Für die Körperanalyse muss das Alter 18–120 Jahre und die Größe 100–230 cm betragen.", Toast.LENGTH_LONG).show();
+        if (parsedHeight < 100f || parsedHeight > 230f) {
+            Toast.makeText(this,
+                    "Für die Körperanalyse muss die Größe 100–230 cm betragen.",
+                    Toast.LENGTH_LONG).show();
             return;
         }
+
         OpenScaleProvider.User user = users.get(userSpinner.getSelectedItemPosition());
         getSharedPreferences("prefs", MODE_PRIVATE).edit()
                 .putString("mac", mac)
                 .putString("bind_key", key)
                 .putString("openscale_authority", openScaleAuthority)
                 .putLong("openscale_user_id", user.id)
-                .putInt("age", parsedAge)
+                .putInt("openscale_api_version", openScaleMeta.apiVersion)
+                .putString("birth_date", BirthDateUtils.toIso(selectedBirthDate))
+                .remove("age")
                 .putFloat("height_cm", parsedHeight)
                 .putInt("sex", sexMale.isChecked() ? 1 : 0)
                 .putBoolean("autoStart", autoStart.isChecked())
                 .apply();
-        EventLog.add(this, "Konfiguration gespeichert – openScale-Benutzer: " + user.name);
+
+        EventLog.add(this,
+                "Konfiguration gespeichert – openScale-Benutzer: " + user.name
+                        + " | Provider-API " + openScaleMeta.apiVersion
+                        + " | Alter aktuell " + currentAge);
+        if (!openScaleMeta.supportsGenericValues()) {
+            EventLog.add(this,
+                    "Hinweis: Provider-API 1 speichert extern nur Gewicht, Fett, Wasser und Muskel. "
+                            + "Alle weiteren S400-Werte werden dennoch lokal berechnet.");
+        }
         startForegroundService(new Intent(this, ScaleScanService.class));
         status.setText("Status: Überwachung angefordert");
     }
 
     private boolean hasBluetoothPermissions() {
-        return checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
-                && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+        return checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
+                == PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestNeededPermissions() {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.POST_NOTIFICATIONS}, REQ_PERMISSIONS);
+            requestPermissions(new String[]{
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                    Manifest.permission.POST_NOTIFICATIONS
+            }, REQ_PERMISSIONS);
         } else {
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}, REQ_PERMISSIONS);
+            requestPermissions(new String[]{
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT
+            }, REQ_PERMISSIONS);
         }
     }
 
-    private void refreshLog() { log.setText(EventLog.read(this)); }
+    private void refreshLog() {
+        log.setText(EventLog.read(this));
+    }
 }

@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ScaleLauncher 2.5"
+            android:text="ScaleLauncher 2.6"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textStyle="bold" />
 
@@ -88,11 +88,13 @@
             android:text="Körperdaten für die vollständige Körperanalyse" />
 
         <EditText
-            android:id="@+id/age"
+            android:id="@+id/birthDate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Alter"
-            android:inputType="number"
+            android:clickable="true"
+            android:focusable="false"
+            android:hint="Geburtstag auswählen"
+            android:inputType="none"
             android:maxLines="1" />
 
         <EditText

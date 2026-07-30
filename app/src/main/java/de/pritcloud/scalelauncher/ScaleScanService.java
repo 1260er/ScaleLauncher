@@ -20,12 +20,13 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.Locale;
 
 public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
-    private static final String CHANNEL_MONITOR = "scale_monitor_v5";
+    private static final String CHANNEL_MONITOR = "scale_monitor_v6";
     private static final int NOTIFICATION_MONITOR = 10;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -40,8 +41,10 @@ public final class ScaleScanService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         createChannel();
-        startForeground(NOTIFICATION_MONITOR, monitorNotification("BLE-Überwachung wird gestartet …"));
-        EventLog.add(this, "Dienst gestartet – vollständige S400-Direktübernahme 2.5");
+        startForeground(
+                NOTIFICATION_MONITOR,
+                monitorNotification("BLE-Überwachung wird gestartet …"));
+        EventLog.add(this, "Dienst gestartet – S400-Direktübernahme 2.6");
         startScan();
     }
 
@@ -54,7 +57,8 @@ public final class ScaleScanService extends Service {
     }
 
     private void startScan() {
-        if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+        if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
+                != PackageManager.PERMISSION_GRANTED) {
             EventLog.add(this, "Bluetooth-Scan-Berechtigung fehlt");
             stopSelf();
             return;
@@ -65,6 +69,9 @@ public final class ScaleScanService extends Service {
         String bindKey = prefs.getString("bind_key", "");
         long userId = prefs.getLong("openscale_user_id", -1L);
         String authority = prefs.getString("openscale_authority", "");
+        LocalDate birthDate = BirthDateUtils.parseIso(prefs.getString("birth_date", ""));
+        float height = prefs.getFloat("height_cm", 0f);
+
         if (!S400Decryptor.isValidMacAddress(mac)) {
             EventLog.add(this, "Keine gültige Waagen-MAC gespeichert");
             stopSelf();
@@ -77,6 +84,17 @@ public final class ScaleScanService extends Service {
         }
         if (userId < 0 || authority == null || authority.isBlank()) {
             EventLog.add(this, "Kein openScale-Benutzer ausgewählt");
+            stopSelf();
+            return;
+        }
+        int currentAge = BirthDateUtils.ageToday(birthDate);
+        if (currentAge < 18 || currentAge > 120) {
+            EventLog.add(this, "Kein gültiger Geburtstag gespeichert – bitte Konfiguration öffnen");
+            stopSelf();
+            return;
+        }
+        if (height < 100f || height > 230f) {
+            EventLog.add(this, "Keine gültige Körpergröße gespeichert – bitte Konfiguration öffnen");
             stopSelf();
             return;
         }
@@ -97,7 +115,8 @@ public final class ScaleScanService extends Service {
 
         callback = new ScanCallback() {
             @Override public void onScanResult(int type, ScanResult result) {
-                if (result.getDevice() != null && mac.equalsIgnoreCase(result.getDevice().getAddress())) {
+                if (result.getDevice() != null
+                        && mac.equalsIgnoreCase(result.getDevice().getAddress())) {
                     analyze(result, mac, bindKey);
                 }
             }
@@ -132,20 +151,11 @@ public final class ScaleScanService extends Service {
         }
         if (!packet.activityPacket || packet.activityData == null) return;
 
-        S400Decryptor.Measurement decoded = S400Decryptor.decrypt(packet.activityData, mac, bindKey);
+        S400Decryptor.Measurement decoded = S400Decryptor.decrypt(
+                packet.activityData,
+                mac,
+                bindKey);
         if (decoded == null) return;
-
-        if (decoded.isPacketA()) {
-            EventLog.add(this, String.format(Locale.GERMANY,
-                    "S400 Paket A: %.1f kg | Impedanz hoch %.1f Ω%s",
-                    decoded.weightKg,
-                    decoded.impedanceHigh,
-                    decoded.heartRate == null ? "" : " | Puls " + decoded.heartRate));
-            updateMonitor(String.format(Locale.GERMANY, "Messung erkannt: %.1f kg", decoded.weightKg));
-        } else if (decoded.isPacketB()) {
-            EventLog.add(this, String.format(Locale.GERMANY,
-                    "S400 Paket B: Impedanz niedrig %.1f Ω", decoded.impedanceLow));
-        }
 
         long now = System.currentTimeMillis();
         S400Aggregator.Outcome outcome = aggregator.ingest(decoded, now);
@@ -165,12 +175,20 @@ public final class ScaleScanService extends Service {
         if (outcome.status == S400Aggregator.Status.PENDING) return;
         handler.removeCallbacks(timeoutRunnable);
         if (outcome.status == S400Aggregator.Status.DUPLICATE) {
-            EventLog.add(this, "Wiederholtes S400-Endpaket verworfen");
             updateMonitor("Warte auf nächste Messung");
             return;
         }
         if (outcome.finalized != null) {
-            importMeasurement(outcome.finalized);
+            S400Aggregator.Finalized value = outcome.finalized;
+            EventLog.add(this, String.format(
+                    Locale.GERMANY,
+                    "S400-Messung entschlüsselt: %.1f kg | Impedanz %.1f/%.1f Ω%s",
+                    value.weightKg,
+                    value.impedanceHigh,
+                    value.impedanceLow == null ? value.impedanceHigh : value.impedanceLow,
+                    value.heartRate == null ? "" : " | Puls " + value.heartRate));
+            updateMonitor(String.format(Locale.GERMANY, "Messung erkannt: %.1f kg", value.weightKg));
+            importMeasurement(value);
         }
     }
 
@@ -178,9 +196,18 @@ public final class ScaleScanService extends Service {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         String authority = prefs.getString("openscale_authority", "");
         long userId = prefs.getLong("openscale_user_id", -1L);
-        int age = prefs.getInt("age", 0);
+        LocalDate birthDate = BirthDateUtils.parseIso(prefs.getString("birth_date", ""));
         float height = prefs.getFloat("height_cm", 0f);
         boolean male = prefs.getInt("sex", 0) == 1;
+        long timestamp = System.currentTimeMillis();
+        int age = BirthDateUtils.ageOn(birthDate, timestamp);
+
+        if (age < 18 || age > 120) {
+            EventLog.add(this,
+                    "Messung nicht übernommen: Alter konnte aus dem Geburtstag nicht gültig berechnet werden");
+            updateMonitor("Geburtstag prüfen");
+            return;
+        }
 
         float lowImpedance = measurement.impedanceLow != null
                 ? measurement.impedanceLow
@@ -195,38 +222,84 @@ public final class ScaleScanService extends Service {
                         lowImpedance));
 
         if (measurement.timedOut) {
-            EventLog.add(this, "Paket B fehlte – Einband-Auswertung mit hoher Impedanz als Ersatz");
+            EventLog.add(this,
+                    "Paket B fehlte – Einband-Auswertung mit hoher Impedanz als Ersatz");
         }
         if (composition.impedanceLabelsSwapped) {
             EventLog.add(this, "Impedanzbänder waren vertauscht und wurden korrigiert");
         }
 
-        long timestamp = System.currentTimeMillis();
+        EventLog.add(this, buildCalculationLog(age, measurement, composition));
+
         try {
-            OpenScaleProvider.insertMeasurement(
+            OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
+            prefs.edit().putInt("openscale_api_version", meta.apiVersion).apply();
+            OpenScaleProvider.InsertResult result = OpenScaleProvider.insertMeasurement(
                     this,
                     authority,
                     userId,
                     timestamp,
+                    meta.apiVersion,
                     measurement,
                     composition);
-            EventLog.add(this, buildImportLog(measurement, composition));
-            updateMonitor("Vollständige Messung an openScale übergeben");
+            logProviderResult(result);
         } catch (SecurityException e) {
-            EventLog.add(this, "openScale-Zugriff verweigert – Berechtigung in ScaleLauncher erneut erteilen");
+            EventLog.add(this,
+                    "openScale-Zugriff verweigert – Berechtigung in ScaleLauncher erneut erteilen");
             updateMonitor("openScale-Berechtigung fehlt");
         } catch (RuntimeException e) {
-            EventLog.add(this, "Übergabe an openScale fehlgeschlagen: "
-                    + e.getClass().getSimpleName() + " – " + e.getMessage());
+            EventLog.add(this,
+                    "Übergabe an openScale fehlgeschlagen: "
+                            + e.getClass().getSimpleName()
+                            + " – "
+                            + e.getMessage());
             updateMonitor("Übergabe fehlgeschlagen");
         }
     }
 
-    private String buildImportLog(S400Aggregator.Finalized measurement,
-                                  S400BodyComposition.Result composition) {
+    private void logProviderResult(OpenScaleProvider.InsertResult result) {
+        if (!result.measurementVerified) {
+            EventLog.add(this,
+                    "openScale-Übergabe konnte nach dem Schreiben nicht bestätigt werden");
+            updateMonitor("Übergabe nicht bestätigt");
+            return;
+        }
+
+        if (result.apiVersion < 2) {
+            EventLog.add(this,
+                    "openScale gespeichert und geprüft – Provider-API 1: "
+                            + "Gewicht, Fett, Wasser und Muskel. "
+                            + "Zusätzliche S400-Werte kann diese externe Schnittstelle nicht speichern.");
+            updateMonitor("Messung gespeichert – 4 Grundwerte");
+            return;
+        }
+
+        if (result.additionalValuesVerified) {
+            EventLog.add(this,
+                    "openScale vollständig gespeichert und geprüft – Provider-API "
+                            + result.apiVersion
+                            + ", "
+                            + result.storedValueCount
+                            + " Werte sichtbar");
+            updateMonitor("Vollständige Messung gespeichert");
+        } else {
+            EventLog.add(this,
+                    "openScale-Grundmessung gespeichert, zusätzliche Werte aber nicht bestätigt – "
+                            + "Provider-API "
+                            + result.apiVersion);
+            updateMonitor("Grundmessung gespeichert");
+        }
+    }
+
+    private String buildCalculationLog(int age,
+                                       S400Aggregator.Finalized measurement,
+                                       S400BodyComposition.Result composition) {
         StringBuilder text = new StringBuilder();
-        text.append(String.format(Locale.GERMANY,
-                "Messung an openScale übergeben: %.1f kg", measurement.weightKg));
+        text.append(String.format(
+                Locale.GERMANY,
+                "S400 ausgewertet (Alter %d): %.1f kg",
+                age,
+                measurement.weightKg));
         appendPercent(text, "Fett", composition.bodyFatPercent);
         appendPercent(text, "Wasser", composition.totalBodyWaterPercent);
         appendPercent(text, "Muskel", composition.skeletalMusclePercent);
@@ -238,29 +311,44 @@ public final class ScaleScanService extends Service {
         appendPercent(text, "ECW", composition.extracellularWaterPercent);
         appendPercent(text, "ICW", composition.intracellularWaterPercent);
         appendKg(text, "BCM", composition.bodyCellMassKg);
-        if (measurement.heartRate != null) text.append(" | Puls ").append(measurement.heartRate);
+        if (measurement.heartRate != null) {
+            text.append(" | Puls ").append(measurement.heartRate);
+        }
         text.append(" | Qualität ").append(composition.reliability.name());
         return text.toString();
     }
 
     private static void appendPercent(StringBuilder text, String label, Float value) {
-        if (value != null) text.append(String.format(Locale.GERMANY, " | %s %.1f %%", label, value));
+        if (value != null) {
+            text.append(String.format(Locale.GERMANY, " | %s %.1f %%", label, value));
+        }
     }
 
     private static void appendKg(StringBuilder text, String label, Float value) {
-        if (value != null) text.append(String.format(Locale.GERMANY, " | %s %.1f kg", label, value));
+        if (value != null) {
+            text.append(String.format(Locale.GERMANY, " | %s %.1f kg", label, value));
+        }
     }
 
-    private static void appendValue(StringBuilder text, String label, Float value, String suffix) {
-        if (value != null) text.append(String.format(Locale.GERMANY, " | %s %.1f%s", label, value, suffix));
+    private static void appendValue(StringBuilder text,
+                                    String label,
+                                    Float value,
+                                    String suffix) {
+        if (value != null) {
+            text.append(String.format(Locale.GERMANY, " | %s %.1f%s", label, value, suffix));
+        }
     }
 
     private Notification monitorNotification(String text) {
         PendingIntent open = PendingIntent.getActivity(
-                this, 1, new Intent(this, MainActivity.class),
+                this,
+                1,
+                new Intent(this, MainActivity.class),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent stop = PendingIntent.getService(
-                this, 2, new Intent(this, ScaleScanService.class).setAction(ACTION_STOP),
+                this,
+                2,
+                new Intent(this, ScaleScanService.class).setAction(ACTION_STOP),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new Notification.Builder(this, CHANNEL_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
@@ -279,7 +367,8 @@ public final class ScaleScanService extends Service {
     }
 
     private void createChannel() {
-        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        NotificationManager manager =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL_MONITOR,
                 "Waagenüberwachung",
@@ -291,8 +380,11 @@ public final class ScaleScanService extends Service {
     }
 
     private void stopScan() {
-        if (scanner != null && callback != null && scanRunning
-                && checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
+        if (scanner != null
+                && callback != null
+                && scanRunning
+                && checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
+                == PackageManager.PERMISSION_GRANTED) {
             try {
                 scanner.stopScan(callback);
             } catch (RuntimeException ignored) {
