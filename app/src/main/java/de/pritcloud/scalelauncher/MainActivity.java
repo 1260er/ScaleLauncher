@@ -12,6 +12,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -38,6 +40,7 @@ public final class MainActivity extends Activity {
     private final Runnable refreshTask = new Runnable() {
         @Override public void run() {
             refreshLog();
+            refreshPending();
             refreshHandler.postDelayed(this, 1_000L);
         }
     };
@@ -46,6 +49,10 @@ public final class MainActivity extends Activity {
     private EditText bindKey;
     private EditText birthDate;
     private EditText heightCm;
+    private EditText referenceWeight;
+    private EditText weightTolerance;
+    private CheckBox profileEnabled;
+    private CheckBox healthConnectProfile;
     private CheckBox autoStart;
     private CheckBox healthConnectEnabled;
     private CheckBox hcWeight;
@@ -58,14 +65,23 @@ public final class MainActivity extends Activity {
     private CheckBox diagnosticLogging;
     private RadioButton sexMale;
     private Spinner userSpinner;
+    private Spinner pendingUserSpinner;
     private TextView status;
     private TextView log;
     private TextView openScaleStatus;
     private TextView healthConnectStatus;
+    private TextView profileStatus;
+    private TextView pendingStatus;
+
     private String openScaleAuthority;
     private OpenScaleProvider.Meta openScaleMeta = new OpenScaleProvider.Meta(1, -1);
     private List<OpenScaleProvider.User> users = new ArrayList<>();
+    private List<UserProfile> profiles = new ArrayList<>();
+    private List<UserProfile> pendingProfiles = new ArrayList<>();
+    private List<PendingMeasurementStore.Item> pendingMeasurements = new ArrayList<>();
     private LocalDate selectedBirthDate;
+    private boolean loadingProfile;
+    private String pendingProfileSignature = "";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -75,6 +91,10 @@ public final class MainActivity extends Activity {
         bindKey = findViewById(R.id.bindKey);
         birthDate = findViewById(R.id.birthDate);
         heightCm = findViewById(R.id.heightCm);
+        referenceWeight = findViewById(R.id.referenceWeight);
+        weightTolerance = findViewById(R.id.weightTolerance);
+        profileEnabled = findViewById(R.id.profileEnabled);
+        healthConnectProfile = findViewById(R.id.healthConnectProfile);
         autoStart = findViewById(R.id.autoStart);
         healthConnectEnabled = findViewById(R.id.healthConnectEnabled);
         hcWeight = findViewById(R.id.hcWeight);
@@ -87,18 +107,17 @@ public final class MainActivity extends Activity {
         diagnosticLogging = findViewById(R.id.diagnosticLogging);
         sexMale = findViewById(R.id.sexMale);
         userSpinner = findViewById(R.id.openScaleUser);
+        pendingUserSpinner = findViewById(R.id.pendingUser);
         status = findViewById(R.id.status);
         log = findViewById(R.id.log);
         openScaleStatus = findViewById(R.id.openScaleStatus);
         healthConnectStatus = findViewById(R.id.healthConnectStatus);
+        profileStatus = findViewById(R.id.profileStatus);
+        pendingStatus = findViewById(R.id.pendingStatus);
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         macAddress.setText(prefs.getString("mac", ""));
         bindKey.setText(prefs.getString("bind_key", ""));
-        selectedBirthDate = BirthDateUtils.parseIso(prefs.getString("birth_date", ""));
-        updateBirthDateText();
-        float storedHeight = prefs.getFloat("height_cm", 0f);
-        heightCm.setText(storedHeight == 0f ? "" : String.valueOf(storedHeight));
         autoStart.setChecked(prefs.getBoolean("autoStart", false));
         diagnosticLogging.setChecked(prefs.getBoolean("diagnostic_logging", false));
 
@@ -108,8 +127,15 @@ public final class MainActivity extends Activity {
                 prefs.getBoolean("health_connect_enabled", false)
                         && HealthConnectSupport.hasWritePermissions(this, storedSelection));
 
-        if (prefs.getInt("sex", 0) == 1) sexMale.setChecked(true);
-        else ((RadioButton) findViewById(R.id.sexFemale)).setChecked(true);
+        userSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                loadProfileForPosition(position);
+            }
+
+            @Override public void onNothingSelected(AdapterView<?> parent) {
+                clearProfileEditor();
+            }
+        });
 
         birthDate.setOnClickListener(v -> showBirthDatePicker());
         findViewById(R.id.scanDevice).setOnClickListener(v -> {
@@ -120,13 +146,15 @@ public final class MainActivity extends Activity {
             }
         });
         findViewById(R.id.loadOpenScaleUsers).setOnClickListener(v -> prepareOpenScaleAccess());
-        findViewById(R.id.connectHealthConnect).setOnClickListener(
-                v -> requestHealthConnectPermissions());
+        findViewById(R.id.saveProfile).setOnClickListener(v -> saveCurrentProfile(true));
+        findViewById(R.id.connectHealthConnect).setOnClickListener(v -> requestHealthConnectPermissions());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
         findViewById(R.id.stop).setOnClickListener(v -> {
             stopService(new Intent(this, ScaleScanService.class));
             status.setText("Status: gestoppt");
         });
+        findViewById(R.id.assignPending).setOnClickListener(v -> assignPendingMeasurement());
+        findViewById(R.id.discardPending).setOnClickListener(v -> discardPendingMeasurement());
         findViewById(R.id.refreshLog).setOnClickListener(v -> refreshLog());
         findViewById(R.id.copyLog).setOnClickListener(v -> {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
@@ -171,6 +199,7 @@ public final class MainActivity extends Activity {
 
         requestNeededPermissions();
         refreshLog();
+        refreshPending();
         prepareOpenScaleAccess();
         refreshHealthConnectStatus();
     }
@@ -206,7 +235,9 @@ public final class MainActivity extends Activity {
             openScaleStatus.setText(
                     "openScale-Provider nicht gefunden. Aktuelle openScale-Version installieren.");
             users = new ArrayList<>();
+            profiles = new ArrayList<>();
             updateUserSpinner(-1L);
+            refreshPending();
             return;
         }
         String permission = OpenScaleProvider.permissionForAuthority(openScaleAuthority);
@@ -223,8 +254,25 @@ public final class MainActivity extends Activity {
         try {
             openScaleMeta = OpenScaleProvider.readMeta(this, openScaleAuthority);
             users = OpenScaleProvider.loadUsers(this, openScaleAuthority);
-            long storedUser = getSharedPreferences("prefs", MODE_PRIVATE)
-                    .getLong("openscale_user_id", -1L);
+            SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+            profiles = UserProfileStore.synchronize(prefs, users);
+
+            boolean changed = false;
+            for (UserProfile profile : profiles) {
+                if (profile.referenceWeightKg <= 0f) {
+                    float average = OpenScaleProvider.readAverageRecentWeight(
+                            this, openScaleAuthority, profile.userId, 5);
+                    if (average > 0f) {
+                        profile.referenceWeightKg = average;
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) UserProfileStore.save(prefs, profiles);
+
+            long storedUser = prefs.getLong(
+                    "profile_editor_user_id",
+                    prefs.getLong("openscale_user_id", -1L));
             updateUserSpinner(storedUser);
 
             String apiStatus = openScaleMeta.supportsGenericValues()
@@ -233,6 +281,8 @@ public final class MainActivity extends Activity {
             openScaleStatus.setText(users.isEmpty()
                     ? "openScale gefunden, aber keine Benutzer verfügbar – " + apiStatus
                     : "openScale verbunden: " + users.size() + " Benutzer – " + apiStatus);
+            updateProfileStatus();
+            refreshPending();
         } catch (SecurityException e) {
             openScaleStatus.setText("openScale-Zugriff verweigert");
         } catch (RuntimeException e) {
@@ -248,9 +298,145 @@ public final class MainActivity extends Activity {
                 users);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         userSpinner.setAdapter(adapter);
+        int selectedPosition = 0;
         for (int i = 0; i < users.size(); i++) {
-            if (users.get(i).id == selectedId) userSpinner.setSelection(i);
+            if (users.get(i).id == selectedId) selectedPosition = i;
         }
+        if (!users.isEmpty()) {
+            userSpinner.setSelection(selectedPosition);
+            loadProfileForPosition(selectedPosition);
+        } else {
+            clearProfileEditor();
+        }
+    }
+
+    private void loadProfileForPosition(int position) {
+        if (loadingProfile || position < 0 || position >= users.size()) return;
+        OpenScaleProvider.User user = users.get(position);
+        UserProfile profile = UserProfileStore.find(profiles, user.id);
+        if (profile == null) return;
+
+        loadingProfile = true;
+        profileEnabled.setChecked(profile.enabled);
+        selectedBirthDate = BirthDateUtils.parseIso(profile.birthDateIso);
+        updateBirthDateText();
+        heightCm.setText(profile.heightCm > 0f ? formatDecimal(profile.heightCm) : "");
+        referenceWeight.setText(profile.referenceWeightKg > 0f
+                ? formatDecimal(profile.referenceWeightKg)
+                : "");
+        weightTolerance.setText(formatDecimal(
+                profile.toleranceKg > 0f ? profile.toleranceKg : UserProfile.DEFAULT_TOLERANCE_KG));
+        if (profile.male) sexMale.setChecked(true);
+        else ((RadioButton) findViewById(R.id.sexFemale)).setChecked(true);
+        long healthUserId = getSharedPreferences("prefs", MODE_PRIVATE)
+                .getLong("health_connect_user_id", -1L);
+        healthConnectProfile.setChecked(healthUserId == profile.userId);
+        getSharedPreferences("prefs", MODE_PRIVATE).edit()
+                .putLong("profile_editor_user_id", profile.userId)
+                .apply();
+        loadingProfile = false;
+        updateProfileStatus();
+    }
+
+    private void clearProfileEditor() {
+        loadingProfile = true;
+        profileEnabled.setChecked(false);
+        healthConnectProfile.setChecked(false);
+        selectedBirthDate = null;
+        updateBirthDateText();
+        heightCm.setText("");
+        referenceWeight.setText("");
+        weightTolerance.setText(formatDecimal(UserProfile.DEFAULT_TOLERANCE_KG));
+        loadingProfile = false;
+    }
+
+    private boolean saveCurrentProfile(boolean showToast) {
+        int position = userSpinner.getSelectedItemPosition();
+        if (position < 0 || position >= users.size()) {
+            if (showToast) Toast.makeText(this, "Kein openScale-Benutzer ausgewählt.", Toast.LENGTH_LONG).show();
+            return false;
+        }
+        OpenScaleProvider.User user = users.get(position);
+        UserProfile profile = UserProfileStore.find(profiles, user.id);
+        if (profile == null) {
+            profile = new UserProfile(user.id, user.name);
+            profiles.add(profile);
+        }
+
+        boolean enabled = profileEnabled.isChecked();
+        Float parsedHeight = parseOptionalDecimal(heightCm);
+        Float parsedReference = parseOptionalDecimal(referenceWeight);
+        Float parsedTolerance = parseOptionalDecimal(weightTolerance);
+        int currentAge = BirthDateUtils.ageToday(selectedBirthDate);
+
+        if (enabled) {
+            if (currentAge < 18 || currentAge > 120) {
+                Toast.makeText(this,
+                        "Bitte für " + user.name + " einen gültigen Geburtstag wählen.",
+                        Toast.LENGTH_LONG).show();
+                return false;
+            }
+            if (parsedHeight == null || parsedHeight < 100f || parsedHeight > 230f) {
+                Toast.makeText(this,
+                        "Bitte für " + user.name + " eine Größe von 100–230 cm eintragen.",
+                        Toast.LENGTH_LONG).show();
+                return false;
+            }
+            if (parsedReference == null || parsedReference < 20f || parsedReference > 300f) {
+                Toast.makeText(this,
+                        "Bitte für " + user.name + " ein gültiges Referenzgewicht eintragen.",
+                        Toast.LENGTH_LONG).show();
+                return false;
+            }
+            if (parsedTolerance == null || parsedTolerance < 0.2f || parsedTolerance > 30f) {
+                Toast.makeText(this,
+                        "Die Gewichtstoleranz muss zwischen 0,2 und 30 kg liegen.",
+                        Toast.LENGTH_LONG).show();
+                return false;
+            }
+        }
+
+        profile.name = user.name;
+        profile.enabled = enabled;
+        profile.birthDateIso = BirthDateUtils.toIso(selectedBirthDate);
+        profile.heightCm = parsedHeight == null ? 0f : parsedHeight;
+        profile.male = sexMale.isChecked();
+        profile.referenceWeightKg = parsedReference == null ? 0f : parsedReference;
+        profile.toleranceKg = parsedTolerance == null
+                ? UserProfile.DEFAULT_TOLERANCE_KG
+                : parsedTolerance;
+
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        long oldHealthUser = prefs.getLong("health_connect_user_id", -1L);
+        if (healthConnectProfile.isChecked()) {
+            editor.putLong("health_connect_user_id", profile.userId);
+        } else if (oldHealthUser == profile.userId) {
+            editor.remove("health_connect_user_id");
+        }
+        editor.putLong("profile_editor_user_id", profile.userId).apply();
+        UserProfileStore.save(prefs, profiles);
+        updateProfileStatus();
+        refreshHealthConnectStatus();
+        refreshPending();
+
+        if (showToast) {
+            Toast.makeText(this,
+                    "Benutzerprofil " + user.name + " gespeichert.",
+                    Toast.LENGTH_SHORT).show();
+        }
+        return true;
+    }
+
+    private void updateProfileStatus() {
+        int enabledCount = 0;
+        for (UserProfile profile : profiles) if (profile.enabled) enabledCount++;
+        long healthUserId = getSharedPreferences("prefs", MODE_PRIVATE)
+                .getLong("health_connect_user_id", -1L);
+        UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
+        String healthName = healthProfile == null ? "nicht festgelegt" : healthProfile.name;
+        profileStatus.setText("Aktive Zuordnungsprofile: " + enabledCount
+                + " | Health-Connect-Benutzer: " + healthName);
     }
 
     private void applyHealthConnectSelection(HealthConnectSelection selection) {
@@ -277,6 +463,7 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         refreshHealthConnectStatus();
+        refreshPending();
         refreshHandler.post(refreshTask);
     }
 
@@ -341,65 +528,63 @@ public final class MainActivity extends Activity {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        if (openScaleAuthority == null
-                || users.isEmpty()
-                || userSpinner.getSelectedItemPosition() < 0) {
+        if (openScaleAuthority == null || users.isEmpty()) {
             Toast.makeText(this,
-                    "Bitte zuerst openScale verbinden und einen Benutzer auswählen.",
+                    "Bitte zuerst openScale verbinden und Benutzer laden.",
                     Toast.LENGTH_LONG).show();
             return;
+        }
+        if (!saveCurrentProfile(false)) return;
+
+        profiles = UserProfileStore.load(getSharedPreferences("prefs", MODE_PRIVATE));
+        List<UserProfile> enabledProfiles = UserProfileStore.enabled(profiles);
+        if (enabledProfiles.isEmpty()) {
+            Toast.makeText(this,
+                    "Bitte mindestens ein Benutzerprofil für die automatische Zuordnung aktivieren.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (UserProfile profile : enabledProfiles) {
+            if (!profile.hasValidBodyData(now) || !profile.hasValidMatchingData()) {
+                Toast.makeText(this,
+                        "Das Profil " + profile.name + " ist noch nicht vollständig.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
         }
 
         HealthConnectSelection healthSelection = healthConnectSelectionFromUi();
-        if (healthConnectEnabled.isChecked() && healthSelection.count() == 0) {
-            Toast.makeText(this,
-                    "Bitte mindestens einen Health-Connect-Wert auswählen.",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (healthConnectEnabled.isChecked()
-                && !HealthConnectSupport.hasWritePermissions(this, healthSelection)) {
-            requestHealthConnectPermissions();
-            Toast.makeText(this,
-                    "Bitte zuerst die Schreibrechte für die ausgewählten Werte erlauben.",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        int currentAge = BirthDateUtils.ageToday(selectedBirthDate);
-        if (currentAge < 18 || currentAge > 120) {
-            Toast.makeText(this,
-                    "Bitte einen gültigen Geburtstag wählen. Für die Körperanalyse gilt 18–120 Jahre.",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        float parsedHeight;
-        try {
-            parsedHeight = Float.parseFloat(
-                    heightCm.getText().toString().trim().replace(',', '.'));
-        } catch (NumberFormatException e) {
-            Toast.makeText(this, "Bitte die Größe korrekt eintragen.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (parsedHeight < 100f || parsedHeight > 230f) {
-            Toast.makeText(this,
-                    "Für die Körperanalyse muss die Größe 100–230 cm betragen.",
-                    Toast.LENGTH_LONG).show();
-            return;
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        long healthUserId = prefs.getLong("health_connect_user_id", -1L);
+        if (healthConnectEnabled.isChecked()) {
+            if (healthSelection.count() == 0) {
+                Toast.makeText(this,
+                        "Bitte mindestens einen Health-Connect-Wert auswählen.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+            UserProfile healthProfile = UserProfileStore.find(enabledProfiles, healthUserId);
+            if (healthProfile == null) {
+                Toast.makeText(this,
+                        "Bitte in einem aktiven Profil den Health-Connect-Hauptbenutzer festlegen.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (!HealthConnectSupport.hasWritePermissions(this, healthSelection)) {
+                requestHealthConnectPermissions();
+                Toast.makeText(this,
+                        "Bitte zuerst die Schreibrechte für die ausgewählten Werte erlauben.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
         }
 
-        OpenScaleProvider.User user = users.get(userSpinner.getSelectedItemPosition());
-        SharedPreferences.Editor editor = getSharedPreferences("prefs", MODE_PRIVATE).edit()
+        SharedPreferences.Editor editor = prefs.edit()
                 .putString("mac", mac)
                 .putString("bind_key", key)
                 .putString("openscale_authority", openScaleAuthority)
-                .putLong("openscale_user_id", user.id)
                 .putInt("openscale_api_version", openScaleMeta.apiVersion)
-                .putString("birth_date", BirthDateUtils.toIso(selectedBirthDate))
-                .remove("age")
-                .putFloat("height_cm", parsedHeight)
-                .putInt("sex", sexMale.isChecked() ? 1 : 0)
                 .putBoolean("autoStart", autoStart.isChecked())
                 .putBoolean("health_connect_enabled", healthConnectEnabled.isChecked())
                 .putBoolean("diagnostic_logging", diagnosticLogging.isChecked());
@@ -407,19 +592,13 @@ public final class MainActivity extends Activity {
         editor.apply();
 
         EventLog.info(this,
-                "Konfiguration gespeichert – openScale-Benutzer: " + user.name
-                        + " | Health Connect "
-                        + (healthConnectEnabled.isChecked()
-                        ? "aktiv (" + healthSelection.summary() + ")"
-                        : "aus"));
+                "Konfiguration gespeichert – " + enabledProfiles.size()
+                        + " Benutzerprofile aktiv | Health Connect "
+                        + (healthConnectEnabled.isChecked() ? "aktiv" : "aus"));
         EventLog.debug(this,
                 "Provider-API " + openScaleMeta.apiVersion
-                        + " | Alter aktuell " + currentAge
-                        + " | Größe " + parsedHeight + " cm");
-        if (!openScaleMeta.supportsGenericValues()) {
-            EventLog.warning(this,
-                    "Provider-API 1 speichert extern nur Gewicht, Fett, Wasser und Muskel.");
-        }
+                        + " | Zuordnungsvorsprung mindestens "
+                        + UserMatcher.MINIMUM_LEAD_KG + " kg");
         startForegroundService(new Intent(this, ScaleScanService.class));
         status.setText("Status: Überwachung angefordert");
     }
@@ -443,7 +622,7 @@ public final class MainActivity extends Activity {
 
     private void refreshHealthConnectStatus() {
         if (healthConnectStatus == null || healthConnectEnabled == null) return;
-        android.view.View connectButton = findViewById(R.id.connectHealthConnect);
+        View connectButton = findViewById(R.id.connectHealthConnect);
         if (!HealthConnectSupport.isSupported()) {
             healthConnectStatus.setText(
                     "Health Connect: nicht verfügbar – direkte Übertragung benötigt Android 14+");
@@ -465,16 +644,95 @@ public final class MainActivity extends Activity {
 
         int required = HealthConnectSupport.requiredPermissionCount(selection);
         int granted = HealthConnectSupport.grantedWritePermissionCount(this, selection);
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        long healthUserId = prefs.getLong("health_connect_user_id", -1L);
+        UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
+        String userText = healthProfile == null
+                ? "Hauptbenutzer fehlt"
+                : "Benutzer " + healthProfile.name;
         if (granted == required) {
             healthConnectStatus.setText(
-                    "Health Connect bereit – " + selected + " Werte ausgewählt, "
-                            + required + " Schreibrechte vorhanden");
+                    "Health Connect bereit – " + userText + ", " + selected
+                            + " Werte ausgewählt");
         } else {
             healthConnectStatus.setText(
                     "Health Connect: " + granted + "/" + required
-                            + " benötigte Rechte vorhanden");
+                            + " benötigte Rechte vorhanden – " + userText);
             if (healthConnectEnabled.isChecked()) healthConnectEnabled.setChecked(false);
         }
+    }
+
+    private void refreshPending() {
+        if (pendingStatus == null) return;
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        pendingMeasurements = PendingMeasurementStore.load(prefs);
+        profiles = profiles.isEmpty() ? UserProfileStore.load(prefs) : profiles;
+        pendingProfiles = UserProfileStore.enabled(profiles);
+
+        StringBuilder signatureBuilder = new StringBuilder();
+        for (UserProfile profile : pendingProfiles) {
+            signatureBuilder.append(profile.userId).append(':').append(profile.name).append('|');
+        }
+        String signature = signatureBuilder.toString();
+        if (!signature.equals(pendingProfileSignature)) {
+            int oldPosition = pendingUserSpinner.getSelectedItemPosition();
+            ArrayAdapter<UserProfile> adapter = new ArrayAdapter<>(
+                    this,
+                    android.R.layout.simple_spinner_item,
+                    pendingProfiles);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            pendingUserSpinner.setAdapter(adapter);
+            if (oldPosition >= 0 && oldPosition < pendingProfiles.size()) {
+                pendingUserSpinner.setSelection(oldPosition);
+            }
+            pendingProfileSignature = signature;
+        }
+
+        boolean available = !pendingMeasurements.isEmpty() && !pendingProfiles.isEmpty();
+        findViewById(R.id.assignPending).setEnabled(available);
+        findViewById(R.id.discardPending).setEnabled(!pendingMeasurements.isEmpty());
+        pendingUserSpinner.setEnabled(available);
+
+        if (pendingMeasurements.isEmpty()) {
+            pendingStatus.setText("Keine offene Messung");
+            return;
+        }
+        PendingMeasurementStore.Item item = pendingMeasurements.get(0);
+        pendingStatus.setText(String.format(
+                Locale.GERMANY,
+                "%d offene Messung(en) – nächste: %.1f kg (%s)",
+                pendingMeasurements.size(),
+                item.weightKg,
+                item.reason));
+    }
+
+    private void assignPendingMeasurement() {
+        if (pendingMeasurements.isEmpty() || pendingProfiles.isEmpty()) return;
+        int position = pendingUserSpinner.getSelectedItemPosition();
+        if (position < 0 || position >= pendingProfiles.size()) return;
+        PendingMeasurementStore.Item item = pendingMeasurements.get(0);
+        UserProfile profile = pendingProfiles.get(position);
+        Intent intent = new Intent(this, ScaleScanService.class)
+                .setAction(ScaleScanService.ACTION_ASSIGN_PENDING)
+                .putExtra(ScaleScanService.EXTRA_PENDING_ID, item.id)
+                .putExtra(ScaleScanService.EXTRA_USER_ID, profile.userId);
+        startForegroundService(intent);
+        Toast.makeText(this,
+                String.format(Locale.GERMANY, "%.1f kg wird %s zugeordnet.", item.weightKg, profile.name),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private void discardPendingMeasurement() {
+        if (pendingMeasurements.isEmpty()) return;
+        PendingMeasurementStore.Item item = pendingMeasurements.get(0);
+        PendingMeasurementStore.remove(getSharedPreferences("prefs", MODE_PRIVATE), item.id);
+        startForegroundService(new Intent(this, ScaleScanService.class)
+                .setAction(ScaleScanService.ACTION_REFRESH_PENDING));
+        EventLog.info(this, String.format(
+                Locale.GERMANY,
+                "Nicht zugeordnete Messung %.1f kg verworfen",
+                item.weightKg));
+        refreshPending();
     }
 
     private boolean hasBluetoothPermissions() {
@@ -497,6 +755,21 @@ public final class MainActivity extends Activity {
                     Manifest.permission.BLUETOOTH_CONNECT
             }, REQ_PERMISSIONS);
         }
+    }
+
+    private Float parseOptionalDecimal(EditText input) {
+        String text = input.getText().toString().trim().replace(',', '.');
+        if (text.isEmpty()) return null;
+        try {
+            float value = Float.parseFloat(text);
+            return Float.isFinite(value) ? value : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static String formatDecimal(float value) {
+        return String.format(Locale.GERMANY, "%.1f", value);
     }
 
     private void refreshLog() {

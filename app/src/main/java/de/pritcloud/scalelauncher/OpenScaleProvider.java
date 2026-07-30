@@ -13,6 +13,7 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -139,6 +140,55 @@ public final class OpenScaleProvider {
             }
         }
         return users;
+    }
+
+
+    private static final class DatedWeight {
+        final long timestamp;
+        final float weightKg;
+
+        DatedWeight(long timestamp, float weightKg) {
+            this.timestamp = timestamp;
+            this.weightKg = weightKg;
+        }
+    }
+
+    /** Returns the average of the newest valid weight records, or 0 when none exist. */
+    public static float readAverageRecentWeight(Context context,
+                                                String authority,
+                                                long userId,
+                                                int limit) {
+        if (authority == null || authority.isBlank() || userId < 0L || limit <= 0) return 0f;
+        Uri uri = Uri.parse("content://" + authority + "/measurements/" + userId);
+        List<DatedWeight> values = new ArrayList<>();
+        try (Cursor cursor = context.getContentResolver().query(
+                uri,
+                new String[]{"datetime", "weight"},
+                null,
+                null,
+                null)) {
+            if (cursor == null) return 0f;
+            int dateColumn = cursor.getColumnIndex("datetime");
+            int weightColumn = cursor.getColumnIndex("weight");
+            if (weightColumn < 0) return 0f;
+            while (cursor.moveToNext()) {
+                if (cursor.isNull(weightColumn)) continue;
+                float weight = cursor.getFloat(weightColumn);
+                if (!Float.isFinite(weight) || weight <= 0f) continue;
+                long timestamp = dateColumn >= 0 && !cursor.isNull(dateColumn)
+                        ? cursor.getLong(dateColumn)
+                        : 0L;
+                values.add(new DatedWeight(timestamp, weight));
+            }
+        } catch (RuntimeException ignored) {
+            return 0f;
+        }
+        if (values.isEmpty()) return 0f;
+        values.sort(Comparator.comparingLong((DatedWeight value) -> value.timestamp).reversed());
+        int count = Math.min(limit, values.size());
+        double sum = 0.0d;
+        for (int i = 0; i < count; i++) sum += values.get(i).weightKg;
+        return (float) (sum / count);
     }
 
     /**

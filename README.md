@@ -1,55 +1,47 @@
-# ScaleLauncher 2.9
+# ScaleLauncher 3.0
 
-Separate Companion-App für die Xiaomi Body Composition Scale S400, openScale und Android Health Connect.
+Separate, privacy-friendly companion app for the Xiaomi Body Composition Scale S400 and openScale.
 
-## Neu in 2.9
+## Data flow
 
-- Die Pulsauswertung wurde vollständig aus der App-Oberfläche und allen Datenausgaben entfernt:
-  - keine Health-Connect-Berechtigung für Puls
-  - kein Puls-Datensatz in Health Connect
-  - kein Pulswert in openScale
-  - kein Pulswert im Normal- oder Diagnoseprotokoll
-- Stattdessen gibt es die Auswahl **„BMI ermöglichen“**.
-- Health Connect besitzt keinen eigenen BMI-Datentyp. ScaleLauncher schreibt bei aktivierter BMI-Option deshalb:
-  - das gemessene Gewicht
-  - die konfigurierte Körpergröße
-- Kompatible Health-Connect-Apps können daraus den BMI berechnen.
-- In openScale wird der berechnete BMI weiterhin direkt über die Provider-API 2 gespeichert.
+```text
+Xiaomi S400 BLE advertisements
+        -> local AES-CCM decryption
+        -> automatic openScale user assignment
+        -> complete openScale Provider API 2 import
+        -> optional Health Connect write for one main user
+```
+
+No internet permission and no Xiaomi cloud are used.
+
+## Multi-user assignment
+
+- All openScale users can be loaded as profiles.
+- Each active profile stores birthday, height, sex, reference weight and an allowed weight deviation.
+- The initial reference weight is suggested from the newest five openScale measurements.
+- A measurement is assigned only when one valid profile is at least 1.0 kg closer than the second-best valid profile.
+- Ambiguous or unmatched measurements are stored locally and shown through a silent notification.
+- Pending measurements can later be assigned to a user or discarded in the app.
+- After a successful import, the reference weight is refreshed from the newest five openScale measurements.
 
 ## Health Connect
 
-Folgende Werte können einzeln ein- oder ausgeschaltet werden:
+Health Connect can be enabled for exactly one configured main user on the device. The user can select which supported values are written:
 
-- Gewicht
-- BMI-Grundlage (Gewicht und Körpergröße)
-- Körperfett
-- Körperwassermasse
-- Knochenmasse
-- fettfreie Masse
-- Grundumsatz
+- weight
+- body fat
+- body water mass
+- bone mass
+- lean body mass
+- basal metabolic rate
+- weight and height for BMI calculation by compatible apps
 
-Die BMI-Option kann auch aktiviert werden, wenn „Gewicht“ nicht separat ausgewählt ist. ScaleLauncher überträgt das Gewicht dann einmal als notwendige BMI-Grundlage und vermeidet doppelte Gewichtseinträge.
+Measurements assigned to other openScale users are not written to Health Connect.
 
-## Protokoll
+## Logging
 
-- Normalmodus: nur wichtige Statusmeldungen, erfolgreiche Übergaben, Warnungen und Fehler
-- Diagnosemodus: zusätzlich technische BLE-, Impedanz- und Berechnungsdetails einschließlich des berechneten BMI
-- Ringspeicher: maximal 150 Einträge beziehungsweise ungefähr 48 KB; ältere Einträge werden automatisch gelöscht
+Normal logging contains only important service state, assignment, write success, warnings and errors. Diagnostic logging adds raw assignment differences and calculated body values. The log is bounded and automatically removes old entries.
 
-## Einrichtung
+## Build
 
-1. Waage und Bind-Key konfigurieren.
-2. openScale verbinden und Benutzer auswählen.
-3. Unter „Health Connect“ die gewünschten Werte markieren.
-4. Für eine BMI-Auswertung „BMI ermöglichen“ aktivieren.
-5. „Schreibrechte für ausgewählte Werte erlauben“ antippen.
-6. Health-Connect-Synchronisierung aktivieren.
-7. Speichern und Überwachung starten.
-
-## Datenschutz
-
-Alle BLE-Pakete werden lokal entschlüsselt und ausgewertet. ScaleLauncher besitzt keine Internetberechtigung, liest keine Daten aus Health Connect und übermittelt nichts an Xiaomi oder andere Server.
-
-## Mehrere Benutzer
-
-Version 2.9 verwendet weiterhin den ausgewählten openScale-Benutzer und das Health-Connect-Profil des Telefons. Die automatische Benutzerzuordnung folgt als eigener Entwicklungsschritt.
+The included GitHub Actions workflow builds the debug APK with Java 17 and Android SDK 35.

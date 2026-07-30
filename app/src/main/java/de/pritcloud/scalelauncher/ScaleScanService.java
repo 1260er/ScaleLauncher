@@ -22,12 +22,20 @@ import android.os.Looper;
 
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
-    private static final String CHANNEL_MONITOR = "scale_monitor_v9";
+    public static final String ACTION_ASSIGN_PENDING = "de.pritcloud.scalelauncher.ASSIGN_PENDING";
+    public static final String ACTION_REFRESH_PENDING = "de.pritcloud.scalelauncher.REFRESH_PENDING";
+    public static final String EXTRA_PENDING_ID = "pending_id";
+    public static final String EXTRA_USER_ID = "user_id";
+
+    private static final String CHANNEL_MONITOR = "scale_monitor_v10";
+    private static final String CHANNEL_ASSIGNMENT = "scale_assignment_v1";
     private static final int NOTIFICATION_MONITOR = 10;
+    private static final int NOTIFICATION_ASSIGNMENT = 11;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final S400Aggregator aggregator = new S400Aggregator();
@@ -41,12 +49,13 @@ public final class ScaleScanService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
-        createChannel();
+        createChannels();
         startForeground(
                 NOTIFICATION_MONITOR,
                 monitorNotification("BLE-Überwachung wird gestartet …"));
-        EventLog.info(this, "Dienst gestartet – S400-Direktübernahme 2.9");
+        EventLog.info(this, "Dienst gestartet – Mehrbenutzer-Zuordnung 3.0");
         startScan();
+        updateAssignmentNotification();
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -54,10 +63,18 @@ public final class ScaleScanService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (intent != null && ACTION_ASSIGN_PENDING.equals(intent.getAction())) {
+            String pendingId = intent.getStringExtra(EXTRA_PENDING_ID);
+            long userId = intent.getLongExtra(EXTRA_USER_ID, -1L);
+            assignPending(pendingId, userId);
+        } else if (intent != null && ACTION_REFRESH_PENDING.equals(intent.getAction())) {
+            updateAssignmentNotification();
+        }
         return START_STICKY;
     }
 
     private void startScan() {
+        if (scanRunning) return;
         if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
                 != PackageManager.PERMISSION_GRANTED) {
             EventLog.error(this, "Bluetooth-Scan-Berechtigung fehlt");
@@ -68,10 +85,8 @@ public final class ScaleScanService extends Service {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         String mac = prefs.getString("mac", "");
         String bindKey = prefs.getString("bind_key", "");
-        long userId = prefs.getLong("openscale_user_id", -1L);
         String authority = prefs.getString("openscale_authority", "");
-        LocalDate birthDate = BirthDateUtils.parseIso(prefs.getString("birth_date", ""));
-        float height = prefs.getFloat("height_cm", 0f);
+        List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
 
         if (!S400Decryptor.isValidMacAddress(mac)) {
             EventLog.error(this, "Keine gültige Waagen-MAC gespeichert");
@@ -83,23 +98,23 @@ public final class ScaleScanService extends Service {
             stopSelf();
             return;
         }
-        if (userId < 0 || authority == null || authority.isBlank()) {
-            EventLog.error(this, "Kein openScale-Benutzer ausgewählt");
+        if (authority == null || authority.isBlank()) {
+            EventLog.error(this, "Keine openScale-Verbindung gespeichert");
             stopSelf();
             return;
         }
-        int currentAge = BirthDateUtils.ageToday(birthDate);
-        if (currentAge < 18 || currentAge > 120) {
-            EventLog.error(this,
-                    "Kein gültiger Geburtstag gespeichert – bitte Konfiguration öffnen");
+        if (profiles.isEmpty()) {
+            EventLog.error(this, "Kein aktives Benutzerprofil eingerichtet");
             stopSelf();
             return;
         }
-        if (height < 100f || height > 230f) {
-            EventLog.error(this,
-                    "Keine gültige Körpergröße gespeichert – bitte Konfiguration öffnen");
-            stopSelf();
-            return;
+        long now = System.currentTimeMillis();
+        for (UserProfile profile : profiles) {
+            if (!profile.hasValidBodyData(now) || !profile.hasValidMatchingData()) {
+                EventLog.error(this, "Benutzerprofil unvollständig: " + profile.name);
+                stopSelf();
+                return;
+            }
         }
 
         BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
@@ -137,7 +152,8 @@ public final class ScaleScanService extends Service {
         try {
             scanner.startScan(Collections.singletonList(filter), settings, callback);
             scanRunning = true;
-            EventLog.info(this, "Überwachung aktiv – warte auf Waage");
+            EventLog.info(this,
+                    "Überwachung aktiv – " + profiles.size() + " Benutzerprofile bereit");
             EventLog.debug(this, "BLE-Scan aktiv für " + mac);
             updateMonitor("Warte auf S400-Messung");
         } catch (RuntimeException e) {
@@ -192,30 +208,87 @@ public final class ScaleScanService extends Service {
             updateMonitor("Warte auf nächste Messung");
             return;
         }
-        if (outcome.finalized != null) {
-            S400Aggregator.Finalized value = outcome.finalized;
+        if (outcome.finalized == null) return;
+
+        S400Aggregator.Finalized value = outcome.finalized;
+        EventLog.info(this, String.format(
+                Locale.GERMANY,
+                "Messung erkannt: %.1f kg",
+                value.weightKg));
+        EventLog.debug(this, String.format(
+                Locale.GERMANY,
+                "S400 entschlüsselt: %.1f kg | Impedanz %.1f/%.1f Ω",
+                value.weightKg,
+                value.impedanceHigh,
+                value.impedanceLow == null ? value.impedanceHigh : value.impedanceLow));
+        routeMeasurement(value);
+    }
+
+    private void routeMeasurement(S400Aggregator.Finalized measurement) {
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
+        UserMatcher.Result match = UserMatcher.match(profiles, measurement.weightKg);
+        EventLog.debug(this, "Benutzerabgleich: " + UserMatcher.diagnosticSummary(match));
+
+        if (match.status == UserMatcher.Status.MATCHED && match.profile != null) {
             EventLog.info(this, String.format(
                     Locale.GERMANY,
-                    "Messung erkannt: %.1f kg",
-                    value.weightKg));
-            EventLog.debug(this, String.format(
-                    Locale.GERMANY,
-                    "S400 entschlüsselt: %.1f kg | Impedanz %.1f/%.1f Ω",
-                    value.weightKg,
-                    value.impedanceHigh,
-                    value.impedanceLow == null ? value.impedanceHigh : value.impedanceLow));
-            updateMonitor(String.format(Locale.GERMANY, "Messung erkannt: %.1f kg", value.weightKg));
-            importMeasurement(value);
+                    "Automatisch zugeordnet: %.1f kg → %s",
+                    measurement.weightKg,
+                    match.profile.name));
+            updateMonitor("Messung für " + match.profile.name + " erkannt");
+            processMeasurement(measurement, match.profile);
+            return;
+        }
+
+        String reason = match.status == UserMatcher.Status.AMBIGUOUS
+                ? "mehrere ähnlich passende Benutzer"
+                : "kein Benutzer innerhalb der Gewichtstoleranz";
+        PendingMeasurementStore.Item pending = PendingMeasurementStore.add(
+                prefs,
+                measurement,
+                reason);
+        EventLog.warning(this, String.format(
+                Locale.GERMANY,
+                "Messung %.1f kg nicht zugeordnet – %s",
+                measurement.weightKg,
+                reason));
+        EventLog.debug(this, "Offene Messung gespeichert: " + pending.id);
+        updateMonitor("Benutzerzuordnung erforderlich");
+        updateAssignmentNotification();
+    }
+
+    private void assignPending(String pendingId, long userId) {
+        if (pendingId == null || pendingId.isBlank() || userId < 0L) return;
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        PendingMeasurementStore.Item pending = PendingMeasurementStore.find(prefs, pendingId);
+        UserProfile profile = UserProfileStore.find(UserProfileStore.load(prefs), userId);
+        if (pending == null) {
+            EventLog.warning(this, "Die offene Messung wurde nicht mehr gefunden");
+            updateAssignmentNotification();
+            return;
+        }
+        if (profile == null || !profile.enabled || !profile.hasValidBodyData(pending.timestampMs)) {
+            EventLog.error(this, "Gewähltes Benutzerprofil ist nicht verfügbar oder unvollständig");
+            return;
+        }
+
+        EventLog.info(this, String.format(
+                Locale.GERMANY,
+                "Manuell zugeordnet: %.1f kg → %s",
+                pending.weightKg,
+                profile.name));
+        if (processMeasurement(pending.toMeasurement(), profile)) {
+            PendingMeasurementStore.remove(prefs, pending.id);
+            updateAssignmentNotification();
         }
     }
 
-    private void importMeasurement(S400Aggregator.Finalized measurement) {
+    private boolean processMeasurement(S400Aggregator.Finalized measurement,
+                                       UserProfile profile) {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         String authority = prefs.getString("openscale_authority", "");
-        long userId = prefs.getLong("openscale_user_id", -1L);
-        LocalDate birthDate = BirthDateUtils.parseIso(prefs.getString("birth_date", ""));
-        float height = prefs.getFloat("height_cm", 0f);
-        boolean male = prefs.getInt("sex", 0) == 1;
+        LocalDate birthDate = BirthDateUtils.parseIso(profile.birthDateIso);
         long timestamp = measurement.timestampMs > 0L
                 ? measurement.timestampMs
                 : System.currentTimeMillis();
@@ -223,9 +296,9 @@ public final class ScaleScanService extends Service {
 
         if (age < 18 || age > 120) {
             EventLog.error(this,
-                    "Messung nicht übernommen: Alter konnte aus dem Geburtstag nicht berechnet werden");
+                    "Messung nicht übernommen: Geburtstag von " + profile.name + " prüfen");
             updateMonitor("Geburtstag prüfen");
-            return;
+            return false;
         }
 
         float lowImpedance = measurement.impedanceLow != null
@@ -234,37 +307,55 @@ public final class ScaleScanService extends Service {
         S400BodyComposition.Result composition = S400BodyComposition.compute(
                 new S400BodyComposition.Inputs(
                         age,
-                        male,
-                        height,
+                        profile.male,
+                        profile.heightCm,
                         measurement.weightKg,
                         measurement.impedanceHigh,
                         lowImpedance));
 
         if (measurement.timedOut) {
             EventLog.warning(this,
-                    "Messung unvollständig: zweites Impedanzpaket fehlte; Ersatzberechnung verwendet");
+                    "Messung für " + profile.name
+                            + " unvollständig: zweites Impedanzpaket fehlte");
         }
         if (composition.impedanceLabelsSwapped) {
             EventLog.debug(this, "Impedanzbänder waren vertauscht und wurden korrigiert");
         }
-        EventLog.debug(this, buildCalculationLog(age, measurement, composition));
+        EventLog.debug(this, buildCalculationLog(profile.name, age, measurement, composition));
 
+        boolean openScaleStored;
         try {
             OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
             prefs.edit().putInt("openscale_api_version", meta.apiVersion).apply();
             OpenScaleProvider.InsertResult result = OpenScaleProvider.insertMeasurement(
                     this,
                     authority,
-                    userId,
+                    profile.userId,
                     timestamp,
                     meta.apiVersion,
                     measurement,
                     composition);
-            logProviderResult(result);
+            openScaleStored = logProviderResult(result, profile.name);
+            if (openScaleStored) {
+                float average = OpenScaleProvider.readAverageRecentWeight(
+                        this,
+                        authority,
+                        profile.userId,
+                        5);
+                if (average > 0f) {
+                    UserProfileStore.updateReferenceWeight(prefs, profile.userId, average);
+                    EventLog.debug(this, String.format(
+                            Locale.GERMANY,
+                            "Referenzgewicht %s aktualisiert: %.1f kg",
+                            profile.name,
+                            average));
+                }
+            }
         } catch (SecurityException e) {
             EventLog.error(this,
                     "openScale-Zugriff verweigert – Berechtigung erneut erteilen");
             updateMonitor("openScale-Berechtigung fehlt");
+            return false;
         } catch (RuntimeException e) {
             EventLog.error(this,
                     "Übergabe an openScale fehlgeschlagen: "
@@ -272,16 +363,27 @@ public final class ScaleScanService extends Service {
                             + " – "
                             + safeMessage(e));
             updateMonitor("openScale-Übergabe fehlgeschlagen");
+            return false;
         }
 
-        writeToHealthConnect(prefs, timestamp, measurement, composition);
+        if (openScaleStored) {
+            writeToHealthConnect(prefs, profile, timestamp, measurement, composition);
+        }
+        return openScaleStored;
     }
 
     private void writeToHealthConnect(SharedPreferences prefs,
+                                      UserProfile profile,
                                       long timestamp,
                                       S400Aggregator.Finalized measurement,
                                       S400BodyComposition.Result composition) {
         if (!prefs.getBoolean("health_connect_enabled", false)) return;
+        long healthUserId = prefs.getLong("health_connect_user_id", -1L);
+        if (profile.userId != healthUserId) {
+            EventLog.debug(this,
+                    "Health Connect übersprungen: " + profile.name + " ist nicht der Hauptbenutzer");
+            return;
+        }
 
         HealthConnectSelection selection = HealthConnectSelection.fromPreferences(prefs);
         if (selection.count() == 0) {
@@ -295,7 +397,7 @@ public final class ScaleScanService extends Service {
                 this,
                 timestamp,
                 scaleMac,
-                prefs.getFloat("height_cm", 0f),
+                profile.heightCm,
                 measurement,
                 composition,
                 selection,
@@ -303,9 +405,8 @@ public final class ScaleScanService extends Service {
                     @Override public void onSuccess(int writtenRecordCount, String writtenValues) {
                         EventLog.info(
                                 ScaleScanService.this,
-                                "Health Connect: "
-                                        + writtenRecordCount
-                                        + " Werte gespeichert");
+                                "Health Connect: " + profile.name + " – "
+                                        + writtenRecordCount + " Werte gespeichert");
                         EventLog.debug(
                                 ScaleScanService.this,
                                 "Health Connect geschrieben: " + writtenValues);
@@ -319,48 +420,50 @@ public final class ScaleScanService extends Service {
                 });
     }
 
-    private void logProviderResult(OpenScaleProvider.InsertResult result) {
+    private boolean logProviderResult(OpenScaleProvider.InsertResult result, String userName) {
         if (!result.measurementVerified) {
             EventLog.error(this,
-                    "openScale-Übergabe konnte nach dem Schreiben nicht bestätigt werden");
+                    "openScale-Übergabe für " + userName
+                            + " konnte nicht bestätigt werden");
             updateMonitor("Übergabe nicht bestätigt");
-            return;
+            return false;
         }
 
         if (result.apiVersion < 2) {
             EventLog.info(this,
-                    "openScale gespeichert – 4 Grundwerte (Provider-API 1)");
+                    "openScale: " + userName + " – 4 Grundwerte gespeichert");
             EventLog.debug(this,
                     "Provider-API 1 unterstützt extern nur Gewicht, Fett, Wasser und Muskel");
-            updateMonitor("Messung gespeichert – 4 Grundwerte");
-            return;
+            updateMonitor("Messung für " + userName + " gespeichert");
+            return true;
         }
 
         if (result.additionalValuesVerified) {
             EventLog.info(this,
-                    "openScale: vollständige Messung gespeichert ("
-                            + result.storedValueCount
-                            + " Werte)");
+                    "openScale: " + userName + " – vollständige Messung gespeichert ("
+                            + result.storedValueCount + " Werte)");
             EventLog.debug(this,
                     "openScale Provider-API " + result.apiVersion + " erfolgreich geprüft");
-            updateMonitor("Vollständige Messung gespeichert");
-        } else {
-            EventLog.warning(this,
-                    "openScale-Grundmessung gespeichert, Zusatzwerte aber nicht bestätigt");
-            EventLog.debug(this,
-                    "Provider-API " + result.apiVersion
-                            + " meldete keine bestätigten Zusatzwerte");
-            updateMonitor("Grundmessung gespeichert");
+            updateMonitor("Messung für " + userName + " gespeichert");
+            return true;
         }
+
+        EventLog.warning(this,
+                "openScale: " + userName
+                        + " – Grundmessung gespeichert, Zusatzwerte nicht bestätigt");
+        updateMonitor("Grundmessung für " + userName + " gespeichert");
+        return true;
     }
 
-    private String buildCalculationLog(int age,
+    private String buildCalculationLog(String userName,
+                                       int age,
                                        S400Aggregator.Finalized measurement,
                                        S400BodyComposition.Result composition) {
         StringBuilder text = new StringBuilder();
         text.append(String.format(
                 Locale.GERMANY,
-                "S400 ausgewertet (Alter %d): %.1f kg",
+                "S400 ausgewertet für %s (Alter %d): %.1f kg",
+                userName,
                 age,
                 measurement.weightKg));
         appendValue(text, "BMI", composition.bmi, "");
@@ -427,22 +530,66 @@ public final class ScaleScanService extends Service {
                 .build();
     }
 
+    private Notification assignmentNotification(PendingMeasurementStore.Item item, int count) {
+        PendingIntent open = PendingIntent.getActivity(
+                this,
+                3,
+                new Intent(this, MainActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        String text = String.format(
+                Locale.GERMANY,
+                "%.1f kg – Benutzer auswählen%s",
+                item.weightKg,
+                count > 1 ? " (" + count + " offen)" : "");
+        return new Notification.Builder(this, CHANNEL_ASSIGNMENT)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("Messung nicht eindeutig zugeordnet")
+                .setContentText(text)
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .build();
+    }
+
+    private void updateAssignmentNotification() {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        List<PendingMeasurementStore.Item> pending = PendingMeasurementStore.load(
+                getSharedPreferences("prefs", MODE_PRIVATE));
+        if (pending.isEmpty()) {
+            manager.cancel(NOTIFICATION_ASSIGNMENT);
+        } else {
+            manager.notify(
+                    NOTIFICATION_ASSIGNMENT,
+                    assignmentNotification(pending.get(0), pending.size()));
+        }
+    }
+
     private void updateMonitor(String text) {
         ((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
                 .notify(NOTIFICATION_MONITOR, monitorNotification(text));
     }
 
-    private void createChannel() {
+    private void createChannels() {
         NotificationManager manager =
                 (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        NotificationChannel channel = new NotificationChannel(
+        NotificationChannel monitor = new NotificationChannel(
                 CHANNEL_MONITOR,
                 "Waagenüberwachung",
                 NotificationManager.IMPORTANCE_LOW);
-        channel.setSound(null, null);
-        channel.enableVibration(false);
-        channel.setShowBadge(false);
-        manager.createNotificationChannel(channel);
+        monitor.setSound(null, null);
+        monitor.enableVibration(false);
+        monitor.setShowBadge(false);
+        manager.createNotificationChannel(monitor);
+
+        NotificationChannel assignment = new NotificationChannel(
+                CHANNEL_ASSIGNMENT,
+                "Benutzerzuordnung",
+                NotificationManager.IMPORTANCE_LOW);
+        assignment.setSound(null, null);
+        assignment.enableVibration(false);
+        assignment.setShowBadge(true);
+        manager.createNotificationChannel(assignment);
     }
 
     private void stopScan() {

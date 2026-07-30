@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ScaleLauncher 2.9"
+            android:text="ScaleLauncher 3.0"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textStyle="bold" />
 
@@ -21,7 +21,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Entschlüsselt S400-Werbepakete und schreibt Messungen direkt in openScale sowie optional parallel nach Health Connect. Keine der beiden Apps muss beim Wiegen geöffnet sein." />
+            android:text="Ordnet S400-Messungen anhand des Gewichts automatisch openScale-Benutzern zu. Unsichere Messungen bleiben gespeichert, bis ein Benutzer ausgewählt wurde." />
 
         <TextView
             android:layout_width="wrap_content"
@@ -61,8 +61,9 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="openScale-Benutzer" />
+            android:layout_marginTop="18dp"
+            android:text="Benutzerprofile"
+            android:textStyle="bold" />
 
         <Spinner
             android:id="@+id/openScaleUser"
@@ -81,89 +82,12 @@
             android:layout_height="wrap_content"
             android:text="openScale: noch nicht geprüft" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Health Connect"
-            android:textStyle="bold" />
-
         <CheckBox
-            android:id="@+id/healthConnectEnabled"
+            android:id="@+id/profileEnabled"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Messungen parallel nach Health Connect schreiben" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="Zu übertragende Werte auswählen:" />
-
-        <CheckBox
-            android:id="@+id/hcWeight"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Gewicht" />
-
-        <CheckBox
-            android:id="@+id/hcBodyFat"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Körperfett" />
-
-        <CheckBox
-            android:id="@+id/hcBodyWater"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Körperwassermasse" />
-
-        <CheckBox
-            android:id="@+id/hcBoneMass"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Knochenmasse" />
-
-        <CheckBox
-            android:id="@+id/hcLeanBodyMass"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Fettfreie Masse" />
-
-        <CheckBox
-            android:id="@+id/hcBmr"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Grundumsatz" />
-
-        <CheckBox
-            android:id="@+id/hcBmi"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="BMI ermöglichen (Gewicht + Größe übertragen)" />
-
-        <Button
-            android:id="@+id/connectHealthConnect"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Schreibrechte für ausgewählte Werte erlauben" />
-
-        <TextView
-            android:id="@+id/healthConnectStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Health Connect: noch nicht geprüft" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="ScaleLauncher liest keine Daten aus Health Connect. Health Connect besitzt keinen eigenen BMI-Datentyp. Bei aktivierter BMI-Option werden Gewicht und Körpergröße übertragen, damit kompatible Apps den BMI berechnen können. Nicht ausgewählte Werte werden nicht geschrieben." />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Körperdaten für die vollständige Körperanalyse" />
+            android:layout_marginTop="8dp"
+            android:text="Diesen Benutzer automatisch zuordnen" />
 
         <EditText
             android:id="@+id/birthDate"
@@ -200,17 +124,132 @@
                 android:text="Männlich" />
         </RadioGroup>
 
+        <EditText
+            android:id="@+id/referenceWeight"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Referenzgewicht in kg"
+            android:inputType="numberDecimal"
+            android:maxLines="1" />
+
+        <EditText
+            android:id="@+id/weightTolerance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Zulässige Abweichung in kg, z. B. 3,0"
+            android:inputType="numberDecimal"
+            android:maxLines="1" />
+
+        <CheckBox
+            android:id="@+id/healthConnectProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Health Connect nur für diesen Benutzer verwenden" />
+
+        <Button
+            android:id="@+id/saveProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Dieses Benutzerprofil speichern" />
+
+        <TextView
+            android:id="@+id/profileStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Noch kein Profil ausgewählt" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Das Referenzgewicht wird beim Laden aus den letzten fünf openScale-Messungen vorgeschlagen. Nach jeder eindeutig zugeordneten Messung wird es automatisch aktualisiert. Bei weniger als 1 kg Vorsprung zum zweitbesten Profil wird nicht geraten." />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Nicht zugeordnete Messungen"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/pendingStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Keine offene Messung" />
+
+        <Spinner
+            android:id="@+id/pendingUser"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/assignPending"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Zuordnen" />
+            <Button
+                android:id="@+id/discardPending"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Verwerfen" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Health Connect"
+            android:textStyle="bold" />
+
+        <CheckBox
+            android:id="@+id/healthConnectEnabled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Messungen des festgelegten Hauptbenutzers nach Health Connect schreiben" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Zu übertragende Werte auswählen:" />
+
+        <CheckBox android:id="@+id/hcWeight" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Gewicht" />
+        <CheckBox android:id="@+id/hcBodyFat" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Körperfett" />
+        <CheckBox android:id="@+id/hcBodyWater" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Körperwassermasse" />
+        <CheckBox android:id="@+id/hcBoneMass" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Knochenmasse" />
+        <CheckBox android:id="@+id/hcLeanBodyMass" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Fettfreie Masse" />
+        <CheckBox android:id="@+id/hcBmr" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Grundumsatz" />
+        <CheckBox android:id="@+id/hcBmi" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="BMI ermöglichen (Gewicht + Größe übertragen)" />
+
+        <Button
+            android:id="@+id/connectHealthConnect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Schreibrechte für ausgewählte Werte erlauben" />
+
+        <TextView
+            android:id="@+id/healthConnectStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Health Connect: noch nicht geprüft" />
+
         <CheckBox
             android:id="@+id/autoStart"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
             android:text="Nach Neustart automatisch starten" />
 
         <Button
             android:id="@+id/saveStart"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Speichern und Überwachung starten" />
+            android:text="Konfiguration speichern und Überwachung starten" />
 
         <Button
             android:id="@+id/stop"
@@ -244,7 +283,7 @@
             android:id="@+id/diagnosticLogging"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Diagnoseprotokoll aktivieren (detaillierte Messwerte und technische Hinweise)" />
+            android:text="Diagnoseprotokoll aktivieren (detaillierte Messwerte und Zuordnungsgründe)" />
 
         <TextView
             android:id="@+id/logInfo"
@@ -256,24 +295,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
-            <Button
-                android:id="@+id/refreshLog"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Aktualisieren" />
-            <Button
-                android:id="@+id/copyLog"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Kopieren" />
-            <Button
-                android:id="@+id/clearLog"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Leeren" />
+            <Button android:id="@+id/refreshLog" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Aktualisieren" />
+            <Button android:id="@+id/copyLog" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Kopieren" />
+            <Button android:id="@+id/clearLog" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Leeren" />
         </LinearLayout>
 
         <TextView
