@@ -12,7 +12,7 @@ import java.util.Locale;
 final class EventLog {
     private static final String PREFS = "event_log";
     private static final String KEY = "lines";
-    private static final int MAX_LINES = 80;
+    private static final int MAX_LINES = 250;
 
     static synchronized void add(Context context, String message) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);

@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ScaleLauncher 1.0"
+            android:text="ScaleLauncher 2.0"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textStyle="bold" />
 
@@ -21,7 +21,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Erkennt das Einschalten deiner BLE-Waage und öffnet openScale. Beim Start wartet der Dienst zuerst, bis die Waage wirklich aus ist." />
+            android:text="Analysiert die BLE-Werbepakete deiner Waage. Änderungen werden protokolliert und können openScale auslösen." />
 
         <TextView
             android:layout_width="wrap_content"
@@ -120,6 +120,13 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Aktualisieren" />
+
+            <Button
+                android:id="@+id/copyLog"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Kopieren" />
 
             <Button
                 android:id="@+id/clearLog"

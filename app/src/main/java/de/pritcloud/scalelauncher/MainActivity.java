@@ -2,6 +2,8 @@ package de.pritcloud.scalelauncher;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -69,6 +71,12 @@ public final class MainActivity extends Activity {
             Toast.makeText(this, "Teststart angefordert", Toast.LENGTH_SHORT).show();
         });
         findViewById(R.id.refreshLog).setOnClickListener(v -> refreshLog());
+        findViewById(R.id.copyLog).setOnClickListener(v -> {
+            String text = EventLog.read(this);
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(ClipData.newPlainText("ScaleLauncher-Protokoll", text));
+            Toast.makeText(this, "Protokoll kopiert", Toast.LENGTH_SHORT).show();
+        });
         findViewById(R.id.clearLog).setOnClickListener(v -> {
             EventLog.clear(this);
             refreshLog();

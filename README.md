@@ -1,40 +1,20 @@
-# ScaleLauncher 1.0
+# ScaleLauncher 2.0 – BLE-Diagnose
 
-Eigenständige, quelloffene Android-App, die eine ausgewählte Bluetooth-LE-Waage erkennt und openScale öffnet.
+Eigenständiges Projekt. Diese Version analysiert die tatsächlichen BLE-Werbepakete der ausgewählten Waage, statt auf ein vollständiges Verschwinden des Geräts zu warten.
 
-## Architektur
+## Neu
 
-ScaleLauncher bleibt bewusst von openScale und openScale Sync getrennt. Es greift nicht auf interne Klassen von openScale zu, sondern nutzt ausschließlich den offiziellen Android-App-Startmechanismus.
+- Protokolliert das erste BLE-Muster und jede Änderung der Rohdaten.
+- Zeigt RSSI, Connectable, TX-Power, Manufacturer Data, Service Data, UUIDs und RAW-Paket.
+- Startet openScale versuchsweise, wenn nach einer 8-sekündigen Lernphase ein anderes BLE-Muster erscheint.
+- 25 Sekunden Auslösesperre gegen Mehrfachstarts.
+- Schaltfläche **Kopieren**, die das komplette Protokoll in die Zwischenablage legt.
+- Keine Internetberechtigung, keine Tracker, keine Cloud.
 
-Die Erkennung wurde für 1.0 neu aufgebaut:
+## Testablauf
 
-1. Nach Dienststart ist die App **nicht scharf**.
-2. Sie wartet, bis von der Waage mehrere Sekunden kein BLE-Signal mehr kommt.
-3. Erst dann ist sie **bereit**.
-4. Beim nächsten Einschalten müssen mindestens zwei Pakete in kurzer Folge eintreffen.
-5. openScale wird genau einmal gestartet.
-6. Eine neue Messung ist erst möglich, nachdem die Waage wieder vollständig verschwunden ist.
+1. Überwachung starten und die Waage 10 Sekunden nicht betreten.
+2. Danach einmal normal auf die Waage stellen.
+3. Protokoll mit **Kopieren** kopieren und zur Auswertung bereitstellen.
 
-Damit gibt es weder eine künstliche Startphase noch einen pauschalen Cooldown.
-
-## openScale-Erkenntnisse
-
-- openScale unterstützt die Xiaomi S400 und benötigt dafür den BLE-Bind-Key.
-- Die aktuelle App-Struktur stellt keinen dokumentierten, exportierten Hintergrunddienst oder öffentlichen Broadcast bereit, über den eine andere App eine Messung direkt starten könnte.
-- ScaleLauncher startet daher nur die normale openScale-App. openScale muss dort für automatisches Verbinden eingerichtet sein.
-- Android kann das Öffnen einer App aus dem Hintergrund oder bei gesperrtem Gerät blockieren. ScaleLauncher zeigt dann zusätzlich eine antippbare Benachrichtigung.
-
-## Datenschutz
-
-- keine Internetberechtigung
-- keine Tracker
-- keine Werbung
-- keine Cloud
-
-## Build
-
-Jeder Push auf `main` baut per GitHub Actions eine Debug-APK. Das Artefakt heißt `ScaleLauncher-debug-apk`.
-
-## Lizenz
-
-GPL-3.0
+Die automatische Erkennung ist in 2.0 bewusst experimentell. Entscheidend sind zunächst die protokollierten Paketänderungen.
