@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ScaleLauncher 2.7"
+            android:text="ScaleLauncher 2.8"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textStyle="bold" />
 
@@ -88,18 +88,6 @@
             android:text="Health Connect"
             android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/connectHealthConnect"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Health Connect verbinden" />
-
-        <TextView
-            android:id="@+id/healthConnectStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Health Connect: noch nicht geprüft" />
-
         <CheckBox
             android:id="@+id/healthConnectEnabled"
             android:layout_width="match_parent"
@@ -109,7 +97,67 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Übertragen werden Gewicht, Körperfett, Körperwasser, Knochenmasse, fettfreie Masse, Grundumsatz und Puls. ScaleLauncher liest keine Daten aus Health Connect." />
+            android:layout_marginTop="6dp"
+            android:text="Zu übertragende Werte auswählen:" />
+
+        <CheckBox
+            android:id="@+id/hcWeight"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gewicht" />
+
+        <CheckBox
+            android:id="@+id/hcBodyFat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Körperfett" />
+
+        <CheckBox
+            android:id="@+id/hcBodyWater"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Körperwassermasse" />
+
+        <CheckBox
+            android:id="@+id/hcBoneMass"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Knochenmasse" />
+
+        <CheckBox
+            android:id="@+id/hcLeanBodyMass"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Fettfreie Masse" />
+
+        <CheckBox
+            android:id="@+id/hcBmr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Grundumsatz" />
+
+        <CheckBox
+            android:id="@+id/hcHeartRate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Puls" />
+
+        <Button
+            android:id="@+id/connectHealthConnect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Schreibrechte für ausgewählte Werte erlauben" />
+
+        <TextView
+            android:id="@+id/healthConnectStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Health Connect: noch nicht geprüft" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ScaleLauncher liest keine Daten aus Health Connect. Nicht ausgewählte Werte werden nicht geschrieben, auch wenn Android dafür früher bereits eine Berechtigung erteilt hat." />
 
         <TextView
             android:layout_width="wrap_content"
@@ -191,6 +239,18 @@
             android:layout_marginTop="18dp"
             android:text="Ereignisprotokoll"
             android:textStyle="bold" />
+
+        <CheckBox
+            android:id="@+id/diagnosticLogging"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Diagnoseprotokoll aktivieren (detaillierte Messwerte und technische Hinweise)" />
+
+        <TextView
+            android:id="@+id/logInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Im Normalmodus werden nur wichtige Statusmeldungen, erfolgreiche Übergaben und Fehler gespeichert. Alte Einträge werden automatisch gelöscht." />
 
         <LinearLayout
             android:layout_width="match_parent"

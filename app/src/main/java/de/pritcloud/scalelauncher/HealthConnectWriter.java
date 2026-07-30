@@ -27,11 +27,25 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-/** Writes one completed S400 measurement directly to Android Health Connect. */
+/** Writes selected values from one completed S400 measurement to Android Health Connect. */
 final class HealthConnectWriter {
     interface Callback {
-        void onSuccess(int writtenRecordCount);
+        void onSuccess(int writtenRecordCount, String writtenValues);
         void onError(String message);
+    }
+
+    private static final class BuiltRecords {
+        final List<Record> records = new ArrayList<>();
+        final List<String> labels = new ArrayList<>();
+
+        void add(Record record, String label) {
+            records.add(record);
+            labels.add(label);
+        }
+
+        String summary() {
+            return String.join(", ", labels);
+        }
     }
 
     private HealthConnectWriter() {}
@@ -41,13 +55,18 @@ final class HealthConnectWriter {
                       String scaleMac,
                       S400Aggregator.Finalized measurement,
                       S400BodyComposition.Result composition,
+                      HealthConnectSelection selection,
                       Callback callback) {
         if (!HealthConnectSupport.isSupported()) {
             callback.onError("Health Connect benötigt Android 14 oder neuer");
             return;
         }
-        if (!HealthConnectSupport.hasAllWritePermissions(context)) {
-            callback.onError("Schreibrechte fehlen – in ScaleLauncher erneut verbinden");
+        if (selection == null || selection.count() == 0) {
+            callback.onError("Keine Health-Connect-Werte ausgewählt");
+            return;
+        }
+        if (!HealthConnectSupport.hasWritePermissions(context, selection)) {
+            callback.onError("Schreibrechte für die ausgewählten Werte fehlen");
             return;
         }
 
@@ -58,25 +77,26 @@ final class HealthConnectWriter {
         }
 
         try {
-            List<Record> records = buildRecords(
+            BuiltRecords built = buildRecords(
                     timestampMs,
                     scaleMac,
                     measurement,
-                    composition);
-            if (records.isEmpty()) {
-                callback.onError("Keine gültigen Health-Connect-Werte vorhanden");
+                    composition,
+                    selection);
+            if (built.records.isEmpty()) {
+                callback.onError("Keine gültigen ausgewählten Health-Connect-Werte vorhanden");
                 return;
             }
 
             manager.insertRecords(
-                    records,
+                    built.records,
                     context.getMainExecutor(),
                     new OutcomeReceiver<InsertRecordsResponse, HealthConnectException>() {
                         @Override public void onResult(InsertRecordsResponse response) {
                             int count = response == null || response.getRecords() == null
-                                    ? records.size()
+                                    ? built.records.size()
                                     : response.getRecords().size();
-                            callback.onSuccess(count);
+                            callback.onSuccess(count, built.summary());
                         }
 
                         @Override public void onError(HealthConnectException error) {
@@ -96,10 +116,11 @@ final class HealthConnectWriter {
         }
     }
 
-    private static List<Record> buildRecords(long timestampMs,
-                                             String scaleMac,
-                                             S400Aggregator.Finalized measurement,
-                                             S400BodyComposition.Result composition) {
+    private static BuiltRecords buildRecords(long timestampMs,
+                                              String scaleMac,
+                                              S400Aggregator.Finalized measurement,
+                                              S400BodyComposition.Result composition,
+                                              HealthConnectSelection selection) {
         Instant time = Instant.ofEpochMilli(timestampMs);
         ZoneOffset offset = ZoneId.systemDefault().getRules().getOffset(time);
         String normalizedMac = scaleMac == null
@@ -113,80 +134,81 @@ final class HealthConnectWriter {
                 .setType(Device.DEVICE_TYPE_SCALE)
                 .build();
 
-        List<Record> records = new ArrayList<>();
+        BuiltRecords built = new BuiltRecords();
 
-        if (isPositive(measurement.weightKg)) {
-            records.add(new WeightRecord.Builder(
+        if (selection.weight && isPositive(measurement.weightKg)) {
+            built.add(new WeightRecord.Builder(
                     metadata(baseId + "-weight", scale),
                     time,
                     kilograms(measurement.weightKg))
                     .setZoneOffset(offset)
-                    .build());
+                    .build(), "Gewicht");
         }
 
-        if (isPercent(composition.bodyFatPercent)) {
-            records.add(new BodyFatRecord.Builder(
+        if (selection.bodyFat && isPercent(composition.bodyFatPercent)) {
+            built.add(new BodyFatRecord.Builder(
                     metadata(baseId + "-body-fat", scale),
                     time,
                     Percentage.fromValue(composition.bodyFatPercent))
                     .setZoneOffset(offset)
-                    .build());
+                    .build(), "Körperfett");
         }
 
-        if (isPositive(composition.totalBodyWaterKg)) {
-            records.add(new BodyWaterMassRecord.Builder(
+        if (selection.bodyWater && isPositive(composition.totalBodyWaterKg)) {
+            built.add(new BodyWaterMassRecord.Builder(
                     metadata(baseId + "-body-water", scale),
                     time,
                     kilograms(composition.totalBodyWaterKg))
                     .setZoneOffset(offset)
-                    .build());
+                    .build(), "Körperwasser");
         }
 
-        if (isPositive(composition.boneKg)) {
-            records.add(new BoneMassRecord.Builder(
+        if (selection.boneMass && isPositive(composition.boneKg)) {
+            built.add(new BoneMassRecord.Builder(
                     metadata(baseId + "-bone-mass", scale),
                     time,
                     kilograms(composition.boneKg))
                     .setZoneOffset(offset)
-                    .build());
+                    .build(), "Knochenmasse");
         }
 
-        if (isPositive(composition.fatFreeMassKg)) {
-            records.add(new LeanBodyMassRecord.Builder(
+        if (selection.leanBodyMass && isPositive(composition.fatFreeMassKg)) {
+            built.add(new LeanBodyMassRecord.Builder(
                     metadata(baseId + "-lean-body-mass", scale),
                     time,
                     kilograms(composition.fatFreeMassKg))
                     .setZoneOffset(offset)
-                    .build());
+                    .build(), "fettfreie Masse");
         }
 
-        if (isPositive(composition.basalMetabolicRateKcal)) {
+        if (selection.basalMetabolicRate && isPositive(composition.basalMetabolicRateKcal)) {
             double watts = composition.basalMetabolicRateKcal * 4184.0d / 86_400.0d;
-            records.add(new BasalMetabolicRateRecord.Builder(
+            built.add(new BasalMetabolicRateRecord.Builder(
                     metadata(baseId + "-bmr", scale),
                     time,
                     Power.fromWatts(watts))
                     .setZoneOffset(offset)
-                    .build());
+                    .build(), "Grundumsatz");
         }
 
-        if (measurement.heartRate != null
+        if (selection.heartRate
+                && measurement.heartRate != null
                 && measurement.heartRate > 0
                 && measurement.heartRate <= 300) {
             Instant endTime = time.plusSeconds(1);
             HeartRateRecord.HeartRateSample sample =
                     new HeartRateRecord.HeartRateSample(measurement.heartRate, time);
-            records.add(new HeartRateRecord.Builder(
+            built.add(new HeartRateRecord.Builder(
                     metadata(baseId + "-heart-rate", scale),
                     time,
                     endTime,
                     Collections.singletonList(sample))
                     .setStartZoneOffset(offset)
                     .setEndZoneOffset(offset)
-                    .build());
+                    .build(), "Puls");
         }
 
-        return records;
+        return built;
     }
 
     private static Metadata metadata(String clientRecordId, Device scale) {

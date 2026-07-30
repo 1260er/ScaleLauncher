@@ -48,6 +48,14 @@ public final class MainActivity extends Activity {
     private EditText heightCm;
     private CheckBox autoStart;
     private CheckBox healthConnectEnabled;
+    private CheckBox hcWeight;
+    private CheckBox hcBodyFat;
+    private CheckBox hcBodyWater;
+    private CheckBox hcBoneMass;
+    private CheckBox hcLeanBodyMass;
+    private CheckBox hcBmr;
+    private CheckBox hcHeartRate;
+    private CheckBox diagnosticLogging;
     private RadioButton sexMale;
     private Spinner userSpinner;
     private TextView status;
@@ -69,6 +77,14 @@ public final class MainActivity extends Activity {
         heightCm = findViewById(R.id.heightCm);
         autoStart = findViewById(R.id.autoStart);
         healthConnectEnabled = findViewById(R.id.healthConnectEnabled);
+        hcWeight = findViewById(R.id.hcWeight);
+        hcBodyFat = findViewById(R.id.hcBodyFat);
+        hcBodyWater = findViewById(R.id.hcBodyWater);
+        hcBoneMass = findViewById(R.id.hcBoneMass);
+        hcLeanBodyMass = findViewById(R.id.hcLeanBodyMass);
+        hcBmr = findViewById(R.id.hcBmr);
+        hcHeartRate = findViewById(R.id.hcHeartRate);
+        diagnosticLogging = findViewById(R.id.diagnosticLogging);
         sexMale = findViewById(R.id.sexMale);
         userSpinner = findViewById(R.id.openScaleUser);
         status = findViewById(R.id.status);
@@ -84,9 +100,14 @@ public final class MainActivity extends Activity {
         float storedHeight = prefs.getFloat("height_cm", 0f);
         heightCm.setText(storedHeight == 0f ? "" : String.valueOf(storedHeight));
         autoStart.setChecked(prefs.getBoolean("autoStart", false));
+        diagnosticLogging.setChecked(prefs.getBoolean("diagnostic_logging", false));
+
+        HealthConnectSelection storedSelection = HealthConnectSelection.fromPreferences(prefs);
+        applyHealthConnectSelection(storedSelection);
         healthConnectEnabled.setChecked(
                 prefs.getBoolean("health_connect_enabled", false)
-                        && HealthConnectSupport.hasAllWritePermissions(this));
+                        && HealthConnectSupport.hasWritePermissions(this, storedSelection));
+
         if (prefs.getInt("sex", 0) == 1) sexMale.setChecked(true);
         else ((RadioButton) findViewById(R.id.sexFemale)).setChecked(true);
 
@@ -109,7 +130,9 @@ public final class MainActivity extends Activity {
         findViewById(R.id.refreshLog).setOnClickListener(v -> refreshLog());
         findViewById(R.id.copyLog).setOnClickListener(v -> {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            clipboard.setPrimaryClip(ClipData.newPlainText("ScaleLauncher-Protokoll", EventLog.read(this)));
+            clipboard.setPrimaryClip(ClipData.newPlainText(
+                    "ScaleLauncher-Protokoll",
+                    EventLog.read(this)));
             Toast.makeText(this, "Protokoll kopiert", Toast.LENGTH_SHORT).show();
         });
         findViewById(R.id.clearLog).setOnClickListener(v -> {
@@ -119,6 +142,32 @@ public final class MainActivity extends Activity {
         findViewById(R.id.notificationSettings).setOnClickListener(v -> startActivity(
                 new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())));
+
+        android.widget.CompoundButton.OnCheckedChangeListener selectionListener =
+                (button, checked) -> refreshHealthConnectStatus();
+        hcWeight.setOnCheckedChangeListener(selectionListener);
+        hcBodyFat.setOnCheckedChangeListener(selectionListener);
+        hcBodyWater.setOnCheckedChangeListener(selectionListener);
+        hcBoneMass.setOnCheckedChangeListener(selectionListener);
+        hcLeanBodyMass.setOnCheckedChangeListener(selectionListener);
+        hcBmr.setOnCheckedChangeListener(selectionListener);
+        hcHeartRate.setOnCheckedChangeListener(selectionListener);
+
+        diagnosticLogging.setOnCheckedChangeListener((button, enabled) -> {
+            getSharedPreferences("prefs", MODE_PRIVATE).edit()
+                    .putBoolean("diagnostic_logging", enabled)
+                    .apply();
+            EventLog.info(this, enabled
+                    ? "Diagnoseprotokoll aktiviert"
+                    : "Diagnoseprotokoll deaktiviert");
+            refreshLog();
+        });
+
+        TextView logInfo = findViewById(R.id.logInfo);
+        logInfo.setText("Im Normalmodus werden nur wichtige Statusmeldungen, erfolgreiche "
+                + "Übergaben und Fehler gespeichert. Alte Einträge werden automatisch gelöscht ("
+                + EventLog.limitDescription()
+                + ").");
 
         requestNeededPermissions();
         refreshLog();
@@ -154,13 +203,15 @@ public final class MainActivity extends Activity {
     private void prepareOpenScaleAccess() {
         openScaleAuthority = OpenScaleProvider.findAuthority(this);
         if (openScaleAuthority == null) {
-            openScaleStatus.setText("openScale-Provider nicht gefunden. Aktuelle openScale-Version installieren.");
+            openScaleStatus.setText(
+                    "openScale-Provider nicht gefunden. Aktuelle openScale-Version installieren.");
             users = new ArrayList<>();
             updateUserSpinner(-1L);
             return;
         }
         String permission = OpenScaleProvider.permissionForAuthority(openScaleAuthority);
-        if (permission != null && checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+        if (permission != null
+                && checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
             openScaleStatus.setText("openScale-Zugriff muss erlaubt werden");
             requestPermissions(new String[]{permission}, REQ_OPENSCALE_PERMISSION);
             return;
@@ -185,7 +236,8 @@ public final class MainActivity extends Activity {
         } catch (SecurityException e) {
             openScaleStatus.setText("openScale-Zugriff verweigert");
         } catch (RuntimeException e) {
-            openScaleStatus.setText("openScale-Abfrage fehlgeschlagen: " + e.getClass().getSimpleName());
+            openScaleStatus.setText(
+                    "openScale-Abfrage fehlgeschlagen: " + e.getClass().getSimpleName());
         }
     }
 
@@ -199,6 +251,27 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < users.size(); i++) {
             if (users.get(i).id == selectedId) userSpinner.setSelection(i);
         }
+    }
+
+    private void applyHealthConnectSelection(HealthConnectSelection selection) {
+        hcWeight.setChecked(selection.weight);
+        hcBodyFat.setChecked(selection.bodyFat);
+        hcBodyWater.setChecked(selection.bodyWater);
+        hcBoneMass.setChecked(selection.boneMass);
+        hcLeanBodyMass.setChecked(selection.leanBodyMass);
+        hcBmr.setChecked(selection.basalMetabolicRate);
+        hcHeartRate.setChecked(selection.heartRate);
+    }
+
+    private HealthConnectSelection healthConnectSelectionFromUi() {
+        return new HealthConnectSelection(
+                hcWeight.isChecked(),
+                hcBodyFat.isChecked(),
+                hcBodyWater.isChecked(),
+                hcBoneMass.isChecked(),
+                hcLeanBodyMass.isChecked(),
+                hcBmr.isChecked(),
+                hcHeartRate.isChecked());
     }
 
     @Override protected void onResume() {
@@ -218,7 +291,7 @@ public final class MainActivity extends Activity {
             String mac = data.getStringExtra("mac");
             if (mac != null) {
                 macAddress.setText(mac);
-                EventLog.add(this, "Waage ausgewählt: " + mac);
+                EventLog.info(this, "Waage ausgewählt: " + mac);
             }
         }
     }
@@ -237,14 +310,15 @@ public final class MainActivity extends Activity {
             return;
         }
         if (requestCode == REQ_HEALTH_CONNECT) {
+            HealthConnectSelection selection = healthConnectSelectionFromUi();
             refreshHealthConnectStatus();
-            boolean granted = HealthConnectSupport.hasAllWritePermissions(this);
-            healthConnectEnabled.setChecked(granted);
+            boolean granted = HealthConnectSupport.hasWritePermissions(this, selection);
+            if (granted) healthConnectEnabled.setChecked(true);
             Toast.makeText(
                     this,
                     granted
-                            ? "Health Connect verbunden."
-                            : "Nicht alle Health-Connect-Schreibrechte wurden erlaubt.",
+                            ? "Schreibrechte für die ausgewählten Werte wurden erlaubt."
+                            : "Nicht alle Schreibrechte für die ausgewählten Werte wurden erlaubt.",
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -262,7 +336,9 @@ public final class MainActivity extends Activity {
             return;
         }
         if (!KEY_PATTERN.matcher(key).matches()) {
-            Toast.makeText(this, "Der Bind-Key muss aus genau 32 Hex-Zeichen bestehen.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this,
+                    "Der Bind-Key muss aus genau 32 Hex-Zeichen bestehen.",
+                    Toast.LENGTH_LONG).show();
             return;
         }
         if (openScaleAuthority == null
@@ -274,11 +350,18 @@ public final class MainActivity extends Activity {
             return;
         }
 
+        HealthConnectSelection healthSelection = healthConnectSelectionFromUi();
+        if (healthConnectEnabled.isChecked() && healthSelection.count() == 0) {
+            Toast.makeText(this,
+                    "Bitte mindestens einen Health-Connect-Wert auswählen.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
         if (healthConnectEnabled.isChecked()
-                && !HealthConnectSupport.hasAllWritePermissions(this)) {
+                && !HealthConnectSupport.hasWritePermissions(this, healthSelection)) {
             requestHealthConnectPermissions();
             Toast.makeText(this,
-                    "Bitte zuerst alle Health-Connect-Schreibrechte erlauben.",
+                    "Bitte zuerst die Schreibrechte für die ausgewählten Werte erlauben.",
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -307,7 +390,7 @@ public final class MainActivity extends Activity {
         }
 
         OpenScaleProvider.User user = users.get(userSpinner.getSelectedItemPosition());
-        getSharedPreferences("prefs", MODE_PRIVATE).edit()
+        SharedPreferences.Editor editor = getSharedPreferences("prefs", MODE_PRIVATE).edit()
                 .putString("mac", mac)
                 .putString("bind_key", key)
                 .putString("openscale_authority", openScaleAuthority)
@@ -319,18 +402,23 @@ public final class MainActivity extends Activity {
                 .putInt("sex", sexMale.isChecked() ? 1 : 0)
                 .putBoolean("autoStart", autoStart.isChecked())
                 .putBoolean("health_connect_enabled", healthConnectEnabled.isChecked())
-                .apply();
+                .putBoolean("diagnostic_logging", diagnosticLogging.isChecked());
+        healthSelection.save(editor);
+        editor.apply();
 
-        EventLog.add(this,
+        EventLog.info(this,
                 "Konfiguration gespeichert – openScale-Benutzer: " + user.name
-                        + " | Provider-API " + openScaleMeta.apiVersion
-                        + " | Alter aktuell " + currentAge
                         + " | Health Connect "
-                        + (healthConnectEnabled.isChecked() ? "aktiv" : "aus"));
+                        + (healthConnectEnabled.isChecked()
+                        ? "aktiv (" + healthSelection.summary() + ")"
+                        : "aus"));
+        EventLog.debug(this,
+                "Provider-API " + openScaleMeta.apiVersion
+                        + " | Alter aktuell " + currentAge
+                        + " | Größe " + parsedHeight + " cm");
         if (!openScaleMeta.supportsGenericValues()) {
-            EventLog.add(this,
-                    "Hinweis: Provider-API 1 speichert extern nur Gewicht, Fett, Wasser und Muskel. "
-                            + "Alle weiteren S400-Werte werden dennoch lokal berechnet.");
+            EventLog.warning(this,
+                    "Provider-API 1 speichert extern nur Gewicht, Fett, Wasser und Muskel.");
         }
         startForegroundService(new Intent(this, ScaleScanService.class));
         status.setText("Status: Überwachung angefordert");
@@ -343,7 +431,14 @@ public final class MainActivity extends Activity {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        requestPermissions(HealthConnectSupport.WRITE_PERMISSIONS, REQ_HEALTH_CONNECT);
+        HealthConnectSelection selection = healthConnectSelectionFromUi();
+        if (selection.count() == 0) {
+            Toast.makeText(this,
+                    "Bitte zuerst mindestens einen Wert auswählen.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        requestPermissions(HealthConnectSupport.permissionsFor(selection), REQ_HEALTH_CONNECT);
     }
 
     private void refreshHealthConnectStatus() {
@@ -360,18 +455,23 @@ public final class MainActivity extends Activity {
 
         healthConnectEnabled.setEnabled(true);
         connectButton.setEnabled(true);
-        int granted = HealthConnectSupport.grantedWritePermissionCount(this);
-        if (granted == HealthConnectSupport.WRITE_PERMISSIONS.length) {
+        HealthConnectSelection selection = healthConnectSelectionFromUi();
+        int selected = selection.count();
+        if (selected == 0) {
+            healthConnectStatus.setText("Health Connect: keine Werte ausgewählt");
+            healthConnectEnabled.setChecked(false);
+            return;
+        }
+
+        int granted = HealthConnectSupport.grantedWritePermissionCount(this, selection);
+        if (granted == selected) {
             healthConnectStatus.setText(
-                    "Health Connect verbunden – 7 Schreibrechte vorhanden");
+                    "Health Connect bereit – " + selected + " ausgewählte Schreibrechte vorhanden");
         } else {
             healthConnectStatus.setText(
-                    "Health Connect nicht vollständig verbunden – "
-                            + granted
-                            + "/"
-                            + HealthConnectSupport.WRITE_PERMISSIONS.length
-                            + " Schreibrechte");
-            healthConnectEnabled.setChecked(false);
+                    "Health Connect: " + granted + "/" + selected
+                            + " Rechte für die ausgewählten Werte vorhanden");
+            if (healthConnectEnabled.isChecked()) healthConnectEnabled.setChecked(false);
         }
     }
 

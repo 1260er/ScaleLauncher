@@ -26,7 +26,7 @@ import java.util.Locale;
 
 public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
-    private static final String CHANNEL_MONITOR = "scale_monitor_v7";
+    private static final String CHANNEL_MONITOR = "scale_monitor_v8";
     private static final int NOTIFICATION_MONITOR = 10;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -36,6 +36,7 @@ public final class ScaleScanService extends Service {
     private BluetoothLeScanner scanner;
     private ScanCallback callback;
     private boolean scanRunning;
+    private boolean scaleSeenLogged;
     private String lastLoggedSignature;
 
     @Override public void onCreate() {
@@ -44,7 +45,7 @@ public final class ScaleScanService extends Service {
         startForeground(
                 NOTIFICATION_MONITOR,
                 monitorNotification("BLE-Überwachung wird gestartet …"));
-        EventLog.add(this, "Dienst gestartet – S400-Direktübernahme 2.7");
+        EventLog.info(this, "Dienst gestartet – S400-Direktübernahme 2.8");
         startScan();
     }
 
@@ -59,7 +60,7 @@ public final class ScaleScanService extends Service {
     private void startScan() {
         if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
                 != PackageManager.PERMISSION_GRANTED) {
-            EventLog.add(this, "Bluetooth-Scan-Berechtigung fehlt");
+            EventLog.error(this, "Bluetooth-Scan-Berechtigung fehlt");
             stopSelf();
             return;
         }
@@ -73,28 +74,30 @@ public final class ScaleScanService extends Service {
         float height = prefs.getFloat("height_cm", 0f);
 
         if (!S400Decryptor.isValidMacAddress(mac)) {
-            EventLog.add(this, "Keine gültige Waagen-MAC gespeichert");
+            EventLog.error(this, "Keine gültige Waagen-MAC gespeichert");
             stopSelf();
             return;
         }
         if (!S400Decryptor.isValidBindKey(bindKey)) {
-            EventLog.add(this, "Kein gültiger S400 Bind-Key gespeichert");
+            EventLog.error(this, "Kein gültiger S400 Bind-Key gespeichert");
             stopSelf();
             return;
         }
         if (userId < 0 || authority == null || authority.isBlank()) {
-            EventLog.add(this, "Kein openScale-Benutzer ausgewählt");
+            EventLog.error(this, "Kein openScale-Benutzer ausgewählt");
             stopSelf();
             return;
         }
         int currentAge = BirthDateUtils.ageToday(birthDate);
         if (currentAge < 18 || currentAge > 120) {
-            EventLog.add(this, "Kein gültiger Geburtstag gespeichert – bitte Konfiguration öffnen");
+            EventLog.error(this,
+                    "Kein gültiger Geburtstag gespeichert – bitte Konfiguration öffnen");
             stopSelf();
             return;
         }
         if (height < 100f || height > 230f) {
-            EventLog.add(this, "Keine gültige Körpergröße gespeichert – bitte Konfiguration öffnen");
+            EventLog.error(this,
+                    "Keine gültige Körpergröße gespeichert – bitte Konfiguration öffnen");
             stopSelf();
             return;
         }
@@ -102,13 +105,13 @@ public final class ScaleScanService extends Service {
         BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
         BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
         if (adapter == null || !adapter.isEnabled()) {
-            EventLog.add(this, "Bluetooth nicht verfügbar oder ausgeschaltet");
+            EventLog.error(this, "Bluetooth nicht verfügbar oder ausgeschaltet");
             stopSelf();
             return;
         }
         scanner = adapter.getBluetoothLeScanner();
         if (scanner == null) {
-            EventLog.add(this, "Bluetooth-Scanner nicht verfügbar");
+            EventLog.error(this, "Bluetooth-Scanner nicht verfügbar");
             stopSelf();
             return;
         }
@@ -122,7 +125,8 @@ public final class ScaleScanService extends Service {
             }
 
             @Override public void onScanFailed(int code) {
-                EventLog.add(ScaleScanService.this, "BLE-Scan fehlgeschlagen: " + code);
+                EventLog.error(ScaleScanService.this, "BLE-Scan fehlgeschlagen: " + code);
+                updateMonitor("BLE-Scan fehlgeschlagen");
             }
         };
 
@@ -133,19 +137,25 @@ public final class ScaleScanService extends Service {
         try {
             scanner.startScan(Collections.singletonList(filter), settings, callback);
             scanRunning = true;
-            EventLog.add(this, "BLE-Scan aktiv für " + mac);
+            EventLog.info(this, "Überwachung aktiv – warte auf Waage");
+            EventLog.debug(this, "BLE-Scan aktiv für " + mac);
             updateMonitor("Warte auf S400-Messung");
         } catch (RuntimeException e) {
-            EventLog.add(this, "Scanstart fehlgeschlagen: " + e.getClass().getSimpleName());
+            EventLog.error(this,
+                    "Scanstart fehlgeschlagen: " + e.getClass().getSimpleName());
             stopSelf();
         }
     }
 
     private void analyze(ScanResult result, String mac, String bindKey) {
         BlePacket packet = BlePacket.from(result);
+        if (!scaleSeenLogged) {
+            scaleSeenLogged = true;
+            EventLog.info(this, "Waage erkannt – BLE-Empfang aktiv");
+        }
         if (lastLoggedSignature == null) {
             lastLoggedSignature = packet.signature;
-            EventLog.add(this, "Erstes BLE-Muster " + packet.signature);
+            EventLog.debug(this, "Erstes BLE-Muster " + packet.signature);
         } else if (!packet.signature.equals(lastLoggedSignature)) {
             lastLoggedSignature = packet.signature;
         }
@@ -155,7 +165,10 @@ public final class ScaleScanService extends Service {
                 packet.activityData,
                 mac,
                 bindKey);
-        if (decoded == null) return;
+        if (decoded == null) {
+            EventLog.debug(this, "S400-Aktivitätspaket konnte nicht entschlüsselt werden");
+            return;
+        }
 
         long now = System.currentTimeMillis();
         S400Aggregator.Outcome outcome = aggregator.ingest(decoded, now);
@@ -175,18 +188,23 @@ public final class ScaleScanService extends Service {
         if (outcome.status == S400Aggregator.Status.PENDING) return;
         handler.removeCallbacks(timeoutRunnable);
         if (outcome.status == S400Aggregator.Status.DUPLICATE) {
+            EventLog.debug(this, "Doppeltes Messpaket verworfen");
             updateMonitor("Warte auf nächste Messung");
             return;
         }
         if (outcome.finalized != null) {
             S400Aggregator.Finalized value = outcome.finalized;
-            EventLog.add(this, String.format(
+            EventLog.info(this, String.format(
                     Locale.GERMANY,
-                    "S400-Messung entschlüsselt: %.1f kg | Impedanz %.1f/%.1f Ω%s",
+                    "Messung erkannt: %.1f kg%s",
+                    value.weightKg,
+                    value.heartRate == null ? "" : " | Puls " + value.heartRate));
+            EventLog.debug(this, String.format(
+                    Locale.GERMANY,
+                    "S400 entschlüsselt: %.1f kg | Impedanz %.1f/%.1f Ω",
                     value.weightKg,
                     value.impedanceHigh,
-                    value.impedanceLow == null ? value.impedanceHigh : value.impedanceLow,
-                    value.heartRate == null ? "" : " | Puls " + value.heartRate));
+                    value.impedanceLow == null ? value.impedanceHigh : value.impedanceLow));
             updateMonitor(String.format(Locale.GERMANY, "Messung erkannt: %.1f kg", value.weightKg));
             importMeasurement(value);
         }
@@ -205,8 +223,8 @@ public final class ScaleScanService extends Service {
         int age = BirthDateUtils.ageOn(birthDate, timestamp);
 
         if (age < 18 || age > 120) {
-            EventLog.add(this,
-                    "Messung nicht übernommen: Alter konnte aus dem Geburtstag nicht gültig berechnet werden");
+            EventLog.error(this,
+                    "Messung nicht übernommen: Alter konnte aus dem Geburtstag nicht berechnet werden");
             updateMonitor("Geburtstag prüfen");
             return;
         }
@@ -224,14 +242,13 @@ public final class ScaleScanService extends Service {
                         lowImpedance));
 
         if (measurement.timedOut) {
-            EventLog.add(this,
-                    "Paket B fehlte – Einband-Auswertung mit hoher Impedanz als Ersatz");
+            EventLog.warning(this,
+                    "Messung unvollständig: zweites Impedanzpaket fehlte; Ersatzberechnung verwendet");
         }
         if (composition.impedanceLabelsSwapped) {
-            EventLog.add(this, "Impedanzbänder waren vertauscht und wurden korrigiert");
+            EventLog.debug(this, "Impedanzbänder waren vertauscht und wurden korrigiert");
         }
-
-        EventLog.add(this, buildCalculationLog(age, measurement, composition));
+        EventLog.debug(this, buildCalculationLog(age, measurement, composition));
 
         try {
             OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
@@ -246,15 +263,15 @@ public final class ScaleScanService extends Service {
                     composition);
             logProviderResult(result);
         } catch (SecurityException e) {
-            EventLog.add(this,
-                    "openScale-Zugriff verweigert – Berechtigung in ScaleLauncher erneut erteilen");
+            EventLog.error(this,
+                    "openScale-Zugriff verweigert – Berechtigung erneut erteilen");
             updateMonitor("openScale-Berechtigung fehlt");
         } catch (RuntimeException e) {
-            EventLog.add(this,
+            EventLog.error(this,
                     "Übergabe an openScale fehlgeschlagen: "
                             + e.getClass().getSimpleName()
                             + " – "
-                            + e.getMessage());
+                            + safeMessage(e));
             updateMonitor("openScale-Übergabe fehlgeschlagen");
         }
 
@@ -267,6 +284,13 @@ public final class ScaleScanService extends Service {
                                       S400BodyComposition.Result composition) {
         if (!prefs.getBoolean("health_connect_enabled", false)) return;
 
+        HealthConnectSelection selection = HealthConnectSelection.fromPreferences(prefs);
+        if (selection.count() == 0) {
+            EventLog.error(this,
+                    "Health Connect ist aktiv, aber es wurden keine Werte ausgewählt");
+            return;
+        }
+
         String scaleMac = prefs.getString("mac", "");
         HealthConnectWriter.write(
                 this,
@@ -274,17 +298,21 @@ public final class ScaleScanService extends Service {
                 scaleMac,
                 measurement,
                 composition,
+                selection,
                 new HealthConnectWriter.Callback() {
-                    @Override public void onSuccess(int writtenRecordCount) {
-                        EventLog.add(
+                    @Override public void onSuccess(int writtenRecordCount, String writtenValues) {
+                        EventLog.info(
                                 ScaleScanService.this,
                                 "Health Connect: "
                                         + writtenRecordCount
                                         + " Werte gespeichert");
+                        EventLog.debug(
+                                ScaleScanService.this,
+                                "Health Connect geschrieben: " + writtenValues);
                     }
 
                     @Override public void onError(String message) {
-                        EventLog.add(
+                        EventLog.error(
                                 ScaleScanService.this,
                                 "Health Connect fehlgeschlagen: " + message);
                     }
@@ -293,34 +321,35 @@ public final class ScaleScanService extends Service {
 
     private void logProviderResult(OpenScaleProvider.InsertResult result) {
         if (!result.measurementVerified) {
-            EventLog.add(this,
+            EventLog.error(this,
                     "openScale-Übergabe konnte nach dem Schreiben nicht bestätigt werden");
             updateMonitor("Übergabe nicht bestätigt");
             return;
         }
 
         if (result.apiVersion < 2) {
-            EventLog.add(this,
-                    "openScale gespeichert und geprüft – Provider-API 1: "
-                            + "Gewicht, Fett, Wasser und Muskel. "
-                            + "Zusätzliche S400-Werte kann diese externe Schnittstelle nicht speichern.");
+            EventLog.info(this,
+                    "openScale gespeichert – 4 Grundwerte (Provider-API 1)");
+            EventLog.debug(this,
+                    "Provider-API 1 unterstützt extern nur Gewicht, Fett, Wasser und Muskel");
             updateMonitor("Messung gespeichert – 4 Grundwerte");
             return;
         }
 
         if (result.additionalValuesVerified) {
-            EventLog.add(this,
-                    "openScale vollständig gespeichert und geprüft – Provider-API "
-                            + result.apiVersion
-                            + ", "
+            EventLog.info(this,
+                    "openScale: vollständige Messung gespeichert ("
                             + result.storedValueCount
-                            + " Werte sichtbar");
+                            + " Werte)");
+            EventLog.debug(this,
+                    "openScale Provider-API " + result.apiVersion + " erfolgreich geprüft");
             updateMonitor("Vollständige Messung gespeichert");
         } else {
-            EventLog.add(this,
-                    "openScale-Grundmessung gespeichert, zusätzliche Werte aber nicht bestätigt – "
-                            + "Provider-API "
-                            + result.apiVersion);
+            EventLog.warning(this,
+                    "openScale-Grundmessung gespeichert, Zusatzwerte aber nicht bestätigt");
+            EventLog.debug(this,
+                    "Provider-API " + result.apiVersion
+                            + " meldete keine bestätigten Zusatzwerte");
             updateMonitor("Grundmessung gespeichert");
         }
     }
@@ -371,6 +400,11 @@ public final class ScaleScanService extends Service {
         if (value != null) {
             text.append(String.format(Locale.GERMANY, " | %s %.1f%s", label, value, suffix));
         }
+    }
+
+    private static String safeMessage(Throwable error) {
+        String message = error.getMessage();
+        return message == null || message.isBlank() ? "ohne Detailangabe" : message;
     }
 
     private Notification monitorNotification(String text) {
@@ -431,7 +465,7 @@ public final class ScaleScanService extends Service {
         handler.removeCallbacksAndMessages(null);
         stopScan();
         aggregator.reset();
-        EventLog.add(this, "Dienst gestoppt");
+        EventLog.info(this, "Dienst gestoppt");
         super.onDestroy();
     }
 
