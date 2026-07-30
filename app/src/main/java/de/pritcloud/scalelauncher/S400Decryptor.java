@@ -2,6 +2,7 @@ package de.pritcloud.scalelauncher;
 
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.modes.CCMBlockCipher;
+import org.bouncycastle.crypto.modes.CCMModeCipher;
 import org.bouncycastle.crypto.params.AEADParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 
@@ -41,7 +42,7 @@ public final class S400Decryptor {
             byte[] mic = slice(data, data.length - 4, data.length);
             byte[] cipherText = concat(encrypted, mic);
 
-            CCMBlockCipher ccm = CCMBlockCipher.newInstance(AESEngine.newInstance());
+            CCMModeCipher ccm = CCMBlockCipher.newInstance(AESEngine.newInstance());
             ccm.init(false, new AEADParameters(new KeyParameter(key), 32, nonce, new byte[]{0x11}));
             byte[] decrypted = new byte[ccm.getOutputSize(cipherText.length)];
             int length = ccm.processBytes(cipherText, 0, cipherText.length, decrypted, 0);
