@@ -42,6 +42,9 @@ android {
         debug {
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         release {
             isDebuggable = false
