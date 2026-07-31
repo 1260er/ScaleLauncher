@@ -1,0 +1,122 @@
+name: Signed release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_PATH: ${{ runner.temp }}/scalelauncher-release.p12
+      SCALELAUNCHER_KEYSTORE_PASSWORD: ${{ secrets.SCALELAUNCHER_KEYSTORE_PASSWORD }}
+      SCALELAUNCHER_KEY_ALIAS: ${{ secrets.SCALELAUNCHER_KEY_ALIAS }}
+      SCALELAUNCHER_KEY_PASSWORD: ${{ secrets.SCALELAUNCHER_KEY_PASSWORD }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Validate signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SCALELAUNCHER_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" || { echo "SCALELAUNCHER_KEYSTORE_BASE64 fehlt"; exit 1; }
+          test -n "$SCALELAUNCHER_KEYSTORE_PASSWORD" || { echo "SCALELAUNCHER_KEYSTORE_PASSWORD fehlt"; exit 1; }
+          test -n "$SCALELAUNCHER_KEY_ALIAS" || { echo "SCALELAUNCHER_KEY_ALIAS fehlt"; exit 1; }
+          test -n "$SCALELAUNCHER_KEY_PASSWORD" || { echo "SCALELAUNCHER_KEY_PASSWORD fehlt"; exit 1; }
+
+      - name: Restore release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SCALELAUNCHER_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build signed release APK
+        env:
+          SCALELAUNCHER_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+        run: gradle --no-daemon clean assembleRelease
+
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            --verbose --print-certs \
+            app/build/outputs/apk/release/app-release.apk
+
+      - name: Prepare release files
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)"/\1/p' app/build.gradle.kts | head -n1)
+          test -n "$VERSION_NAME"
+          APK_NAME="ScaleLauncher-${VERSION_NAME}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          sha256sum "$APK_NAME" > "$APK_NAME.sha256"
+          echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "apk=$APK_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload signed APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScaleLauncher-${{ steps.prepare.outputs.version }}-signed
+          path: |
+            ${{ steps.prepare.outputs.apk }}
+            ${{ steps.prepare.outputs.apk }}.sha256
+          if-no-files-found: error
+
+      - name: Create GitHub release for tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_FILE: ${{ steps.prepare.outputs.apk }}
+          VERSION: ${{ steps.prepare.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_TAG="v${VERSION}"
+          test "$GITHUB_REF_NAME" = "$EXPECTED_TAG" || {
+            echo "Tag $GITHUB_REF_NAME passt nicht zu versionName $VERSION (erwartet: $EXPECTED_TAG)"
+            exit 1
+          }
+          gh release create "$GITHUB_REF_NAME" \
+            "$APK_FILE" "$APK_FILE.sha256" \
+            --title "ScaleLauncher $VERSION" \
+            --generate-notes
+
+      - name: Remove restored keystore
+        if: always()
+        shell: bash
+        run: rm -f "$KEYSTORE_PATH"

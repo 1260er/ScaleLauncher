@@ -1,3 +1,9 @@
-
 *.orig
 *.rej
+*.jks
+*.keystore
+*.p12
+local.properties
+.signing/
+.gradle/
+**/build/
