@@ -19,8 +19,8 @@ android {
         applicationId = "de.pritcloud.scalelauncher"
         minSdk = 31
         targetSdk = 35
-        versionCode = 33
-        versionName = "3.3.0"
+        versionCode = 1
+        versionName = "1.0.0"
     }
 
     signingConfigs {
