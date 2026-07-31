@@ -19,7 +19,7 @@ android {
         applicationId = "de.pritcloud.scalelauncher"
         minSdk = 31
         targetSdk = 35
-        versionCode = 1
+        versionCode = providers.environmentVariable("SCALELAUNCHER_VERSION_CODE").orNull?.toIntOrNull() ?: 1
         versionName = "1.0.0"
     }
 
