@@ -1,0 +1,129 @@
+package de.pritcloud.scalelauncher;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+
+/** Persisted single source of truth for the foreground service and the UI. */
+final class ServiceState {
+    private static final String PREFS = "service_state";
+    private static final String KEY_MODE = "mode";
+    private static final String KEY_MESSAGE = "message";
+    private static final String KEY_HEARTBEAT = "heartbeat";
+    private static final String KEY_SCAN_RUNNING = "scan_running";
+    private static final String KEY_LAST_SCALE_SEEN = "last_scale_seen";
+    private static final String KEY_LAST_SUCCESS = "last_success";
+    private static final String KEY_LAST_FAILURE = "last_failure";
+
+    static final long STALE_AFTER_MS = 45_000L;
+
+    enum Mode { STOPPED, STARTING, RUNNING, ERROR }
+
+    static final class Snapshot {
+        final Mode mode;
+        final String message;
+        final long heartbeatMs;
+        final boolean scanRunning;
+        final long lastScaleSeenMs;
+        final long lastSuccessMs;
+        final long lastFailureMs;
+
+        Snapshot(Mode mode,
+                 String message,
+                 long heartbeatMs,
+                 boolean scanRunning,
+                 long lastScaleSeenMs,
+                 long lastSuccessMs,
+                 long lastFailureMs) {
+            this.mode = mode;
+            this.message = message;
+            this.heartbeatMs = heartbeatMs;
+            this.scanRunning = scanRunning;
+            this.lastScaleSeenMs = lastScaleSeenMs;
+            this.lastSuccessMs = lastSuccessMs;
+            this.lastFailureMs = lastFailureMs;
+        }
+
+        boolean isStale(long nowMs) {
+            return (mode == Mode.RUNNING || mode == Mode.STARTING)
+                    && (heartbeatMs <= 0L || nowMs - heartbeatMs > STALE_AFTER_MS);
+        }
+    }
+
+    private ServiceState() {}
+
+    static Snapshot read(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        Mode mode;
+        try {
+            mode = Mode.valueOf(prefs.getString(KEY_MODE, Mode.STOPPED.name()));
+        } catch (IllegalArgumentException e) {
+            mode = Mode.STOPPED;
+        }
+        return new Snapshot(
+                mode,
+                prefs.getString(KEY_MESSAGE, "Gestoppt"),
+                prefs.getLong(KEY_HEARTBEAT, 0L),
+                prefs.getBoolean(KEY_SCAN_RUNNING, false),
+                prefs.getLong(KEY_LAST_SCALE_SEEN, 0L),
+                prefs.getLong(KEY_LAST_SUCCESS, 0L),
+                prefs.getLong(KEY_LAST_FAILURE, 0L));
+    }
+
+    static void starting(Context context, String message) {
+        writeMode(context, Mode.STARTING, message, false);
+    }
+
+    static void running(Context context, String message, boolean scanRunning) {
+        writeMode(context, Mode.RUNNING, message, scanRunning);
+    }
+
+    static void error(Context context, String message) {
+        writeMode(context, Mode.ERROR, message, false);
+    }
+
+    static void stopped(Context context, String message) {
+        writeMode(context, Mode.STOPPED, message, false);
+    }
+
+    static void heartbeat(Context context, boolean scanRunning, String message) {
+        SharedPreferences.Editor editor = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
+                .putBoolean(KEY_SCAN_RUNNING, scanRunning);
+        if (message != null && !message.isBlank()) editor.putString(KEY_MESSAGE, message);
+        editor.commit();
+    }
+
+    static void scaleSeen(Context context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putLong(KEY_LAST_SCALE_SEEN, System.currentTimeMillis())
+                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
+                .commit();
+    }
+
+    static void measurementSucceeded(Context context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putLong(KEY_LAST_SUCCESS, System.currentTimeMillis())
+                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
+                .commit();
+    }
+
+    static void measurementFailed(Context context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putLong(KEY_LAST_FAILURE, System.currentTimeMillis())
+                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
+                .commit();
+    }
+
+    private static void writeMode(Context context,
+                                  Mode mode,
+                                  String message,
+                                  boolean scanRunning) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(KEY_MODE, mode.name())
+                .putString(KEY_MESSAGE, message == null ? "" : message)
+                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
+                .putBoolean(KEY_SCAN_RUNNING, scanRunning)
+                .commit();
+    }
+}

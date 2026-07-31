@@ -8,10 +8,10 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -41,6 +41,8 @@ public final class MainActivity extends Activity {
         @Override public void run() {
             refreshLog();
             refreshPending();
+            refreshRuntimeStatus();
+            refreshReliabilityRequirements();
             refreshHandler.postDelayed(this, 1_000L);
         }
     };
@@ -72,6 +74,7 @@ public final class MainActivity extends Activity {
     private TextView healthConnectStatus;
     private TextView profileStatus;
     private TextView pendingStatus;
+    private TextView systemRequirementsStatus;
 
     private String openScaleAuthority;
     private OpenScaleProvider.Meta openScaleMeta = new OpenScaleProvider.Meta(1, -1);
@@ -114,6 +117,7 @@ public final class MainActivity extends Activity {
         healthConnectStatus = findViewById(R.id.healthConnectStatus);
         profileStatus = findViewById(R.id.profileStatus);
         pendingStatus = findViewById(R.id.pendingStatus);
+        systemRequirementsStatus = findViewById(R.id.systemRequirementsStatus);
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         macAddress.setText(prefs.getString("mac", ""));
@@ -150,8 +154,10 @@ public final class MainActivity extends Activity {
         findViewById(R.id.connectHealthConnect).setOnClickListener(v -> requestHealthConnectPermissions());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
         findViewById(R.id.stop).setOnClickListener(v -> {
-            stopService(new Intent(this, ScaleScanService.class));
-            status.setText("Status: gestoppt");
+            ServiceState.stopped(this, "Vom Benutzer gestoppt");
+            startService(new Intent(this, ScaleScanService.class)
+                    .setAction(ScaleScanService.ACTION_STOP));
+            refreshRuntimeStatus();
         });
         findViewById(R.id.assignPending).setOnClickListener(v -> assignPendingMeasurement());
         findViewById(R.id.discardPending).setOnClickListener(v -> discardPendingMeasurement());
@@ -167,9 +173,12 @@ public final class MainActivity extends Activity {
             EventLog.clear(this);
             refreshLog();
         });
-        findViewById(R.id.notificationSettings).setOnClickListener(v -> startActivity(
-                new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())));
+        findViewById(R.id.notificationSettings).setOnClickListener(
+                v -> PowerSettingsHelper.openNotificationSettings(this));
+        findViewById(R.id.batteryOptimizationSettings).setOnClickListener(
+                v -> PowerSettingsHelper.requestBatteryOptimizationException(this));
+        findViewById(R.id.unusedAppSettings).setOnClickListener(
+                v -> PowerSettingsHelper.openUnusedAppSettings(this));
 
         android.widget.CompoundButton.OnCheckedChangeListener selectionListener =
                 (button, checked) -> refreshHealthConnectStatus();
@@ -200,6 +209,8 @@ public final class MainActivity extends Activity {
         requestNeededPermissions();
         refreshLog();
         refreshPending();
+        refreshRuntimeStatus();
+        refreshReliabilityRequirements();
         prepareOpenScaleAccess();
         refreshHealthConnectStatus();
     }
@@ -464,6 +475,8 @@ public final class MainActivity extends Activity {
         super.onResume();
         refreshHealthConnectStatus();
         refreshPending();
+        refreshRuntimeStatus();
+        refreshReliabilityRequirements();
         refreshHandler.post(refreshTask);
     }
 
@@ -511,6 +524,7 @@ public final class MainActivity extends Activity {
     }
 
     private void saveAndStart() {
+        if (!ensureReliabilityRequirements()) return;
         if (!hasBluetoothPermissions()) {
             requestNeededPermissions();
             Toast.makeText(this, "Bitte zuerst Bluetooth erlauben.", Toast.LENGTH_LONG).show();
@@ -531,6 +545,12 @@ public final class MainActivity extends Activity {
         if (openScaleAuthority == null || users.isEmpty()) {
             Toast.makeText(this,
                     "Bitte zuerst openScale verbinden und Benutzer laden.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!openScaleMeta.supportsGenericValues()) {
+            Toast.makeText(this,
+                    "Für eine vollständige und überprüfbare Messung wird openScale Provider-API 2 benötigt.",
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -599,8 +619,9 @@ public final class MainActivity extends Activity {
                 "Provider-API " + openScaleMeta.apiVersion
                         + " | Zuordnungsvorsprung mindestens "
                         + UserMatcher.MINIMUM_LEAD_KG + " kg");
+        ServiceState.starting(this, "Überwachung wird gestartet");
         startForegroundService(new Intent(this, ScaleScanService.class));
-        status.setText("Status: Überwachung angefordert");
+        refreshRuntimeStatus();
     }
 
     private void requestHealthConnectPermissions() {
@@ -755,6 +776,108 @@ public final class MainActivity extends Activity {
                     Manifest.permission.BLUETOOTH_CONNECT
             }, REQ_PERMISSIONS);
         }
+    }
+
+    private boolean ensureReliabilityRequirements() {
+        if (!PowerSettingsHelper.isBatteryOptimizationDisabled(this)) {
+            Toast.makeText(this,
+                    "Bitte ScaleLauncher zuerst von der Akkuoptimierung ausnehmen.",
+                    Toast.LENGTH_LONG).show();
+            PowerSettingsHelper.requestBatteryOptimizationException(this);
+            return false;
+        }
+        if (!PowerSettingsHelper.isUnusedAppManagementDisabled(this)) {
+            Toast.makeText(this,
+                    "Bitte 'App bei Nichtnutzung verwalten' für ScaleLauncher deaktivieren.",
+                    Toast.LENGTH_LONG).show();
+            PowerSettingsHelper.openUnusedAppSettings(this);
+            return false;
+        }
+        if (!PowerSettingsHelper.areNotificationsUsable(this)) {
+            Toast.makeText(this,
+                    "Benachrichtigungen müssen erlaubt sein, damit Messfehler zuverlässig angezeigt werden.",
+                    Toast.LENGTH_LONG).show();
+            PowerSettingsHelper.openNotificationSettings(this);
+            return false;
+        }
+        return true;
+    }
+
+    private void refreshReliabilityRequirements() {
+        if (systemRequirementsStatus == null) return;
+        boolean battery = PowerSettingsHelper.isBatteryOptimizationDisabled(this);
+        boolean unused = PowerSettingsHelper.isUnusedAppManagementDisabled(this);
+        boolean notifications = PowerSettingsHelper.areNotificationsUsable(this);
+        systemRequirementsStatus.setText(
+                (battery ? "✓" : "✗") + " Akkuoptimierung: "
+                        + (battery ? "aus / uneingeschränkt" : "noch aktiv") + "\n"
+                        + (unused ? "✓" : "✗") + " Verwaltung bei Nichtnutzung: "
+                        + (unused ? "deaktiviert" : "noch aktiv") + "\n"
+                        + (notifications ? "✓" : "✗") + " Benachrichtigungen: "
+                        + (notifications ? "erlaubt" : "nicht vollständig erlaubt"));
+        systemRequirementsStatus.setTextColor(
+                battery && unused && notifications
+                        ? Color.rgb(27, 94, 32)
+                        : Color.rgb(183, 28, 28));
+    }
+
+    private void refreshRuntimeStatus() {
+        if (status == null) return;
+        long now = System.currentTimeMillis();
+        ServiceState.Snapshot snapshot = ServiceState.read(this);
+        if (snapshot.isStale(now)) {
+            status.setText("Status: FEHLER – Dienst antwortet nicht");
+            status.setTextColor(Color.rgb(183, 28, 28));
+            return;
+        }
+
+        StringBuilder text = new StringBuilder("Status: ");
+        switch (snapshot.mode) {
+            case RUNNING:
+                text.append(snapshot.scanRunning ? "AKTIV" : "WARTET");
+                status.setTextColor(Color.rgb(27, 94, 32));
+                break;
+            case STARTING:
+                text.append("STARTET");
+                status.setTextColor(Color.rgb(230, 81, 0));
+                break;
+            case ERROR:
+                text.append("FEHLER");
+                status.setTextColor(Color.rgb(183, 28, 28));
+                break;
+            case STOPPED:
+            default:
+                text.append("GESTOPPT");
+                status.setTextColor(Color.rgb(66, 66, 66));
+                break;
+        }
+        if (snapshot.message != null && !snapshot.message.isBlank()) {
+            text.append(" – ").append(snapshot.message);
+        }
+        if (snapshot.lastScaleSeenMs > 0L && snapshot.mode == ServiceState.Mode.RUNNING) {
+            text.append("\nWaage zuletzt ").append(relativeTime(now - snapshot.lastScaleSeenMs));
+        }
+        if (snapshot.lastSuccessMs > 0L) {
+            text.append("\nLetzte erfolgreiche Messung: ")
+                    .append(relativeTime(now - snapshot.lastSuccessMs));
+        }
+        if (snapshot.lastFailureMs > snapshot.lastSuccessMs) {
+            text.append("\nLetzte Messung fehlgeschlagen: ")
+                    .append(relativeTime(now - snapshot.lastFailureMs));
+        }
+        status.setText(text.toString());
+    }
+
+    private static String relativeTime(long ageMs) {
+        if (ageMs < 0L) ageMs = 0L;
+        long seconds = ageMs / 1_000L;
+        if (seconds < 5L) return "gerade eben";
+        if (seconds < 60L) return "vor " + seconds + " Sekunden";
+        long minutes = seconds / 60L;
+        if (minutes < 60L) return "vor " + minutes + " Minuten";
+        long hours = minutes / 60L;
+        if (hours < 24L) return "vor " + hours + " Stunden";
+        return "vor " + (hours / 24L) + " Tagen";
     }
 
     private Float parseOptionalDecimal(EditText input) {

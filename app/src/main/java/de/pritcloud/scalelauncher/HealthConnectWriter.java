@@ -89,15 +89,32 @@ final class HealthConnectWriter {
                 callback.onError("Keine gültigen ausgewählten Health-Connect-Werte vorhanden");
                 return;
             }
+            int expectedCount = expectedRecordCount(selection);
+            if (built.records.size() != expectedCount) {
+                callback.onError(
+                        "Ausgewählte Health-Connect-Werte sind unvollständig: "
+                                + built.records.size() + " von " + expectedCount
+                                + " Datensätzen verfügbar");
+                return;
+            }
 
             manager.insertRecords(
                     built.records,
                     context.getMainExecutor(),
                     new OutcomeReceiver<InsertRecordsResponse, HealthConnectException>() {
                         @Override public void onResult(InsertRecordsResponse response) {
-                            int count = response == null || response.getRecords() == null
-                                    ? built.records.size()
-                                    : response.getRecords().size();
+                            if (response == null || response.getRecords() == null) {
+                                callback.onError(
+                                        "Health Connect hat keine Bestätigung zurückgegeben");
+                                return;
+                            }
+                            int count = response.getRecords().size();
+                            if (count != built.records.size()) {
+                                callback.onError(
+                                        "nur " + count + " von " + built.records.size()
+                                                + " Datensätzen bestätigt");
+                                return;
+                            }
                             callback.onSuccess(count, built.summary());
                         }
 
@@ -116,6 +133,18 @@ final class HealthConnectWriter {
         } catch (RuntimeException e) {
             callback.onError(e.getClass().getSimpleName() + ": " + safeMessage(e));
         }
+    }
+
+    private static int expectedRecordCount(HealthConnectSelection selection) {
+        int count = 0;
+        if (selection.weight || selection.bmi) count++; // WeightRecord
+        if (selection.bmi) count++;                     // HeightRecord
+        if (selection.bodyFat) count++;
+        if (selection.bodyWater) count++;
+        if (selection.boneMass) count++;
+        if (selection.leanBodyMass) count++;
+        if (selection.basalMetabolicRate) count++;
+        return count;
     }
 
     private static BuiltRecords buildRecords(long timestampMs,

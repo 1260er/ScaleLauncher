@@ -13,6 +13,8 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +27,11 @@ public final class OpenScaleProvider {
             "com.health.openscale.beta.provider",
             "com.health.openscale.debug.provider"
     };
+    private static final Set<String> REQUIRED_API2_KEYS = Collections.unmodifiableSet(
+            new HashSet<>(Arrays.asList(
+                    "WEIGHT", "BMI", "BODY_FAT", "WATER", "MUSCLE", "LBM", "BONE",
+                    "VISCERAL_FAT", "BMR", "IMPEDANCE", "IMPEDANCE_LOW", "ECW", "ICW",
+                    "PROTEIN", "BCM")));
 
     public static final class User {
         public final long id;
@@ -60,17 +67,23 @@ public final class OpenScaleProvider {
         public final boolean additionalValuesRequested;
         public final boolean additionalValuesVerified;
         public final int storedValueCount;
+        public final Set<String> missingValueKeys;
+        public final boolean rollbackPerformed;
 
         InsertResult(int apiVersion,
                      boolean measurementVerified,
                      boolean additionalValuesRequested,
                      boolean additionalValuesVerified,
-                     int storedValueCount) {
+                     int storedValueCount,
+                     Set<String> missingValueKeys,
+                     boolean rollbackPerformed) {
             this.apiVersion = apiVersion;
             this.measurementVerified = measurementVerified;
             this.additionalValuesRequested = additionalValuesRequested;
             this.additionalValuesVerified = additionalValuesVerified;
             this.storedValueCount = storedValueCount;
+            this.missingValueKeys = missingValueKeys;
+            this.rollbackPerformed = rollbackPerformed;
         }
     }
 
@@ -78,11 +91,16 @@ public final class OpenScaleProvider {
         final boolean found;
         final boolean additionalValuesFound;
         final int valueCount;
+        final Set<String> missingKeys;
 
-        Verification(boolean found, boolean additionalValuesFound, int valueCount) {
+        Verification(boolean found,
+                     boolean additionalValuesFound,
+                     int valueCount,
+                     Set<String> missingKeys) {
             this.found = found;
             this.additionalValuesFound = additionalValuesFound;
             this.valueCount = valueCount;
+            this.missingKeys = missingKeys;
         }
     }
 
@@ -224,12 +242,22 @@ public final class OpenScaleProvider {
                 uri,
                 timestamp,
                 apiVersion);
+        boolean complete = verification.found
+                && (!requestAdditionalValues || verification.additionalValuesFound);
+        boolean rollbackPerformed = false;
+        if (requestAdditionalValues && !complete) {
+            // Keep the external write all-or-nothing. Even when verification itself
+            // failed, attempt an exact timestamp rollback in case the insert landed.
+            rollbackPerformed = deleteMeasurement(context, authority, userId, timestamp) > 0;
+        }
         return new InsertResult(
                 apiVersion,
                 verification.found,
                 requestAdditionalValues,
                 requestAdditionalValues && verification.additionalValuesFound,
-                verification.valueCount);
+                verification.valueCount,
+                verification.missingKeys,
+                rollbackPerformed);
     }
 
     private static Verification verifyMeasurement(ContentResolver resolver,
@@ -240,9 +268,9 @@ public final class OpenScaleProvider {
                 ? new String[]{"datetime", "values_json"}
                 : new String[]{"datetime", "weight", "fat", "water", "muscle"};
         try (Cursor cursor = resolver.query(uri, projection, null, null, null)) {
-            if (cursor == null) return new Verification(false, false, 0);
+            if (cursor == null) return new Verification(false, false, 0, new HashSet<>());
             int dateColumn = cursor.getColumnIndex("datetime");
-            if (dateColumn < 0) return new Verification(false, false, 0);
+            if (dateColumn < 0) return new Verification(false, false, 0, new HashSet<>());
             while (cursor.moveToNext()) {
                 if (cursor.getLong(dateColumn) != timestamp) continue;
                 if (apiVersion < 2) {
@@ -251,24 +279,38 @@ public final class OpenScaleProvider {
                         int index = cursor.getColumnIndex(column);
                         if (index >= 0 && !cursor.isNull(index)) count++;
                     }
-                    return new Verification(true, false, count);
+                    return new Verification(true, false, count, new HashSet<>());
                 }
 
                 int jsonColumn = cursor.getColumnIndex("values_json");
                 if (jsonColumn < 0 || cursor.isNull(jsonColumn)) {
-                    return new Verification(true, false, 0);
+                    return new Verification(true, false, 0, new HashSet<>(REQUIRED_API2_KEYS));
                 }
                 JsonSummary summary = summarizeValuesJson(cursor.getString(jsonColumn));
-                boolean hasAdditional = summary.keys.contains("BONE")
-                        || summary.keys.contains("PROTEIN")
-                        || summary.keys.contains("BMI")
-                        || summary.count > 4;
-                return new Verification(true, hasAdditional, summary.count);
+                Set<String> missing = new HashSet<>(REQUIRED_API2_KEYS);
+                missing.removeAll(summary.keys);
+                return new Verification(true, missing.isEmpty(), summary.count, missing);
             }
         } catch (RuntimeException ignored) {
-            return new Verification(false, false, 0);
+            return new Verification(false, false, 0, new HashSet<>());
         }
-        return new Verification(false, false, 0);
+        return new Verification(false, false, 0, new HashSet<>());
+    }
+
+    public static int deleteMeasurement(Context context,
+                                        String authority,
+                                        long userId,
+                                        long timestamp) {
+        if (authority == null || authority.isBlank() || userId < 0L || timestamp <= 0L) return 0;
+        Uri uri = Uri.parse("content://" + authority + "/measurements/" + userId);
+        try {
+            return context.getContentResolver().delete(
+                    uri,
+                    "datetime = ?",
+                    new String[]{Long.toString(timestamp)});
+        } catch (RuntimeException ignored) {
+            return 0;
+        }
     }
 
     private static final class JsonSummary {
@@ -297,13 +339,18 @@ public final class OpenScaleProvider {
             }
 
             Set<String> keys = new HashSet<>();
+            int validCount = 0;
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.optJSONObject(i);
                 if (item == null) continue;
                 String key = item.optString("key", "");
-                if (!key.isBlank()) keys.add(key);
+                double value = item.optDouble("value", Double.NaN);
+                if (!key.isBlank() && Double.isFinite(value)) {
+                    keys.add(key);
+                    validCount++;
+                }
             }
-            return new JsonSummary(array.length(), keys);
+            return new JsonSummary(validCount, keys);
         } catch (JSONException e) {
             return new JsonSummary(0, new HashSet<>());
         }

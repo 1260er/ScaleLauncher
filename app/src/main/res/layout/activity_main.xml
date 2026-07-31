@@ -238,6 +238,32 @@
             android:layout_height="wrap_content"
             android:text="Health Connect: noch nicht geprüft" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Zuverlässiger Hintergrundbetrieb"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/systemRequirementsStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Systemfreigaben werden geprüft …" />
+
+        <Button
+            android:id="@+id/batteryOptimizationSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Akkuoptimierung ausschalten / uneingeschränkt" />
+
+        <Button
+            android:id="@+id/unusedAppSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Verwaltung bei Nichtnutzung deaktivieren" />
+
         <CheckBox
             android:id="@+id/autoStart"
             android:layout_width="match_parent"
@@ -262,7 +288,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Status: unbekannt"
+            android:text="Status wird geprüft …"
             android:textStyle="bold" />
 
         <Button
