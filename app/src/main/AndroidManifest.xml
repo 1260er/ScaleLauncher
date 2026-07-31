@@ -37,6 +37,8 @@
 
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="ScaleLauncher"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
