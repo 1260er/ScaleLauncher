@@ -1,14 +1,4 @@
-# ScaleLauncher 3.3
-
-Die technische Funktion entspricht Version 3.2. Version 3.3 stellt den Build- und
-Veröffentlichungsprozess auf eine feste Release-Signatur um. Die einmalige Einrichtung
-steht in [`RELEASE_SETUP.md`](RELEASE_SETUP.md).
-
-> Wichtig: Beim ersten Wechsel von einer bisherigen Debug-APK auf die signierte
-> Release-APK ist eine einmalige Deinstallation und Neueinrichtung erforderlich. Danach
-> lassen sich künftige Versionen direkt als Update installieren.
-
-# ScaleLauncher 3.2
+# ScaleLauncher 1.0.0
 
 Separate, privacy-friendly companion app for the Xiaomi Body Composition Scale S400 and openScale.
 
