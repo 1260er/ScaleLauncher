@@ -1,4 +1,4 @@
-# ScaleLauncher 3.1
+# ScaleLauncher 3.2
 
 Separate, privacy-friendly companion app for the Xiaomi Body Composition Scale S400 and openScale.
 
@@ -28,7 +28,11 @@ No internet permission and no Xiaomi cloud are used.
 - Repeated tail advertisements are ignored and cannot create a false second measurement.
 - openScale Provider API 2 is mandatory. The stored generic value set is read back and checked.
 - If openScale contains only a partial value set, ScaleLauncher attempts an immediate rollback by timestamp.
-- An incomplete weighing creates a visible, silent notification asking the user to repeat it.
+- Every completed weighing outcome is posted to a dedicated visible result channel and remains until the user dismisses it:
+  - successful assignment to a user
+  - measurement cannot be assigned
+  - measurement failed and must be repeated
+- The permanent foreground-service notification remains in its separate low-priority silent channel.
 
 ## Multi-user assignment
 
@@ -36,7 +40,7 @@ No internet permission and no Xiaomi cloud are used.
 - Each active profile stores birthday, height, sex, reference weight and an allowed weight deviation.
 - The initial reference weight is suggested from the newest five openScale measurements.
 - A measurement is assigned only when one valid profile is at least 1.0 kg closer than the second-best valid profile.
-- Ambiguous or unmatched complete measurements are stored locally and shown through a silent notification.
+- Ambiguous or unmatched complete measurements are stored locally and shown through a persistent result notification until dismissed or resolved.
 - Pending measurements can later be assigned to a user or discarded in the app.
 - After a successful import, the reference weight is refreshed from the newest five openScale measurements.
 

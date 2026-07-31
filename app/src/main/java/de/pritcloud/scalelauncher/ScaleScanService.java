@@ -33,12 +33,13 @@ public final class ScaleScanService extends Service {
     public static final String EXTRA_USER_ID = "user_id";
 
     private static final String CHANNEL_MONITOR = "scale_monitor_v10";
-    private static final String CHANNEL_ASSIGNMENT = "scale_assignment_v1";
-    private static final String CHANNEL_FAILURE = "scale_measurement_failure_v1";
+    private static final String CHANNEL_RESULT = "scale_measurement_results_v1";
+    private static final String LEGACY_CHANNEL_ASSIGNMENT = "scale_assignment_v1";
+    private static final String LEGACY_CHANNEL_FAILURE = "scale_measurement_failure_v1";
     private static final int NOTIFICATION_MONITOR = 10;
     private static final int NOTIFICATION_ASSIGNMENT = 11;
-    private static final int NOTIFICATION_FAILURE = 12;
-    private static final int NOTIFICATION_TRANSFER_FAILURE = 13;
+    private static final int NOTIFICATION_RESULT = 12;
+    private static final int LEGACY_NOTIFICATION_TRANSFER_FAILURE = 13;
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
     private static final long SCALE_STALE_AFTER_MS = 90_000L;
     private static final long SCAN_RESTART_DELAY_MS = 3_000L;
@@ -74,7 +75,7 @@ public final class ScaleScanService extends Service {
         createChannels();
         ServiceState.starting(this, "BLE-Überwachung wird gestartet");
         startForeground(NOTIFICATION_MONITOR, monitorNotification(monitorText));
-        EventLog.info(this, "Dienst gestartet – Stabilitätsmodus 3.1");
+        EventLog.info(this, "Dienst gestartet – Stabilitätsmodus 3.2");
         updateAssignmentNotification();
         handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS);
     }
@@ -605,27 +606,34 @@ public final class ScaleScanService extends Service {
         ServiceState.measurementSucceeded(this);
         NotificationManager manager =
                 (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        manager.cancel(NOTIFICATION_FAILURE);
-        manager.cancel(NOTIFICATION_TRANSFER_FAILURE);
+        manager.cancel(LEGACY_NOTIFICATION_TRANSFER_FAILURE);
+        manager.notify(
+                NOTIFICATION_RESULT,
+                resultNotification(
+                        "Messung erfolgreich an " + userName + " zugeordnet",
+                        "Alle vollständigen Messwerte wurden gespeichert.",
+                        false));
         updateMonitor("Letzte Messung für " + userName + " vollständig gespeichert");
     }
 
     private void notifyMeasurementFailure(String reason) {
         NotificationManager manager =
                 (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        manager.cancel(LEGACY_NOTIFICATION_TRANSFER_FAILURE);
         manager.notify(
-                NOTIFICATION_FAILURE,
-                failureNotification(
-                        "Letzte Messung fehlgeschlagen",
-                        shorten(reason) + ". Bitte erneut wiegen."));
+                NOTIFICATION_RESULT,
+                resultNotification(
+                        "Messung fehlgeschlagen, bitte wiederholen",
+                        shorten(reason),
+                        true));
     }
 
     private void notifyTransferFailure(String reason) {
         NotificationManager manager =
                 (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.notify(
-                NOTIFICATION_TRANSFER_FAILURE,
-                failureNotification("Übertragung unvollständig", shorten(reason)));
+                NOTIFICATION_RESULT,
+                resultNotification("Übertragung unvollständig", shorten(reason), true));
     }
 
     private static String shorten(String value) {
@@ -833,21 +841,28 @@ public final class ScaleScanService extends Service {
                 .build();
     }
 
-    private Notification failureNotification(String title, String text) {
+    private Notification resultNotification(String title, String text, boolean error) {
         PendingIntent open = PendingIntent.getActivity(
                 this,
                 4,
                 new Intent(this, MainActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        return new Notification.Builder(this, CHANNEL_FAILURE)
-                .setSmallIcon(android.R.drawable.stat_notify_error)
+        return new Notification.Builder(this, CHANNEL_RESULT)
+                .setSmallIcon(error
+                        ? android.R.drawable.stat_notify_error
+                        : android.R.drawable.stat_sys_data_bluetooth)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text))
                 .setContentIntent(open)
-                .setAutoCancel(true)
-                .setOnlyAlertOnce(true)
+                .setAutoCancel(false)
+                .setOngoing(false)
+                .setOnlyAlertOnce(false)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setWhen(System.currentTimeMillis())
+                .setShowWhen(true)
                 .build();
     }
 
@@ -863,13 +878,18 @@ public final class ScaleScanService extends Service {
                 "%.1f kg – Benutzer auswählen%s",
                 item.weightKg,
                 count > 1 ? " (" + count + " offen)" : "");
-        return new Notification.Builder(this, CHANNEL_ASSIGNMENT)
+        return new Notification.Builder(this, CHANNEL_RESULT)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("Messung nicht eindeutig zugeordnet")
+                .setContentTitle("Messung kann nicht zugeordnet werden")
                 .setContentText(text)
                 .setContentIntent(open)
-                .setAutoCancel(true)
-                .setOnlyAlertOnce(true)
+                .setAutoCancel(false)
+                .setOngoing(false)
+                .setOnlyAlertOnce(false)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setWhen(System.currentTimeMillis())
+                .setShowWhen(true)
                 .build();
     }
 
@@ -908,23 +928,22 @@ public final class ScaleScanService extends Service {
         monitor.setShowBadge(false);
         manager.createNotificationChannel(monitor);
 
-        NotificationChannel assignment = new NotificationChannel(
-                CHANNEL_ASSIGNMENT,
-                "Benutzerzuordnung",
-                NotificationManager.IMPORTANCE_LOW);
-        assignment.setSound(null, null);
-        assignment.enableVibration(false);
-        assignment.setShowBadge(true);
-        manager.createNotificationChannel(assignment);
+        // Version 3.2 uses one dedicated, visible result channel for every completed
+        // weighing outcome. A new channel ID is intentional: Android keeps the old
+        // sound/importance settings of an existing channel across app updates.
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ASSIGNMENT);
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_FAILURE);
+        manager.cancel(LEGACY_NOTIFICATION_TRANSFER_FAILURE);
 
-        NotificationChannel failure = new NotificationChannel(
-                CHANNEL_FAILURE,
-                "Mess- und Übertragungsfehler",
+        NotificationChannel result = new NotificationChannel(
+                CHANNEL_RESULT,
+                "Messergebnisse",
                 NotificationManager.IMPORTANCE_DEFAULT);
-        failure.setSound(null, null);
-        failure.enableVibration(false);
-        failure.setShowBadge(true);
-        manager.createNotificationChannel(failure);
+        result.setDescription(
+                "Erfolgreiche, fehlgeschlagene und nicht zuordenbare Messungen");
+        result.enableVibration(true);
+        result.setShowBadge(true);
+        manager.createNotificationChannel(result);
     }
 
     private void stopScan() {
