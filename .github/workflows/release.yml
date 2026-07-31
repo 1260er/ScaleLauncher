@@ -13,14 +13,14 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      KEYSTORE_PATH: ${{ runner.temp }}/scalelauncher-release.p12
+      KEYSTORE_PATH: /tmp/scalelauncher-release.p12
       SCALELAUNCHER_KEYSTORE_PASSWORD: ${{ secrets.SCALELAUNCHER_KEYSTORE_PASSWORD }}
       SCALELAUNCHER_KEY_ALIAS: ${{ secrets.SCALELAUNCHER_KEY_ALIAS }}
       SCALELAUNCHER_KEY_PASSWORD: ${{ secrets.SCALELAUNCHER_KEY_PASSWORD }}
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate signing secrets
         env:
@@ -43,18 +43,20 @@ jobs:
           chmod 600 "$KEYSTORE_PATH"
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
         shell: bash
         run: |
+          set +o pipefail
           yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle
