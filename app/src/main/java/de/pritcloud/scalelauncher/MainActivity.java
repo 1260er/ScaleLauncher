@@ -89,6 +89,18 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_main);
+        View contentRoot = findViewById(android.R.id.content);
+        contentRoot.setOnApplyWindowInsetsListener((view, insets) -> {
+            android.graphics.Insets safeInsets = insets.getInsets(
+                    android.view.WindowInsets.Type.systemBars()
+                            | android.view.WindowInsets.Type.displayCutout());
+            view.setPadding(
+                    safeInsets.left,
+                    safeInsets.top,
+                    safeInsets.right,
+                    safeInsets.bottom);
+            return insets;
+        });
 
         macAddress = findViewById(R.id.macAddress);
         bindKey = findViewById(R.id.bindKey);
