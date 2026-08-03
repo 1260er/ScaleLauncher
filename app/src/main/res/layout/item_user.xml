@@ -23,14 +23,4 @@
         android:contentDescription="@string/action_edit_user"
         android:padding="@dimen/spacing_sm"
         android:src="@drawable/ic_edit" />
-
-    <ImageButton
-        android:id="@+id/deleteUser"
-        android:layout_width="@dimen/icon_button_size"
-        android:layout_height="@dimen/icon_button_size"
-        android:layout_marginStart="@dimen/spacing_sm"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/action_delete_user"
-        android:padding="@dimen/spacing_sm"
-        android:src="@drawable/ic_delete" />
 </LinearLayout>

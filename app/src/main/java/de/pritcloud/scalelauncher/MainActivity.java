@@ -401,7 +401,6 @@ public final class MainActivity extends Activity {
             editButton.setOnClickListener(view ->
                     openUserDetail((Long) view.getTag()));
 
-            item.findViewById(R.id.deleteUser).setTag(user.id);
 
             container.addView(item);
         }
