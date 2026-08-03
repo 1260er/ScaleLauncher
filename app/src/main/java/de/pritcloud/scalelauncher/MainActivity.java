@@ -574,6 +574,9 @@ public final class MainActivity extends Activity {
         bindKey.setText(key);
         EventLog.info(this, getString(R.string.scale_settings_saved));
         Toast.makeText(this, R.string.scale_settings_saved, Toast.LENGTH_SHORT).show();
+
+        findViewById(R.id.pageScale).setVisibility(View.GONE);
+        findViewById(R.id.pageHome).setVisibility(View.VISIBLE);
     }
 
     private void saveAndStart() {
