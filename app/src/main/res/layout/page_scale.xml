@@ -32,7 +32,7 @@
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/action_save"
                 android:padding="@dimen/spacing_sm"
-                android:src="@drawable/save_icon" />
+                android:src="@drawable/ic_save" />
         </LinearLayout>
 
         <TextView
