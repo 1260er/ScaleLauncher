@@ -189,6 +189,8 @@ public final class MainActivity extends Activity {
         findViewById(R.id.connectHealthConnect).setOnClickListener(v -> requestHealthConnectPermissions());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
         findViewById(R.id.saveScale).setOnClickListener(v -> saveScaleSettings());
+        findViewById(R.id.savePermissions).setOnClickListener(
+                v -> savePermissionSettings());
         findViewById(R.id.stop).setOnClickListener(v -> {
             ServiceState.stopped(this, "Vom Benutzer gestoppt");
             startService(new Intent(this, ScaleScanService.class)
@@ -565,6 +567,22 @@ public final class MainActivity extends Activity {
                             : "Nicht alle Schreibrechte für die ausgewählten Werte wurden erlaubt.",
                     Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void savePermissionSettings() {
+        getSharedPreferences("prefs", MODE_PRIVATE)
+                .edit()
+                .putBoolean("autoStart", autoStart.isChecked())
+                .apply();
+
+        EventLog.info(this, getString(R.string.permissions_settings_saved));
+        Toast.makeText(
+                this,
+                R.string.permissions_settings_saved,
+                Toast.LENGTH_SHORT).show();
+
+        findViewById(R.id.pagePermissions).setVisibility(View.GONE);
+        findViewById(R.id.pageHome).setVisibility(View.VISIBLE);
     }
 
     private void saveScaleSettings() {

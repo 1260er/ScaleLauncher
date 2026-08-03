@@ -47,4 +47,5 @@
     <string name="permissions_unused_bad">✗ Verwaltung bei Nichtnutzung: noch aktiv</string>
     <string name="permissions_notifications_ok">✔ Benachrichtigung: erlaubt</string>
     <string name="permissions_notifications_bad">✗ Benachrichtigung: nicht erlaubt</string>
+    <string name="permissions_settings_saved">Berechtigungseinstellungen gespeichert.</string>
 </resources>
