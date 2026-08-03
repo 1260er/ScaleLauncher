@@ -203,7 +203,13 @@ public final class MainActivity extends Activity {
             }
         });
         findViewById(R.id.loadOpenScaleUsers).setOnClickListener(v -> prepareOpenScaleAccess());
-        findViewById(R.id.saveProfile).setOnClickListener(v -> saveCurrentProfile(true));
+        findViewById(R.id.saveProfile).setOnClickListener(view -> {
+            if (!saveCurrentProfile(true)) return;
+
+            refreshUserList();
+            findViewById(R.id.pageUserDetail).setVisibility(View.GONE);
+            findViewById(R.id.pageUsers).setVisibility(View.VISIBLE);
+        });
         findViewById(R.id.connectHealthConnect).setOnClickListener(v -> requestHealthConnectPermissions());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
         findViewById(R.id.saveScale).setOnClickListener(v -> saveScaleSettings());
