@@ -112,10 +112,14 @@ public final class MainActivity extends Activity {
         View pageScale = findViewById(R.id.pageScale);
         View pagePermissions = findViewById(R.id.pagePermissions);
         View pageUsers = findViewById(R.id.pageUsers);
+        View pageUserDetail = findViewById(R.id.pageUserDetail);
+        View pageHealthConnect = findViewById(R.id.pageHealthConnect);
         findViewById(R.id.navScale).setOnClickListener(view -> {
             pageHome.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.GONE);
             pageUsers.setVisibility(View.GONE);
+            pageUserDetail.setVisibility(View.GONE);
+            pageHealthConnect.setVisibility(View.GONE);
             pageScale.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.START);
         });
@@ -124,6 +128,8 @@ public final class MainActivity extends Activity {
             pageHome.setVisibility(View.GONE);
             pageScale.setVisibility(View.GONE);
             pageUsers.setVisibility(View.GONE);
+            pageUserDetail.setVisibility(View.GONE);
+            pageHealthConnect.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.START);
         });
@@ -133,7 +139,20 @@ public final class MainActivity extends Activity {
             pageHome.setVisibility(View.GONE);
             pageScale.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.GONE);
+            pageUserDetail.setVisibility(View.GONE);
+            pageHealthConnect.setVisibility(View.GONE);
             pageUsers.setVisibility(View.VISIBLE);
+            drawerLayout.closeDrawer(android.view.Gravity.START);
+        });
+
+        findViewById(R.id.navHealthConnect).setOnClickListener(view -> {
+            pageHome.setVisibility(View.GONE);
+            pageScale.setVisibility(View.GONE);
+            pagePermissions.setVisibility(View.GONE);
+            pageUsers.setVisibility(View.GONE);
+            pageUserDetail.setVisibility(View.GONE);
+            pageHealthConnect.setVisibility(View.VISIBLE);
+            refreshHealthConnectStatus();
             drawerLayout.closeDrawer(android.view.Gravity.START);
         });
 
