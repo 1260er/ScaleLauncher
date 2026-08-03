@@ -110,9 +110,17 @@ public final class MainActivity extends Activity {
 
         View pageHome = findViewById(R.id.pageHome);
         View pageScale = findViewById(R.id.pageScale);
+        View pagePermissions = findViewById(R.id.pagePermissions);
         findViewById(R.id.navScale).setOnClickListener(view -> {
             pageHome.setVisibility(View.GONE);
             pageScale.setVisibility(View.VISIBLE);
+            drawerLayout.closeDrawer(android.view.Gravity.START);
+        });
+
+        findViewById(R.id.navPermissions).setOnClickListener(view -> {
+            pageHome.setVisibility(View.GONE);
+            pageScale.setVisibility(View.GONE);
+            pagePermissions.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.START);
         });
 
