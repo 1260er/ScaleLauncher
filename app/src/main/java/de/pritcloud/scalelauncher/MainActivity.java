@@ -229,7 +229,10 @@ public final class MainActivity extends Activity {
             findViewById(R.id.pageUserDetail).setVisibility(View.GONE);
             findViewById(R.id.pageUsers).setVisibility(View.VISIBLE);
         });
-        findViewById(R.id.connectHealthConnect).setOnClickListener(v -> requestHealthConnectPermissions());
+        findViewById(R.id.connectHealthConnect).setOnClickListener(
+                v -> requestHealthConnectPermissions());
+        findViewById(R.id.saveHealthConnect).setOnClickListener(
+                v -> saveHealthConnectSettings());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
         findViewById(R.id.saveScale).setOnClickListener(v -> saveScaleSettings());
         findViewById(R.id.savePermissions).setOnClickListener(
@@ -807,6 +810,66 @@ public final class MainActivity extends Activity {
         ServiceState.starting(this, "Überwachung wird gestartet");
         startForegroundService(new Intent(this, ScaleScanService.class));
         refreshRuntimeStatus();
+    }
+
+    private void saveHealthConnectSettings() {
+        HealthConnectSelection selection = healthConnectSelectionFromUi();
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+
+        if (healthConnectEnabled.isChecked()) {
+            if (selection.count() == 0) {
+                Toast.makeText(
+                        this,
+                        "Bitte mindestens einen Health-Connect-Wert auswählen.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            List<UserProfile> currentProfiles = profiles.isEmpty()
+                    ? UserProfileStore.load(prefs)
+                    : profiles;
+            long healthUserId = prefs.getLong("health_connect_user_id", -1L);
+            UserProfile healthProfile =
+                    UserProfileStore.find(currentProfiles, healthUserId);
+
+            if (healthProfile == null) {
+                Toast.makeText(
+                        this,
+                        "Bitte zuerst bei einem Benutzer Health Connect aktivieren.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            if (!HealthConnectSupport.hasWritePermissions(this, selection)) {
+                requestHealthConnectPermissions();
+                Toast.makeText(
+                        this,
+                        "Bitte zuerst die benötigten Schreibrechte erlauben.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+        }
+
+        SharedPreferences.Editor editor = prefs.edit()
+                .putBoolean(
+                        "health_connect_enabled",
+                        healthConnectEnabled.isChecked());
+        selection.save(editor);
+        editor.apply();
+
+        EventLog.info(
+                this,
+                "Health Connect "
+                        + (healthConnectEnabled.isChecked() ? "aktiviert" : "deaktiviert")
+                        + " – " + selection.count() + " Werte ausgewählt");
+
+        Toast.makeText(
+                this,
+                R.string.health_connect_settings_saved,
+                Toast.LENGTH_SHORT).show();
+
+        findViewById(R.id.pageHealthConnect).setVisibility(View.GONE);
+        findViewById(R.id.pageHome).setVisibility(View.VISIBLE);
     }
 
     private void requestHealthConnectPermissions() {
