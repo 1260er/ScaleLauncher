@@ -102,6 +102,11 @@ public final class MainActivity extends Activity {
             return insets;
         });
 
+        androidx.drawerlayout.widget.DrawerLayout drawerLayout =
+                findViewById(R.id.drawerLayout);
+        findViewById(R.id.buttonOpenMenu).setOnClickListener(
+                view -> drawerLayout.openDrawer(android.view.Gravity.START));
+
         macAddress = findViewById(R.id.macAddress);
         bindKey = findViewById(R.id.bindKey);
         birthDate = findViewById(R.id.birthDate);
