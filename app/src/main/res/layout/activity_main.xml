@@ -39,6 +39,16 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <ImageView
+            android:id="@+id/scaleStatusImage"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="@dimen/spacing_lg"
+            android:contentDescription="@string/status_scale_disconnected"
+            android:scaleType="fitCenter"
+            android:src="@drawable/scale_disconnected" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
