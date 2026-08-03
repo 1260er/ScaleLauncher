@@ -90,17 +90,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
-        <Button
-            android:id="@+id/loadOpenScaleUsers"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="openScale-Zugriff erlauben und Benutzer laden" />
 
-        <TextView
-            android:id="@+id/openScaleStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="openScale: noch nicht geprüft" />
 
         <CheckBox
             android:id="@+id/profileEnabled"
@@ -258,38 +248,10 @@
             android:layout_height="wrap_content"
             android:text="Health Connect: noch nicht geprüft" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Zuverlässiger Hintergrundbetrieb"
-            android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/systemRequirementsStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="Systemfreigaben werden geprüft …" />
 
-        <Button
-            android:id="@+id/batteryOptimizationSettings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Akkuoptimierung ausschalten / uneingeschränkt" />
 
-        <Button
-            android:id="@+id/unusedAppSettings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Verwaltung bei Nichtnutzung deaktivieren" />
 
-        <CheckBox
-            android:id="@+id/autoStart"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Nach Neustart automatisch starten" />
 
         <Button
             android:id="@+id/saveStart"
@@ -305,12 +267,6 @@
 
 
 
-        <Button
-            android:id="@+id/notificationSettings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Benachrichtigungseinstellungen öffnen" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -355,6 +311,10 @@
 
         <include
             layout="@layout/page_scale"
+            android:visibility="gone" />
+
+        <include
+            layout="@layout/page_permissions"
             android:visibility="gone" />
     </FrameLayout>
 
