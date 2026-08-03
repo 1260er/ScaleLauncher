@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/navigationDrawer"
+    android:layout_width="@dimen/drawer_width"
+    android:layout_height="match_parent"
+    android:layout_gravity="start"
+    android:background="@color/ui_input_background"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/screen_padding_horizontal"
+        android:paddingVertical="@dimen/screen_padding_vertical">
+
+        <TextView
+            style="@style/UiScreenTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/spacing_lg"
+            android:text="@string/app_name"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/navScale"
+            style="@style/UiDrawerItem"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_scale" />
+
+        <TextView
+            android:id="@+id/navPermissions"
+            style="@style/UiDrawerItem"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_permissions" />
+
+        <TextView
+            android:id="@+id/navUsers"
+            style="@style/UiDrawerItem"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_users" />
+
+        <LinearLayout
+            android:id="@+id/userMenuContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="@dimen/spacing_md" />
+
+        <TextView
+            android:id="@+id/navHealthConnect"
+            style="@style/UiDrawerItem"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_health_connect" />
+
+        <TextView
+            android:id="@+id/navLog"
+            style="@style/UiDrawerItem"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_log" />
+    </LinearLayout>
+</ScrollView>
