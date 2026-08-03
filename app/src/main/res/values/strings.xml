@@ -24,4 +24,13 @@
     <string name="scale_error_invalid_mac">Ungültige Bluetooth-Adresse.</string>
     <string name="scale_error_invalid_bind_key">Der Bind-Key muss aus genau 32 Hex-Zeichen bestehen.</string>
     <string name="scale_settings_saved">Waageneinstellungen gespeichert.</string>
+    <string name="page_permissions_title">Berechtigungen</string>
+    <string name="action_allow_openscale_access">openScale-Zugriff erlauben und Benutzer laden</string>
+    <string name="action_disable_battery_optimization">Akkuoptimierung ausschalten</string>
+    <string name="action_disable_unused_app_management">Verwaltung bei Nichtnutzung deaktivieren</string>
+    <string name="action_open_notification_settings">Benachrichtigungseinstellungen öffnen</string>
+    <string name="permission_status_battery_optimization_off">Akkuoptimierung aus</string>
+    <string name="permission_status_unused_app_management">Verwaltung bei Nichtnutzung</string>
+    <string name="permission_status_notifications_allowed">Benachrichtigungen erlaubt</string>
+    <string name="permission_auto_start_after_reboot">Nach Neustart automatisch starten</string>
 </resources>
