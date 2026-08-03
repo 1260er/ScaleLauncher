@@ -48,7 +48,7 @@
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="gone" />
+            android:layout_marginTop="@dimen/spacing_sm" />
 
         <Button
             android:id="@+id/batteryOptimizationSettings"
@@ -87,6 +87,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xl"
+            android:buttonTint="@color/ui_text_primary"
             android:text="@string/permission_auto_start_after_reboot" />
     </LinearLayout>
 </ScrollView>

@@ -880,9 +880,7 @@ public final class MainActivity extends Activity {
                         + (notifications ? "✓" : "✗") + " Benachrichtigungen: "
                         + (notifications ? "erlaubt" : "nicht vollständig erlaubt"));
         systemRequirementsStatus.setTextColor(
-                battery && unused && notifications
-                        ? Color.rgb(27, 94, 32)
-                        : Color.rgb(183, 28, 28));
+                getColor(R.color.ui_text_primary));
     }
 
     private void refreshRuntimeStatus() {
