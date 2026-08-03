@@ -1,3 +1,17 @@
 <resources>
     <string name="app_name">ScaleLauncher</string>
+
+    <string name="nav_scale">Waage</string>
+    <string name="nav_permissions">Berechtigungen</string>
+    <string name="nav_users">Benutzer</string>
+    <string name="nav_health_connect">Health Connect</string>
+    <string name="nav_log">Protokoll</string>
+
+    <string name="action_save">Speichern</string>
+    <string name="action_back">Zurück</string>
+    <string name="action_open_menu">Menü öffnen</string>
+
+    <string name="status_scale_connected">Waage verbunden</string>
+    <string name="status_scale_disconnected">Waage getrennt</string>
+    <string name="status_waiting_for_measurement">Warte auf Messung</string>
 </resources>
