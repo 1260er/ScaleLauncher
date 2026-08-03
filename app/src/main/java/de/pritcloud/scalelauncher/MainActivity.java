@@ -108,6 +108,14 @@ public final class MainActivity extends Activity {
         findViewById(R.id.buttonOpenMenu).setOnClickListener(
                 view -> drawerLayout.openDrawer(android.view.Gravity.START));
 
+        View pageHome = findViewById(R.id.pageHome);
+        View pageScale = findViewById(R.id.pageScale);
+        findViewById(R.id.navScale).setOnClickListener(view -> {
+            pageHome.setVisibility(View.GONE);
+            pageScale.setVisibility(View.VISIBLE);
+            drawerLayout.closeDrawer(android.view.Gravity.START);
+        });
+
         macAddress = findViewById(R.id.macAddress);
         bindKey = findViewById(R.id.bindKey);
         birthDate = findViewById(R.id.birthDate);
