@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/pageHealthConnect"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/screen_padding_horizontal"
+        android:paddingVertical="@dimen/screen_padding_vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/UiScreenTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/page_health_connect_title" />
+
+            <ImageButton
+                android:id="@+id/saveHealthConnect"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/action_save"
+                android:padding="@dimen/spacing_sm"
+                android:src="@drawable/ic_save" />
+        </LinearLayout>
+
+        <CheckBox
+            android:id="@+id/healthConnectEnabled"
+            style="@style/UiCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:buttonTint="@color/ui_text_primary"
+            android:text="@string/health_connect_enabled" />
+
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_lg"
+            android:text="@string/health_connect_values_title"
+            android:textStyle="bold" />
+
+        <CheckBox
+            android:id="@+id/hcWeight"
+            style="@style/UiCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:buttonTint="@color/ui_text_primary"
+            android:text="@string/health_connect_weight" />
+
+        <CheckBox
+            android:id="@+id/hcBodyFat"
+            style="@style/UiCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:buttonTint="@color/ui_text_primary"
+            android:text="@string/health_connect_body_fat" />
+
+        <CheckBox
+            android:id="@+id/hcBodyWater"
+            style="@style/UiCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:buttonTint="@color/ui_text_primary"
+            android:text="@string/health_connect_body_water" />
+
+        <CheckBox
+            android:id="@+id/hcBoneMass"
+            style="@style/UiCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:buttonTint="@color/ui_text_primary"
+            android:text="@string/health_connect_bone_mass" />
+
+        <CheckBox
+            android:id="@+id/hcLeanBodyMass"
+            style="@style/UiCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:buttonTint="@color/ui_text_primary"
+            android:text="@string/health_connect_lean_body_mass" />
+
+        <CheckBox
+            android:id="@+id/hcBmr"
+            style="@style/UiCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:buttonTint="@color/ui_text_primary"
+            android:text="@string/health_connect_bmr" />
+
+        <CheckBox
+            android:id="@+id/hcBmi"
+            style="@style/UiCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:buttonTint="@color/ui_text_primary"
+            android:text="@string/health_connect_bmi" />
+
+        <Button
+            android:id="@+id/connectHealthConnect"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/health_connect_permissions" />
+
+        <TextView
+            android:id="@+id/healthConnectStatus"
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_lg"
+            android:text="@string/health_connect_not_checked" />
+    </LinearLayout>
+</ScrollView>
