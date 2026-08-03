@@ -129,6 +129,7 @@ public final class MainActivity extends Activity {
         });
 
         findViewById(R.id.navUsers).setOnClickListener(view -> {
+            refreshUserList();
             pageHome.setVisibility(View.GONE);
             pageScale.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.GONE);
@@ -303,6 +304,7 @@ public final class MainActivity extends Activity {
             users = new ArrayList<>();
             profiles = new ArrayList<>();
             updateUserSpinner(-1L);
+            refreshUserList();
             refreshPending();
             return;
         }
@@ -341,6 +343,7 @@ public final class MainActivity extends Activity {
                     "profile_editor_user_id",
                     prefs.getLong("openscale_user_id", -1L));
             updateUserSpinner(storedUser);
+            refreshUserList();
 
             String openScaleLine = users.isEmpty()
                     ? getString(R.string.permissions_openscale_no_users)
@@ -361,6 +364,36 @@ public final class MainActivity extends Activity {
         } catch (RuntimeException e) {
             openScaleStatus.setText(
                     R.string.permissions_openscale_query_failed);
+        }
+    }
+
+    private void refreshUserList() {
+        android.widget.LinearLayout container =
+                findViewById(R.id.userListContainer);
+        TextView emptyView = findViewById(R.id.usersEmpty);
+
+        container.removeAllViews();
+
+        if (users.isEmpty()) {
+            emptyView.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        emptyView.setVisibility(View.GONE);
+
+        for (OpenScaleProvider.User user : users) {
+            View item = getLayoutInflater().inflate(
+                    R.layout.item_user,
+                    container,
+                    false);
+
+            TextView userName = item.findViewById(R.id.userName);
+            userName.setText(user.name);
+
+            item.findViewById(R.id.editUser).setTag(user.id);
+            item.findViewById(R.id.deleteUser).setTag(user.id);
+
+            container.addView(item);
         }
     }
 
