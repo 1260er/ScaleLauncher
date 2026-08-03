@@ -78,95 +78,6 @@
             android:text="Ordnet S400-Messungen anhand des Gewichts automatisch openScale-Benutzern zu. Unsichere Messungen bleiben gespeichert, bis ein Benutzer ausgewählt wurde." />
 
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Benutzerprofile"
-            android:textStyle="bold" />
-
-        <Spinner
-            android:id="@+id/openScaleUser"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-
-
-        <CheckBox
-            android:id="@+id/profileEnabled"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Diesen Benutzer automatisch zuordnen" />
-
-        <EditText
-            android:id="@+id/birthDate"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:clickable="true"
-            android:focusable="false"
-            android:hint="Geburtstag auswählen"
-            android:inputType="none"
-            android:maxLines="1" />
-
-        <EditText
-            android:id="@+id/heightCm"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Größe in cm"
-            android:inputType="numberDecimal"
-            android:maxLines="1" />
-
-        <RadioGroup
-            android:id="@+id/sexGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <RadioButton
-                android:id="@+id/sexFemale"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Weiblich" />
-            <RadioButton
-                android:id="@+id/sexMale"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Männlich" />
-        </RadioGroup>
-
-        <EditText
-            android:id="@+id/referenceWeight"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Referenzgewicht in kg"
-            android:inputType="numberDecimal"
-            android:maxLines="1" />
-
-        <EditText
-            android:id="@+id/weightTolerance"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Zulässige Abweichung in kg, z. B. 3,0"
-            android:inputType="numberDecimal"
-            android:maxLines="1" />
-
-        <CheckBox
-            android:id="@+id/healthConnectProfile"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Health Connect nur für diesen Benutzer verwenden" />
-
-        <Button
-            android:id="@+id/saveProfile"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Dieses Benutzerprofil speichern" />
-
-        <TextView
-            android:id="@+id/profileStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Noch kein Profil ausgewählt" />
 
         <TextView
             android:layout_width="match_parent"
@@ -320,6 +231,10 @@
             layout="@layout/page_users"
             android:visibility="gone" />
 
+
+        <include
+            layout="@layout/page_user_detail"
+            android:visibility="gone" />
     </FrameLayout>
 
     <include layout="@layout/view_navigation_drawer" />
