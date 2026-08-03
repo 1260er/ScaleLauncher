@@ -53,4 +53,14 @@
     <string name="action_edit_user">Benutzer bearbeiten</string>
     <string name="action_delete_user">Benutzerprofil löschen</string>
     <string name="user_profile_deleted">Benutzerprofil gelöscht</string>
+    <string name="page_user_title">%1$s</string>
+    <string name="user_auto_assign">Diesen Benutzer automatisch zuordnen</string>
+    <string name="user_birth_date_hint">Geburtstag auswählen</string>
+    <string name="user_height_hint">Größe in cm</string>
+    <string name="user_sex_female">Weiblich</string>
+    <string name="user_sex_male">Männlich</string>
+    <string name="user_reference_weight_hint">Referenzgewicht in kg</string>
+    <string name="user_weight_tolerance_hint">Zulässige Abweichung in kg, z. B. 3,0</string>
+    <string name="user_health_connect">Health Connect nur für diesen Benutzer verwenden</string>
+    <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
 </resources>
