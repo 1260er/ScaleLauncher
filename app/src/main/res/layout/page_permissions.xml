@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/pagePermissions"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/screen_padding_horizontal"
+        android:paddingVertical="@dimen/screen_padding_vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/UiScreenTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/page_permissions_title" />
+
+            <ImageButton
+                android:id="@+id/savePermissions"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/action_save"
+                android:padding="@dimen/spacing_sm"
+                android:src="@drawable/ic_save" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/loadOpenScaleUsers"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/action_allow_openscale_access" />
+
+        <TextView
+            android:id="@+id/openScaleStatus"
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/batteryOptimizationSettings"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:text="@string/action_disable_battery_optimization" />
+
+        <Button
+            android:id="@+id/unusedAppSettings"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:text="@string/action_disable_unused_app_management" />
+
+        <Button
+            android:id="@+id/notificationSettings"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:text="@string/action_open_notification_settings" />
+
+        <TextView
+            android:id="@+id/systemRequirementsStatus"
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_lg" />
+
+        <CheckBox
+            android:id="@+id/autoStart"
+            style="@style/UiCheckBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/permission_auto_start_after_reboot" />
+    </LinearLayout>
+</ScrollView>
