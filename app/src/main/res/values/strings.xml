@@ -33,4 +33,18 @@
     <string name="permission_status_unused_app_management">Verwaltung bei Nichtnutzung</string>
     <string name="permission_status_notifications_allowed">Benachrichtigungen erlaubt</string>
     <string name="permission_auto_start_after_reboot">Nach Neustart automatisch starten</string>
+    <string name="permissions_openscale_connected">✔ openScale: verbunden %1$d Benutzer</string>
+    <string name="permissions_openscale_no_users">✗ openScale: verbunden, keine Benutzer</string>
+    <string name="permissions_openscale_not_found">✗ openScale: nicht gefunden</string>
+    <string name="permissions_openscale_access_missing">✗ openScale: Zugriff nicht erlaubt</string>
+    <string name="permissions_openscale_access_denied">✗ openScale: Zugriff verweigert</string>
+    <string name="permissions_openscale_query_failed">✗ openScale: Abfrage fehlgeschlagen</string>
+    <string name="permissions_api_complete">✔ API %1$d: vollständige Messwerte</string>
+    <string name="permissions_api_incomplete">✗ API %1$d: unvollständige Messwerte</string>
+    <string name="permissions_battery_ok">✔ Akkuoptimierung: aus / uneingeschränkt</string>
+    <string name="permissions_battery_bad">✗ Akkuoptimierung: noch aktiv</string>
+    <string name="permissions_unused_ok">✔ Verwaltung bei Nichtnutzung: deaktiviert</string>
+    <string name="permissions_unused_bad">✗ Verwaltung bei Nichtnutzung: noch aktiv</string>
+    <string name="permissions_notifications_ok">✔ Benachrichtigung: erlaubt</string>
+    <string name="permissions_notifications_bad">✗ Benachrichtigung: nicht erlaubt</string>
 </resources>

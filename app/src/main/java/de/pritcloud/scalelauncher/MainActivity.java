@@ -280,7 +280,7 @@ public final class MainActivity extends Activity {
         openScaleAuthority = OpenScaleProvider.findAuthority(this);
         if (openScaleAuthority == null) {
             openScaleStatus.setText(
-                    "openScale-Provider nicht gefunden. Aktuelle openScale-Version installieren.");
+                    R.string.permissions_openscale_not_found);
             users = new ArrayList<>();
             profiles = new ArrayList<>();
             updateUserSpinner(-1L);
@@ -290,7 +290,8 @@ public final class MainActivity extends Activity {
         String permission = OpenScaleProvider.permissionForAuthority(openScaleAuthority);
         if (permission != null
                 && checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
-            openScaleStatus.setText("openScale-Zugriff muss erlaubt werden");
+            openScaleStatus.setText(
+                    R.string.permissions_openscale_access_missing);
             requestPermissions(new String[]{permission}, REQ_OPENSCALE_PERMISSION);
             return;
         }
@@ -322,19 +323,25 @@ public final class MainActivity extends Activity {
                     prefs.getLong("openscale_user_id", -1L));
             updateUserSpinner(storedUser);
 
-            String apiStatus = openScaleMeta.supportsGenericValues()
-                    ? "Provider-API " + openScaleMeta.apiVersion + ": vollständige Messwerte möglich"
-                    : "Provider-API 1: extern nur Gewicht, Fett, Wasser und Muskel";
-            openScaleStatus.setText(users.isEmpty()
-                    ? "openScale gefunden, aber keine Benutzer verfügbar – " + apiStatus
-                    : "openScale verbunden: " + users.size() + " Benutzer – " + apiStatus);
+            String openScaleLine = users.isEmpty()
+                    ? getString(R.string.permissions_openscale_no_users)
+                    : getString(
+                            R.string.permissions_openscale_connected,
+                            users.size());
+            String apiLine = getString(
+                    openScaleMeta.supportsGenericValues()
+                            ? R.string.permissions_api_complete
+                            : R.string.permissions_api_incomplete,
+                    openScaleMeta.apiVersion);
+            openScaleStatus.setText(openScaleLine + "\n" + apiLine);
             updateProfileStatus();
             refreshPending();
         } catch (SecurityException e) {
-            openScaleStatus.setText("openScale-Zugriff verweigert");
+            openScaleStatus.setText(
+                    R.string.permissions_openscale_access_denied);
         } catch (RuntimeException e) {
             openScaleStatus.setText(
-                    "openScale-Abfrage fehlgeschlagen: " + e.getClass().getSimpleName());
+                    R.string.permissions_openscale_query_failed);
         }
     }
 
@@ -541,7 +548,8 @@ public final class MainActivity extends Activity {
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 loadOpenScaleUsers();
             } else {
-                openScaleStatus.setText("openScale-Zugriff wurde nicht erlaubt");
+                openScaleStatus.setText(
+                        R.string.permissions_openscale_access_denied);
             }
             return;
         }
@@ -873,12 +881,17 @@ public final class MainActivity extends Activity {
         boolean unused = PowerSettingsHelper.isUnusedAppManagementDisabled(this);
         boolean notifications = PowerSettingsHelper.areNotificationsUsable(this);
         systemRequirementsStatus.setText(
-                (battery ? "✓" : "✗") + " Akkuoptimierung: "
-                        + (battery ? "aus / uneingeschränkt" : "noch aktiv") + "\n"
-                        + (unused ? "✓" : "✗") + " Verwaltung bei Nichtnutzung: "
-                        + (unused ? "deaktiviert" : "noch aktiv") + "\n"
-                        + (notifications ? "✓" : "✗") + " Benachrichtigungen: "
-                        + (notifications ? "erlaubt" : "nicht vollständig erlaubt"));
+                getString(battery
+                        ? R.string.permissions_battery_ok
+                        : R.string.permissions_battery_bad)
+                        + "\n"
+                        + getString(unused
+                        ? R.string.permissions_unused_ok
+                        : R.string.permissions_unused_bad)
+                        + "\n"
+                        + getString(notifications
+                        ? R.string.permissions_notifications_ok
+                        : R.string.permissions_notifications_bad));
         systemRequirementsStatus.setTextColor(
                 getColor(R.color.ui_text_primary));
     }
