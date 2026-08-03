@@ -72,14 +72,14 @@
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_sm" />
+            android:layout_marginTop="@dimen/spacing_lg" />
 
         <TextView
             android:id="@+id/systemRequirementsStatus"
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_lg" />
+            android:layout_marginTop="0dp" />
 
         <CheckBox
             android:id="@+id/autoStart"
