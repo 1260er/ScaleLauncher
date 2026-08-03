@@ -43,13 +43,6 @@
             android:layout_marginTop="@dimen/spacing_xl"
             android:text="@string/action_allow_openscale_access" />
 
-        <TextView
-            android:id="@+id/openScaleStatus"
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_sm" />
-
         <Button
             android:id="@+id/batteryOptimizationSettings"
             style="@style/UiPrimaryButton"
@@ -73,6 +66,13 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_md"
             android:text="@string/action_open_notification_settings" />
+
+        <TextView
+            android:id="@+id/openScaleStatus"
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm" />
 
         <TextView
             android:id="@+id/systemRequirementsStatus"
