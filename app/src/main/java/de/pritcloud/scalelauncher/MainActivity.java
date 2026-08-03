@@ -390,10 +390,31 @@ public final class MainActivity extends Activity {
             TextView userName = item.findViewById(R.id.userName);
             userName.setText(user.name);
 
-            item.findViewById(R.id.editUser).setTag(user.id);
+            View editButton = item.findViewById(R.id.editUser);
+            editButton.setTag(user.id);
+            editButton.setOnClickListener(view ->
+                    openUserDetail((Long) view.getTag()));
+
             item.findViewById(R.id.deleteUser).setTag(user.id);
 
             container.addView(item);
+        }
+    }
+
+    private void openUserDetail(long userId) {
+        for (int position = 0; position < users.size(); position++) {
+            OpenScaleProvider.User user = users.get(position);
+            if (user.id != userId) continue;
+
+            userSpinner.setSelection(position);
+            loadProfileForPosition(position);
+
+            TextView title = findViewById(R.id.userDetailTitle);
+            title.setText(user.name);
+
+            findViewById(R.id.pageUsers).setVisibility(View.GONE);
+            findViewById(R.id.pageUserDetail).setVisibility(View.VISIBLE);
+            return;
         }
     }
 
