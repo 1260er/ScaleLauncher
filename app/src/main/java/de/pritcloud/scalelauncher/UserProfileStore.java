@@ -62,6 +62,35 @@ final class UserProfileStore {
             if (profile != null) synchronizedProfiles.add(profile);
         }
         save(prefs, synchronizedProfiles);
+
+        java.util.HashSet<Long> currentUserIds = new java.util.HashSet<>();
+        for (OpenScaleProvider.User user : users) {
+            currentUserIds.add(user.id);
+        }
+
+        SharedPreferences.Editor cleanup = prefs.edit();
+        boolean cleanupNeeded = false;
+
+        long healthUserId = prefs.getLong("health_connect_user_id", -1L);
+        if (healthUserId >= 0L && !currentUserIds.contains(healthUserId)) {
+            cleanup.remove("health_connect_user_id");
+            cleanupNeeded = true;
+        }
+
+        long editorUserId = prefs.getLong("profile_editor_user_id", -1L);
+        if (editorUserId >= 0L && !currentUserIds.contains(editorUserId)) {
+            cleanup.remove("profile_editor_user_id");
+            cleanupNeeded = true;
+        }
+
+        long legacyUserId = prefs.getLong("openscale_user_id", -1L);
+        if (legacyUserId >= 0L && !currentUserIds.contains(legacyUserId)) {
+            cleanup.remove("openscale_user_id");
+            cleanupNeeded = true;
+        }
+
+        if (cleanupNeeded) cleanup.apply();
+
         if (migrateLegacy
                 && oldUserId >= 0L
                 && prefs.getBoolean("health_connect_enabled", false)

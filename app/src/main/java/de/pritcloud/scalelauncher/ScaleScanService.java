@@ -43,12 +43,21 @@ public final class ScaleScanService extends Service {
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
     private static final long SCALE_STALE_AFTER_MS = 90_000L;
     private static final long SCAN_RESTART_DELAY_MS = 3_000L;
+    private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final S400Aggregator aggregator = new S400Aggregator();
     private final Runnable timeoutRunnable = this::finalizeTimedOutSession;
     private final Runnable decryptionFailureRunnable = this::finalizeUndecryptableSession;
     private final Runnable watchdogRunnable = this::runWatchdog;
+    private final Runnable userSyncRunnable = new Runnable() {
+        @Override public void run() {
+            synchronizeOpenScaleUsers();
+            if (!explicitStop) {
+                handler.postDelayed(this, USER_SYNC_INTERVAL_MS);
+            }
+        }
+    };
     private final Runnable restartScanRunnable = () -> {
         restartScheduled = false;
         startScan();
@@ -77,6 +86,7 @@ public final class ScaleScanService extends Service {
         startForeground(NOTIFICATION_MONITOR, monitorNotification(monitorText));
         EventLog.info(this, "Dienst gestartet – Stabilitätsmodus 3.2");
         updateAssignmentNotification();
+        handler.post(userSyncRunnable);
         handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS);
     }
 
@@ -98,6 +108,32 @@ public final class ScaleScanService extends Service {
         }
         if (!scanRunning && !terminalError) startScan();
         return START_STICKY;
+    }
+
+    private void synchronizeOpenScaleUsers() {
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        String authority = prefs.getString("openscale_authority", "");
+        if (authority == null || authority.isBlank()) return;
+
+        try {
+            int previousCount = UserProfileStore.load(prefs).size();
+            List<OpenScaleProvider.User> currentUsers =
+                    OpenScaleProvider.loadUsers(this, authority);
+            List<UserProfile> synchronizedProfiles =
+                    UserProfileStore.synchronize(prefs, currentUsers);
+
+            if (previousCount != synchronizedProfiles.size()) {
+                EventLog.info(this,
+                        "openScale-Benutzer synchronisiert: "
+                                + synchronizedProfiles.size() + " Benutzer");
+            }
+        } catch (SecurityException e) {
+            EventLog.debug(this,
+                    "Automatische Benutzersynchronisierung: Berechtigung fehlt");
+        } catch (RuntimeException e) {
+            EventLog.debug(this,
+                    "Automatische Benutzersynchronisierung vorübergehend fehlgeschlagen");
+        }
     }
 
     private void startScan() {
