@@ -316,6 +316,10 @@
         <include
             layout="@layout/page_permissions"
             android:visibility="gone" />
+        <include
+            layout="@layout/page_users"
+            android:visibility="gone" />
+
     </FrameLayout>
 
     <include layout="@layout/view_navigation_drawer" />
