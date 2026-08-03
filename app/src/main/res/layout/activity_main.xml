@@ -77,40 +77,6 @@
             android:layout_marginTop="8dp"
             android:text="Ordnet S400-Messungen anhand des Gewichts automatisch openScale-Benutzern zu. Unsichere Messungen bleiben gespeichert, bis ein Benutzer ausgewählt wurde." />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Bluetooth-Adresse der Waage" />
-
-        <EditText
-            android:id="@+id/macAddress"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="AA:BB:CC:DD:EE:FF"
-            android:inputType="textCapCharacters"
-            android:maxLines="1" />
-
-        <Button
-            android:id="@+id/scanDevice"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Waage suchen und auswählen" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="S400 Bind-Key (32 Hex-Zeichen)" />
-
-        <EditText
-            android:id="@+id/bindKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="00112233445566778899aabbccddeeff"
-            android:inputType="textNoSuggestions"
-            android:maxLength="32"
-            android:maxLines="1" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -386,6 +352,10 @@
             android:text="Noch kein Ereignis" />
     </LinearLayout>
 </ScrollView>
+
+        <include
+            layout="@layout/page_scale"
+            android:visibility="gone" />
     </FrameLayout>
 
     <include layout="@layout/view_navigation_drawer" />
