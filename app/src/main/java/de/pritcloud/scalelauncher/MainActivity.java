@@ -180,6 +180,7 @@ public final class MainActivity extends Activity {
         findViewById(R.id.saveProfile).setOnClickListener(v -> saveCurrentProfile(true));
         findViewById(R.id.connectHealthConnect).setOnClickListener(v -> requestHealthConnectPermissions());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
+        findViewById(R.id.saveScale).setOnClickListener(v -> saveScaleSettings());
         findViewById(R.id.stop).setOnClickListener(v -> {
             ServiceState.stopped(this, "Vom Benutzer gestoppt");
             startService(new Intent(this, ScaleScanService.class)
@@ -548,6 +549,31 @@ public final class MainActivity extends Activity {
                             : "Nicht alle Schreibrechte für die ausgewählten Werte wurden erlaubt.",
                     Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void saveScaleSettings() {
+        String mac = macAddress.getText().toString().trim().toUpperCase(Locale.ROOT);
+        String key = bindKey.getText().toString().trim().toLowerCase(Locale.ROOT);
+
+        if (!MAC_PATTERN.matcher(mac).matches()) {
+            Toast.makeText(this, R.string.scale_error_invalid_mac, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!KEY_PATTERN.matcher(key).matches()) {
+            Toast.makeText(this, R.string.scale_error_invalid_bind_key, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        getSharedPreferences("prefs", MODE_PRIVATE)
+                .edit()
+                .putString("mac", mac)
+                .putString("bind_key", key)
+                .apply();
+
+        macAddress.setText(mac);
+        bindKey.setText(key);
+        EventLog.info(this, getString(R.string.scale_settings_saved));
+        Toast.makeText(this, R.string.scale_settings_saved, Toast.LENGTH_SHORT).show();
     }
 
     private void saveAndStart() {
