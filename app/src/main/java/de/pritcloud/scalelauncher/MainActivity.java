@@ -111,8 +111,11 @@ public final class MainActivity extends Activity {
         View pageHome = findViewById(R.id.pageHome);
         View pageScale = findViewById(R.id.pageScale);
         View pagePermissions = findViewById(R.id.pagePermissions);
+        View pageUsers = findViewById(R.id.pageUsers);
         findViewById(R.id.navScale).setOnClickListener(view -> {
             pageHome.setVisibility(View.GONE);
+            pagePermissions.setVisibility(View.GONE);
+            pageUsers.setVisibility(View.GONE);
             pageScale.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.START);
         });
@@ -120,8 +123,22 @@ public final class MainActivity extends Activity {
         findViewById(R.id.navPermissions).setOnClickListener(view -> {
             pageHome.setVisibility(View.GONE);
             pageScale.setVisibility(View.GONE);
+            pageUsers.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.START);
+        });
+
+        findViewById(R.id.navUsers).setOnClickListener(view -> {
+            pageHome.setVisibility(View.GONE);
+            pageScale.setVisibility(View.GONE);
+            pagePermissions.setVisibility(View.GONE);
+            pageUsers.setVisibility(View.VISIBLE);
+            drawerLayout.closeDrawer(android.view.Gravity.START);
+        });
+
+        findViewById(R.id.backUsers).setOnClickListener(view -> {
+            pageUsers.setVisibility(View.GONE);
+            pageHome.setVisibility(View.VISIBLE);
         });
 
         macAddress = findViewById(R.id.macAddress);
