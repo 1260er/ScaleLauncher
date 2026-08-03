@@ -882,7 +882,9 @@ public final class MainActivity extends Activity {
             text.append(" – ").append(snapshot.message);
         }
         if (snapshot.lastScaleSeenMs > 0L && snapshot.mode == ServiceState.Mode.RUNNING) {
-            text.append("\nWaage zuletzt ").append(relativeTime(now - snapshot.lastScaleSeenMs));
+            text.append("\n").append(getString(
+                    R.string.status_scale_last_seen,
+                    relativeTime(now - snapshot.lastScaleSeenMs)));
         }
         if (snapshot.lastSuccessMs > 0L) {
             text.append("\nLetzte erfolgreiche Messung: ")

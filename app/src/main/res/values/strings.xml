@@ -14,4 +14,5 @@
     <string name="status_scale_connected">Waage verbunden</string>
     <string name="status_scale_disconnected">Waage getrennt</string>
     <string name="status_waiting_for_measurement">Warte auf Messung</string>
+    <string name="status_scale_last_seen">Waage zuletzt gesehen: %1$s</string>
 </resources>
