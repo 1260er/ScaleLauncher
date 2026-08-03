@@ -120,44 +120,6 @@
                 android:text="Verwerfen" />
         </LinearLayout>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Health Connect"
-            android:textStyle="bold" />
-
-        <CheckBox
-            android:id="@+id/healthConnectEnabled"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Messungen des festgelegten Hauptbenutzers nach Health Connect schreiben" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="Zu übertragende Werte auswählen:" />
-
-        <CheckBox android:id="@+id/hcWeight" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Gewicht" />
-        <CheckBox android:id="@+id/hcBodyFat" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Körperfett" />
-        <CheckBox android:id="@+id/hcBodyWater" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Körperwassermasse" />
-        <CheckBox android:id="@+id/hcBoneMass" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Knochenmasse" />
-        <CheckBox android:id="@+id/hcLeanBodyMass" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Fettfreie Masse" />
-        <CheckBox android:id="@+id/hcBmr" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Grundumsatz" />
-        <CheckBox android:id="@+id/hcBmi" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="BMI ermöglichen (Gewicht + Größe übertragen)" />
-
-        <Button
-            android:id="@+id/connectHealthConnect"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Schreibrechte für ausgewählte Werte erlauben" />
-
-        <TextView
-            android:id="@+id/healthConnectStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Health Connect: noch nicht geprüft" />
 
 
 
@@ -234,6 +196,10 @@
 
         <include
             layout="@layout/page_user_detail"
+            android:visibility="gone" />
+
+        <include
+            layout="@layout/page_health_connect"
             android:visibility="gone" />
     </FrameLayout>
 
