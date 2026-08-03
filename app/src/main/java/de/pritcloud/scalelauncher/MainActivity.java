@@ -851,7 +851,7 @@ public final class MainActivity extends Activity {
 
         if (snapshot.isStale(now)) {
             status.setText("Status: FEHLER – Dienst antwortet nicht");
-            status.setTextColor(Color.rgb(183, 28, 28));
+            status.setTextColor(getColor(R.color.ui_text_primary));
             return;
         }
 
@@ -862,20 +862,20 @@ public final class MainActivity extends Activity {
                 scaleStatusImage.setContentDescription(
                         getString(R.string.status_scale_connected));
                 text.append(snapshot.scanRunning ? "AKTIV" : "WARTET");
-                status.setTextColor(Color.rgb(27, 94, 32));
+                status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
             case STARTING:
                 text.append("STARTET");
-                status.setTextColor(Color.rgb(230, 81, 0));
+                status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
             case ERROR:
                 text.append("FEHLER");
-                status.setTextColor(Color.rgb(183, 28, 28));
+                status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
             case STOPPED:
             default:
                 text.append("GESTOPPT");
-                status.setTextColor(Color.rgb(66, 66, 66));
+                status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
         }
         if (snapshot.message != null && !snapshot.message.isBlank()) {
