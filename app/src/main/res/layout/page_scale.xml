@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/pageScale"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/screen_padding_horizontal"
+        android:paddingVertical="@dimen/screen_padding_vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/UiScreenTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/page_scale_title" />
+
+            <ImageButton
+                android:id="@+id/saveScale"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/action_save"
+                android:padding="@dimen/spacing_sm"
+                android:src="@drawable/ic_save" />
+        </LinearLayout>
+
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/scale_bluetooth_address" />
+
+        <EditText
+            android:id="@+id/macAddress"
+            style="@style/UiInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:hint="@string/scale_mac_hint"
+            android:inputType="textCapCharacters"
+            android:maxLines="1" />
+
+        <Button
+            android:id="@+id/scanDevice"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:text="@string/action_scan_scale" />
+
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/scale_bind_key" />
+
+        <EditText
+            android:id="@+id/bindKey"
+            style="@style/UiInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:hint="@string/scale_bind_key_hint"
+            android:inputType="textNoSuggestions"
+            android:maxLength="32"
+            android:maxLines="1" />
+    </LinearLayout>
+</ScrollView>
