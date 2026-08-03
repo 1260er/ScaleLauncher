@@ -69,6 +69,7 @@ public final class MainActivity extends Activity {
     private Spinner userSpinner;
     private Spinner pendingUserSpinner;
     private TextView status;
+    private android.widget.ImageView scaleStatusImage;
     private TextView log;
     private TextView openScaleStatus;
     private TextView healthConnectStatus;
@@ -129,6 +130,7 @@ public final class MainActivity extends Activity {
         userSpinner = findViewById(R.id.openScaleUser);
         pendingUserSpinner = findViewById(R.id.pendingUser);
         status = findViewById(R.id.status);
+        scaleStatusImage = findViewById(R.id.scaleStatusImage);
         log = findViewById(R.id.log);
         openScaleStatus = findViewById(R.id.openScaleStatus);
         healthConnectStatus = findViewById(R.id.healthConnectStatus);
@@ -842,6 +844,11 @@ public final class MainActivity extends Activity {
         if (status == null) return;
         long now = System.currentTimeMillis();
         ServiceState.Snapshot snapshot = ServiceState.read(this);
+
+        scaleStatusImage.setImageResource(R.drawable.scale_disconnected);
+        scaleStatusImage.setContentDescription(
+                getString(R.string.status_scale_disconnected));
+
         if (snapshot.isStale(now)) {
             status.setText("Status: FEHLER – Dienst antwortet nicht");
             status.setTextColor(Color.rgb(183, 28, 28));
@@ -851,6 +858,9 @@ public final class MainActivity extends Activity {
         StringBuilder text = new StringBuilder("Status: ");
         switch (snapshot.mode) {
             case RUNNING:
+                scaleStatusImage.setImageResource(R.drawable.scale_connected);
+                scaleStatusImage.setContentDescription(
+                        getString(R.string.status_scale_connected));
                 text.append(snapshot.scanRunning ? "AKTIV" : "WARTET");
                 status.setTextColor(Color.rgb(27, 94, 32));
                 break;
