@@ -63,4 +63,17 @@
     <string name="user_weight_tolerance_hint">Zulässige Abweichung in kg, z. B. 3,0</string>
     <string name="user_health_connect">Health Connect nur für diesen Benutzer verwenden</string>
     <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
+    <string name="page_health_connect_title">Health Connect</string>
+    <string name="health_connect_enabled">Messungen des ausgewählten Benutzers übertragen</string>
+    <string name="health_connect_values_title">Zu übertragende Werte</string>
+    <string name="health_connect_weight">Gewicht</string>
+    <string name="health_connect_body_fat">Körperfett</string>
+    <string name="health_connect_body_water">Körperwassermasse</string>
+    <string name="health_connect_bone_mass">Knochenmasse</string>
+    <string name="health_connect_lean_body_mass">Fettfreie Masse</string>
+    <string name="health_connect_bmr">Grundumsatz</string>
+    <string name="health_connect_bmi">BMI ermöglichen – Gewicht und Größe übertragen</string>
+    <string name="health_connect_permissions">Schreibrechte für ausgewählte Werte erlauben</string>
+    <string name="health_connect_not_checked">Health Connect: noch nicht geprüft</string>
+    <string name="health_connect_settings_saved">Health-Connect-Einstellungen gespeichert.</string>
 </resources>
