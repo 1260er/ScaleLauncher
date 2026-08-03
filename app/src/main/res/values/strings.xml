@@ -15,4 +15,10 @@
     <string name="status_scale_disconnected">Waage getrennt</string>
     <string name="status_waiting_for_measurement">Warte auf Messung</string>
     <string name="status_scale_last_seen">Waage zuletzt gesehen: %1$s</string>
+    <string name="page_scale_title">Waage</string>
+    <string name="scale_bluetooth_address">Bluetooth-Adresse der Waage</string>
+    <string name="scale_mac_hint">AA:BB:CC:DD:EE:FF</string>
+    <string name="action_scan_scale">Waage suchen und auswählen</string>
+    <string name="scale_bind_key">S400 Bind-Key (32 Hex-Zeichen)</string>
+    <string name="scale_bind_key_hint">00112233445566778899aabbccddeeff</string>
 </resources>
