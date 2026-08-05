@@ -360,4 +360,5 @@ UUIDs: %1$s</string>
     <string name="log_service_stopped_in_error">Dienst im Fehlerzustand beendet – %1$s</string>
     <string name="service_restart_expected">Dienst wurde beendet – Neustart wird erwartet</string>
     <string name="log_service_unexpected_stop">Dienst unerwartet beendet – automatischer Neustart wird erwartet</string>
+    <string name="provider_error_values_json">values_json konnte nicht erstellt werden</string>
 </resources>

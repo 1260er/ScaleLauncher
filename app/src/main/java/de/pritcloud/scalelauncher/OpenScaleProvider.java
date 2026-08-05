@@ -230,7 +230,9 @@ public final class OpenScaleProvider {
 
         boolean requestAdditionalValues = apiVersion >= 2;
         if (requestAdditionalValues) {
-            values.put("values_json", buildValuesJson(measurement, composition));
+            values.put(
+                    "values_json",
+                    buildValuesJson(context, measurement, composition));
         }
 
         Uri uri = Uri.parse("content://" + authority + "/measurements/" + userId);
@@ -356,7 +358,8 @@ public final class OpenScaleProvider {
         }
     }
 
-    private static String buildValuesJson(S400Aggregator.Finalized measurement,
+    private static String buildValuesJson(Context context,
+                                          S400Aggregator.Finalized measurement,
                                           S400BodyComposition.Result composition) {
         JSONArray values = new JSONArray();
         try {
@@ -372,7 +375,9 @@ public final class OpenScaleProvider {
             add(values, 33, "PROTEIN", "Protein", "%", "FLOAT", composition.proteinPercent);
             add(values, 34, "BCM", "Body cell mass", "kg", "FLOAT", composition.bodyCellMassKg);
         } catch (JSONException e) {
-            throw new IllegalStateException("values_json konnte nicht erstellt werden", e);
+            throw new IllegalStateException(
+                    context.getString(R.string.provider_error_values_json),
+                    e);
         }
         return values.toString();
     }
