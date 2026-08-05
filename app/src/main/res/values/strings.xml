@@ -336,4 +336,16 @@ UUIDs: %1$s</string>
     <string name="log_calculation_quality"> | Qualität %1$s</string>
     <string name="unit_kcal_suffix"> kcal</string>
     <string name="service_no_detail">ohne Detailangabe</string>
+    <string name="service_error_battery_optimization_returned">Akkuoptimierung ist wieder aktiv</string>
+    <string name="service_error_unused_app_management_returned">Verwaltung bei Nichtnutzung ist wieder aktiv</string>
+    <string name="service_error_notifications_disabled">Benachrichtigungen wurden deaktiviert</string>
+    <string name="service_error_bluetooth_permission_revoked">Bluetooth-Berechtigung wurde entzogen</string>
+    <string name="service_error_monitor_inactive">BLE-Überwachung war nicht aktiv</string>
+    <string name="log_scale_watchdog_restart">Waage seit 90 Sekunden nicht erkannt – BLE-Scan wird vorsorglich neu gestartet</string>
+    <string name="service_scale_unreachable_restart">Waage nicht erreichbar – BLE-Scan wird neu gestartet</string>
+    <string name="service_restart_delay">%1$s – neuer Versuch in 3 Sekunden</string>
+    <string name="log_monitor_stopped">Überwachung angehalten – %1$s</string>
+    <string name="notification_monitor_error_title">ScaleLauncher – Fehler</string>
+    <string name="notification_monitor_starting_title">ScaleLauncher startet</string>
+    <string name="notification_monitor_active_title">ScaleLauncher aktiv</string>
 </resources>

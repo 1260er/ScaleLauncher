@@ -824,33 +824,36 @@ public final class ScaleScanService extends Service {
 
         long now = System.currentTimeMillis();
         if (!PowerSettingsHelper.isBatteryOptimizationDisabled(this)) {
-            enterTerminalError("Akkuoptimierung ist wieder aktiv");
+            enterTerminalError(getString(R.string.service_error_battery_optimization_returned));
         } else if (!PowerSettingsHelper.isUnusedAppManagementDisabled(this)) {
-            enterTerminalError("Verwaltung bei Nichtnutzung ist wieder aktiv");
+            enterTerminalError(getString(R.string.service_error_unused_app_management_returned));
         } else if (!PowerSettingsHelper.areNotificationsUsable(this)) {
-            enterTerminalError("Benachrichtigungen wurden deaktiviert");
+            enterTerminalError(getString(R.string.service_error_notifications_disabled));
         } else if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
                 != PackageManager.PERMISSION_GRANTED
                 || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 != PackageManager.PERMISSION_GRANTED) {
-            enterTerminalError("Bluetooth-Berechtigung wurde entzogen");
+            enterTerminalError(getString(R.string.service_error_bluetooth_permission_revoked));
         } else {
             BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
             BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
             if (adapter == null || !adapter.isEnabled()) {
-                enterRecoverableError("Bluetooth ist ausgeschaltet");
-                scheduleScanRestart("Bluetooth ist ausgeschaltet");
+                enterRecoverableError(
+                        getString(R.string.service_error_bluetooth_disabled));
+                scheduleScanRestart(
+                        getString(R.string.service_error_bluetooth_disabled));
             } else if (!scanRunning) {
-                scheduleScanRestart("BLE-Überwachung war nicht aktiv");
+                scheduleScanRestart(getString(R.string.service_error_monitor_inactive));
             } else {
                 long reference = lastPacketAtMs > 0L ? lastPacketAtMs : scanStartedAtMs;
                 if (reference > 0L && now - reference > SCALE_STALE_AFTER_MS) {
                     if (now - lastWatchdogWarningAtMs > 5 * 60_000L) {
-                        EventLog.warning(this,
-                                "Waage seit 90 Sekunden nicht erkannt – BLE-Scan wird vorsorglich neu gestartet");
+                        EventLog.warning(
+                                this,
+                                getString(R.string.log_scale_watchdog_restart));
                         lastWatchdogWarningAtMs = now;
                     }
-                    scheduleScanRestart("Waage nicht erreichbar – BLE-Scan wird neu gestartet");
+                    scheduleScanRestart(getString(R.string.service_scale_unreachable_restart));
                 } else {
                     ServiceState.heartbeat(this, true, monitorText);
                 }
@@ -865,7 +868,7 @@ public final class ScaleScanService extends Service {
         if (explicitStop || terminalError || restartScheduled) return;
         stopScan();
         restartScheduled = true;
-        monitorText = reason + " – neuer Versuch in 3 Sekunden";
+        monitorText = getString(R.string.service_restart_delay, reason);
         ServiceState.error(this, monitorText);
         notifyMonitor();
         handler.postDelayed(restartScanRunnable, SCAN_RESTART_DELAY_MS);
@@ -878,7 +881,7 @@ public final class ScaleScanService extends Service {
         stopScan();
         monitorText = reason;
         ServiceState.error(this, reason);
-        EventLog.error(this, "Überwachung angehalten – " + reason);
+        EventLog.error(this, getString(R.string.log_monitor_stopped, reason));
         notifyMonitor();
     }
 
@@ -899,14 +902,14 @@ public final class ScaleScanService extends Service {
         String title;
         switch (state.mode) {
             case ERROR:
-                title = "ScaleLauncher – Fehler";
+                title = getString(R.string.notification_monitor_error_title);
                 break;
             case STARTING:
-                title = "ScaleLauncher startet";
+                title = getString(R.string.notification_monitor_starting_title);
                 break;
             case RUNNING:
             default:
-                title = "ScaleLauncher aktiv";
+                title = getString(R.string.notification_monitor_active_title);
                 break;
         }
         PendingIntent open = PendingIntent.getActivity(
