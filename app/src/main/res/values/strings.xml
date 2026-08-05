@@ -95,4 +95,11 @@
     <string name="home_users_loading">Benutzer werden geladen</string>
     <string name="home_health_connect_user_title">Health-Connect-Benutzer</string>
     <string name="home_health_connect_user_none">Nicht festgelegt</string>
+    <string name="home_users_none">Keine Benutzer geladen</string>
+    <string name="home_users_expand">Benutzer anzeigen</string>
+    <string name="home_users_collapse">Benutzer ausblenden</string>
+    <plurals name="home_user_count">
+        <item quantity="one">%1$d Benutzer</item>
+        <item quantity="other">%1$d Benutzer</item>
+    </plurals>
 </resources>
