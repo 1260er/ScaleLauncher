@@ -75,27 +75,32 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Ordnet S400-Messungen anhand des Gewichts automatisch openScale-Benutzern zu. Unsichere Messungen bleiben gespeichert, bis ein Benutzer ausgewählt wurde." />
+            style="@style/UiBodyText"
+            android:text="@string/home_description" />
 
 
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Das Referenzgewicht wird beim Laden aus den letzten fünf openScale-Messungen vorgeschlagen. Nach jeder eindeutig zugeordneten Messung wird es automatisch aktualisiert. Bei weniger als 1 kg Vorsprung zum zweitbesten Profil wird nicht geraten." />
+            style="@style/UiBodyText"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:text="@string/home_reference_info" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:text="Nicht zugeordnete Messungen"
+            style="@style/UiBodyText"
+            android:text="@string/pending_measurements_title"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/pendingStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Keine offene Messung" />
+            style="@style/UiBodyText"
+            android:text="@string/pending_none" />
 
         <Spinner
             android:id="@+id/pendingUser"
@@ -108,16 +113,19 @@
             android:orientation="horizontal">
             <Button
                 android:id="@+id/assignPending"
+                style="@style/UiPrimaryButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Zuordnen" />
+                android:text="@string/action_assign" />
             <Button
                 android:id="@+id/discardPending"
+                style="@style/UiPrimaryButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Verwerfen" />
+                android:layout_marginStart="@dimen/spacing_sm"
+                android:text="@string/action_discard" />
         </LinearLayout>
 
 
@@ -128,15 +136,19 @@
 
         <Button
             android:id="@+id/saveStart"
+            style="@style/UiPrimaryButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Konfiguration speichern und Überwachung starten" />
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/action_save_start" />
 
         <Button
             android:id="@+id/stop"
+            style="@style/UiPrimaryButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Überwachung stoppen" />
+            android:layout_marginTop="@dimen/spacing_md"
+            android:text="@string/action_stop_monitoring" />
 
 
 
