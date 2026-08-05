@@ -279,7 +279,7 @@ public final class ScaleScanService extends Service {
             EventLog.warning(this, getString(
                     R.string.log_scan_start_failed,
                     e.getClass().getSimpleName()));
-            enterRecoverableError("BLE-Scan wird neu gestartet");
+            enterRecoverableError(getString(R.string.service_ble_scan_restarting));
             scheduleScanRestart(getString(R.string.service_scan_start_failed));
         }
     }
