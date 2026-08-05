@@ -355,6 +355,7 @@ public final class MainActivity extends Activity {
             profiles = new ArrayList<>();
             updateUserSpinner(-1L);
             refreshUserList();
+            refreshHomeUserSummary();
             refreshPending();
             return;
         }
@@ -593,6 +594,7 @@ public final class MainActivity extends Activity {
         editor.putLong("profile_editor_user_id", profile.userId).apply();
         UserProfileStore.save(prefs, profiles);
         updateProfileStatus();
+        refreshHomeUserSummary();
         refreshHealthConnectStatus();
         refreshPending();
 
@@ -602,6 +604,34 @@ public final class MainActivity extends Activity {
                     Toast.LENGTH_SHORT).show();
         }
         return true;
+    }
+
+    private void refreshHomeUserSummary() {
+        TextView usersSummary = findViewById(R.id.homeUsersSummary);
+        TextView healthConnectUser = findViewById(R.id.homeHealthConnectUser);
+
+        if (users == null || users.isEmpty()) {
+            usersSummary.setText(R.string.home_users_loading);
+        } else {
+            StringBuilder summary = new StringBuilder();
+            summary.append(users.size())
+                    .append(users.size() == 1 ? " Benutzer" : " Benutzer");
+
+            for (OpenScaleProvider.User user : users) {
+                summary.append("\n").append(user.name);
+            }
+
+            usersSummary.setText(summary.toString());
+        }
+
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        long healthUserId = prefs.getLong("health_connect_user_id", -1L);
+        UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
+
+        healthConnectUser.setText(
+                healthProfile == null
+                        ? getString(R.string.home_health_connect_user_none)
+                        : healthProfile.name);
     }
 
     private void updateProfileStatus() {
