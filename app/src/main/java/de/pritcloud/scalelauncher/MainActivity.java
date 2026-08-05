@@ -114,12 +114,14 @@ public final class MainActivity extends Activity {
         View pageUsers = findViewById(R.id.pageUsers);
         View pageUserDetail = findViewById(R.id.pageUserDetail);
         View pageHealthConnect = findViewById(R.id.pageHealthConnect);
+        View pageLog = findViewById(R.id.pageLog);
         findViewById(R.id.navScale).setOnClickListener(view -> {
             pageHome.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.GONE);
             pageUsers.setVisibility(View.GONE);
             pageUserDetail.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.GONE);
+            pageLog.setVisibility(View.GONE);
             pageScale.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.START);
         });
@@ -130,6 +132,7 @@ public final class MainActivity extends Activity {
             pageUsers.setVisibility(View.GONE);
             pageUserDetail.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.GONE);
+            pageLog.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.START);
         });
@@ -141,6 +144,7 @@ public final class MainActivity extends Activity {
             pagePermissions.setVisibility(View.GONE);
             pageUserDetail.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.GONE);
+            pageLog.setVisibility(View.GONE);
             pageUsers.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.START);
         });
@@ -151,13 +155,31 @@ public final class MainActivity extends Activity {
             pagePermissions.setVisibility(View.GONE);
             pageUsers.setVisibility(View.GONE);
             pageUserDetail.setVisibility(View.GONE);
+            pageLog.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.VISIBLE);
             refreshHealthConnectStatus();
             drawerLayout.closeDrawer(android.view.Gravity.START);
         });
 
+        findViewById(R.id.navLog).setOnClickListener(view -> {
+            pageHome.setVisibility(View.GONE);
+            pageScale.setVisibility(View.GONE);
+            pagePermissions.setVisibility(View.GONE);
+            pageUsers.setVisibility(View.GONE);
+            pageUserDetail.setVisibility(View.GONE);
+            pageHealthConnect.setVisibility(View.GONE);
+            pageLog.setVisibility(View.VISIBLE);
+            refreshLog();
+            drawerLayout.closeDrawer(android.view.Gravity.START);
+        });
+
         findViewById(R.id.backUsers).setOnClickListener(view -> {
             pageUsers.setVisibility(View.GONE);
+            pageHome.setVisibility(View.VISIBLE);
+        });
+
+        findViewById(R.id.backLog).setOnClickListener(view -> {
+            pageLog.setVisibility(View.GONE);
             pageHome.setVisibility(View.VISIBLE);
         });
 
