@@ -76,4 +76,12 @@
     <string name="health_connect_permissions">Schreibrechte für ausgewählte Werte erlauben</string>
     <string name="health_connect_not_checked">Health Connect: noch nicht geprüft</string>
     <string name="health_connect_settings_saved">Health-Connect-Einstellungen gespeichert.</string>
+    <string name="page_log_title">Protokoll</string>
+    <string name="log_diagnostic_enabled">Erweiterte Protokollierung aktivieren</string>
+    <string name="log_diagnostic_description">Erfasst detaillierte Messwerte, Zuordnungsgründe und eingeblendete Meldungen. Die neuesten Einträge stehen oben.</string>
+    <string name="action_refresh">Aktualisieren</string>
+    <string name="action_copy">Kopieren</string>
+    <string name="action_clear">Leeren</string>
+    <string name="log_copied">Protokoll kopiert</string>
+    <string name="log_cleared">Protokoll geleert</string>
 </resources>
