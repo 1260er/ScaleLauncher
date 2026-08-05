@@ -1165,26 +1165,28 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        StringBuilder text = new StringBuilder("Status: ");
+        StringBuilder text = new StringBuilder(getString(R.string.status_prefix));
         switch (snapshot.mode) {
             case RUNNING:
                 scaleStatusImage.setImageResource(R.drawable.scale_connected);
                 scaleStatusImage.setContentDescription(
                         getString(R.string.status_scale_connected));
-                text.append(snapshot.scanRunning ? "AKTIV" : "WARTET");
+                text.append(getString(snapshot.scanRunning
+                        ? R.string.status_active
+                        : R.string.status_waiting));
                 status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
             case STARTING:
-                text.append("STARTET");
+                text.append(getString(R.string.status_starting));
                 status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
             case ERROR:
-                text.append("FEHLER");
+                text.append(getString(R.string.status_error));
                 status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
             case STOPPED:
             default:
-                text.append("GESTOPPT");
+                text.append(getString(R.string.status_stopped));
                 status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
         }
@@ -1197,26 +1199,28 @@ public final class MainActivity extends Activity {
                     relativeTime(now - snapshot.lastScaleSeenMs)));
         }
         if (snapshot.lastSuccessMs > 0L) {
-            text.append("\nLetzte erfolgreiche Messung: ")
-                    .append(relativeTime(now - snapshot.lastSuccessMs));
+            text.append("\n").append(getString(
+                    R.string.status_last_success,
+                    relativeTime(now - snapshot.lastSuccessMs)));
         }
         if (snapshot.lastFailureMs > snapshot.lastSuccessMs) {
-            text.append("\nLetzte Messung fehlgeschlagen: ")
-                    .append(relativeTime(now - snapshot.lastFailureMs));
+            text.append("\n").append(getString(
+                    R.string.status_last_failure,
+                    relativeTime(now - snapshot.lastFailureMs)));
         }
         status.setText(text.toString());
     }
 
-    private static String relativeTime(long ageMs) {
+    private String relativeTime(long ageMs) {
         if (ageMs < 0L) ageMs = 0L;
         long seconds = ageMs / 1_000L;
-        if (seconds < 5L) return "gerade eben";
-        if (seconds < 60L) return "vor " + seconds + " Sekunden";
+        if (seconds < 5L) return getString(R.string.time_just_now);
+        if (seconds < 60L) return getString(R.string.time_seconds_ago, seconds);
         long minutes = seconds / 60L;
-        if (minutes < 60L) return "vor " + minutes + " Minuten";
+        if (minutes < 60L) return getString(R.string.time_minutes_ago, minutes);
         long hours = minutes / 60L;
-        if (hours < 24L) return "vor " + hours + " Stunden";
-        return "vor " + (hours / 24L) + " Tagen";
+        if (hours < 24L) return getString(R.string.time_hours_ago, hours);
+        return getString(R.string.time_days_ago, hours / 24L);
     }
 
     private Float parseOptionalDecimal(EditText input) {

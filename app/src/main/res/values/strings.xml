@@ -147,4 +147,17 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="reliability_battery_required">Bitte ScaleLauncher zuerst von der Akkuoptimierung ausnehmen.</string>
     <string name="reliability_unused_app_required">Bitte „App bei Nichtnutzung verwalten“ für ScaleLauncher deaktivieren.</string>
     <string name="reliability_notifications_required">Benachrichtigungen müssen erlaubt sein, damit Messfehler zuverlässig angezeigt werden.</string>
+    <string name="status_prefix">Status: </string>
+    <string name="status_active">AKTIV</string>
+    <string name="status_waiting">WARTET</string>
+    <string name="status_starting">STARTET</string>
+    <string name="status_error">FEHLER</string>
+    <string name="status_stopped">GESTOPPT</string>
+    <string name="status_last_success">Letzte erfolgreiche Messung: %1$s</string>
+    <string name="status_last_failure">Letzte Messung fehlgeschlagen: %1$s</string>
+    <string name="time_just_now">gerade eben</string>
+    <string name="time_seconds_ago">vor %1$d Sekunden</string>
+    <string name="time_minutes_ago">vor %1$d Minuten</string>
+    <string name="time_hours_ago">vor %1$d Stunden</string>
+    <string name="time_days_ago">vor %1$d Tagen</string>
 </resources>
