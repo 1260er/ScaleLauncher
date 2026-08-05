@@ -339,13 +339,13 @@ public final class ScaleScanService extends Service {
         lastUndecipheredFailureAtMs = System.currentTimeMillis();
         handler.removeCallbacks(timeoutRunnable);
         aggregator.reset();
-        rejectMeasurement("S400-Messpakete konnten nicht entschlüsselt werden");
+        rejectMeasurement(getString(R.string.service_error_s400_decryption));
     }
 
     private void handleOutcome(S400Aggregator.Outcome outcome) {
         if (outcome.status == S400Aggregator.Status.PENDING) return;
         if (outcome.status == S400Aggregator.Status.DUPLICATE) {
-            EventLog.debug(this, "Doppeltes Messpaket verworfen");
+            EventLog.debug(this, getString(R.string.log_duplicate_measurement_packet));
             if (aggregator.hasPendingSession()) {
                 handler.removeCallbacks(timeoutRunnable);
                 handler.postDelayed(
@@ -354,7 +354,7 @@ public final class ScaleScanService extends Service {
             } else {
                 handler.removeCallbacks(timeoutRunnable);
             }
-            updateMonitor("Warte auf nächste Messung");
+            updateMonitor(getString(R.string.service_waiting_next_measurement));
             return;
         }
         handler.removeCallbacks(timeoutRunnable);
@@ -363,18 +363,16 @@ public final class ScaleScanService extends Service {
             return;
         }
         if (outcome.finalized == null || !outcome.finalized.isComplete()) {
-            rejectMeasurement("Paket A und Paket B waren nicht vollständig");
+            rejectMeasurement(getString(R.string.service_error_incomplete_packets));
             return;
         }
 
         S400Aggregator.Finalized value = outcome.finalized;
-        EventLog.info(this, String.format(
-                Locale.GERMANY,
-                "Vollständige Messung erkannt: %.1f kg",
+        EventLog.info(this, getString(
+                R.string.log_complete_measurement,
                 value.weightKg));
-        EventLog.debug(this, String.format(
-                Locale.GERMANY,
-                "S400 vollständig entschlüsselt: %.1f kg | Impedanz %.1f/%.1f Ω",
+        EventLog.debug(this, getString(
+                R.string.log_s400_decrypted,
                 value.weightKg,
                 value.impedanceHigh,
                 value.impedanceLow));
@@ -390,30 +388,31 @@ public final class ScaleScanService extends Service {
                 UserMatcher.diagnosticSummary(this, match)));
 
         if (match.status == UserMatcher.Status.MATCHED && match.profile != null) {
-            EventLog.info(this, String.format(
-                    Locale.GERMANY,
-                    "Automatisch zugeordnet: %.1f kg → %s",
+            EventLog.info(this, getString(
+                    R.string.log_measurement_auto_assigned,
                     measurement.weightKg,
                     match.profile.name));
-            updateMonitor("Messung für " + match.profile.name + " erkannt");
+            updateMonitor(getString(
+                    R.string.service_measurement_detected_for,
+                    match.profile.name));
             processMeasurement(measurement, match.profile);
             return;
         }
 
-        String reason = match.status == UserMatcher.Status.AMBIGUOUS
-                ? "mehrere ähnlich passende Benutzer"
-                : "kein Benutzer innerhalb der Gewichtstoleranz";
+        String reason = getString(
+                match.status == UserMatcher.Status.AMBIGUOUS
+                        ? R.string.pending_reason_similar_users
+                        : R.string.pending_reason_no_weight_match);
         PendingMeasurementStore.Item pending = PendingMeasurementStore.add(
                 prefs,
                 measurement,
                 reason);
-        EventLog.warning(this, String.format(
-                Locale.GERMANY,
-                "Messung %.1f kg nicht zugeordnet – %s",
+        EventLog.warning(this, getString(
+                R.string.log_measurement_unassigned,
                 measurement.weightKg,
                 reason));
-        EventLog.debug(this, "Offene Messung gespeichert: " + pending.id);
-        updateMonitor("Benutzerzuordnung erforderlich");
+        EventLog.debug(this, getString(R.string.log_pending_measurement_saved, pending.id));
+        updateMonitor(getString(R.string.service_user_assignment_required));
         updateAssignmentNotification();
     }
 
@@ -423,18 +422,17 @@ public final class ScaleScanService extends Service {
         PendingMeasurementStore.Item pending = PendingMeasurementStore.find(prefs, pendingId);
         UserProfile profile = UserProfileStore.find(UserProfileStore.load(prefs), userId);
         if (pending == null) {
-            EventLog.warning(this, "Die offene Messung wurde nicht mehr gefunden");
+            EventLog.warning(this, getString(R.string.log_pending_measurement_missing));
             updateAssignmentNotification();
             return;
         }
         if (profile == null || !profile.enabled || !profile.hasValidBodyData(pending.timestampMs)) {
-            EventLog.error(this, "Gewähltes Benutzerprofil ist nicht verfügbar oder unvollständig");
+            EventLog.error(this, getString(R.string.service_error_selected_profile));
             return;
         }
 
-        EventLog.info(this, String.format(
-                Locale.GERMANY,
-                "Manuell zugeordnet: %.1f kg → %s",
+        EventLog.info(this, getString(
+                R.string.log_measurement_manually_assigned,
                 pending.weightKg,
                 profile.name));
         if (processMeasurement(pending.toMeasurement(), profile)) {
@@ -454,12 +452,14 @@ public final class ScaleScanService extends Service {
         int age = BirthDateUtils.ageOn(birthDate, timestamp);
 
         if (age < 18 || age > 120) {
-            rejectMeasurement("Geburtstag von " + profile.name + " ist ungültig");
+            rejectMeasurement(getString(
+                    R.string.service_error_invalid_birth_date,
+                    profile.name));
             return false;
         }
 
         if (!measurement.isComplete() || measurement.impedanceLow == null) {
-            rejectMeasurement("Paket A und Paket B waren nicht vollständig");
+            rejectMeasurement(getString(R.string.service_error_incomplete_packets));
             return false;
         }
         S400BodyComposition.Result composition = S400BodyComposition.compute(

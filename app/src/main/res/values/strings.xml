@@ -251,4 +251,21 @@ UUIDs: %1$s</string>
     <string name="log_scale_detected">Waage erkannt – BLE-Empfang aktiv</string>
     <string name="log_first_ble_pattern">Erstes BLE-Muster %1$s</string>
     <string name="log_s400_activity_decrypt_failed">S400-Aktivitätspaket konnte nicht entschlüsselt werden</string>
+    <string name="service_error_s400_decryption">S400-Messpakete konnten nicht entschlüsselt werden</string>
+    <string name="log_duplicate_measurement_packet">Doppeltes Messpaket verworfen</string>
+    <string name="service_waiting_next_measurement">Warte auf nächste Messung</string>
+    <string name="service_error_incomplete_packets">Paket A und Paket B waren nicht vollständig</string>
+    <string name="log_complete_measurement">Vollständige Messung erkannt: %1$.1f kg</string>
+    <string name="log_s400_decrypted">S400 vollständig entschlüsselt: %1$.1f kg | Impedanz %2$.1f/%3$.1f Ω</string>
+    <string name="log_measurement_auto_assigned">Automatisch zugeordnet: %1$.1f kg → %2$s</string>
+    <string name="service_measurement_detected_for">Messung für %1$s erkannt</string>
+    <string name="pending_reason_similar_users">mehrere ähnlich passende Benutzer</string>
+    <string name="pending_reason_no_weight_match">kein Benutzer innerhalb der Gewichtstoleranz</string>
+    <string name="log_measurement_unassigned">Messung %1$.1f kg nicht zugeordnet – %2$s</string>
+    <string name="log_pending_measurement_saved">Offene Messung gespeichert: %1$s</string>
+    <string name="service_user_assignment_required">Benutzerzuordnung erforderlich</string>
+    <string name="log_pending_measurement_missing">Die offene Messung wurde nicht mehr gefunden</string>
+    <string name="service_error_selected_profile">Gewähltes Benutzerprofil ist nicht verfügbar oder unvollständig</string>
+    <string name="log_measurement_manually_assigned">Manuell zugeordnet: %1$.1f kg → %2$s</string>
+    <string name="service_error_invalid_birth_date">Geburtstag von %1$s ist ungültig</string>
 </resources>
