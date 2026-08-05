@@ -191,4 +191,18 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="scan_device_row">%1$s
 %2$s   RSSI %3$d</string>
     <string name="health_connect_none">keine</string>
+    <string name="hc_writer_error_no_values">Keine Health-Connect-Werte ausgewählt</string>
+    <string name="hc_writer_error_permissions">Schreibrechte für die ausgewählten Werte fehlen</string>
+    <string name="hc_writer_error_service_unavailable">Health-Connect-Systemdienst nicht verfügbar</string>
+    <string name="hc_writer_error_no_valid_values">Keine gültigen ausgewählten Health-Connect-Werte vorhanden</string>
+    <string name="hc_writer_error_incomplete_records">Ausgewählte Health-Connect-Werte sind unvollständig: %1$d von %2$d Datensätzen verfügbar</string>
+    <string name="hc_writer_error_no_confirmation">Health Connect hat keine Bestätigung zurückgegeben</string>
+    <string name="hc_writer_error_partial_confirmation">Nur %1$d von %2$d Datensätzen bestätigt</string>
+    <string name="hc_writer_error_code">Fehlercode %1$d</string>
+    <string name="hc_writer_error_permissions_revoked">Schreibrechte fehlen oder wurden entzogen</string>
+    <string name="hc_writer_error_invalid_value">Ungültiger Messwert: %1$s</string>
+    <string name="hc_writer_error_with_type">%1$s: %2$s</string>
+    <string name="hc_writer_no_detail">ohne Detailangabe</string>
+    <string name="hc_writer_label_weight_bmi">Gewicht (BMI)</string>
+    <string name="hc_writer_label_height_bmi">Größe (BMI)</string>
 </resources>

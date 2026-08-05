@@ -59,26 +59,27 @@ final class HealthConnectWriter {
                       HealthConnectSelection selection,
                       Callback callback) {
         if (!HealthConnectSupport.isSupported()) {
-            callback.onError("Health Connect benötigt Android 14 oder neuer");
+            callback.onError(context.getString(R.string.health_connect_requires_android_14));
             return;
         }
         if (selection == null || selection.count() == 0) {
-            callback.onError("Keine Health-Connect-Werte ausgewählt");
+            callback.onError(context.getString(R.string.hc_writer_error_no_values));
             return;
         }
         if (!HealthConnectSupport.hasWritePermissions(context, selection)) {
-            callback.onError("Schreibrechte für die ausgewählten Werte fehlen");
+            callback.onError(context.getString(R.string.hc_writer_error_permissions));
             return;
         }
 
         HealthConnectManager manager = context.getSystemService(HealthConnectManager.class);
         if (manager == null) {
-            callback.onError("Health-Connect-Systemdienst nicht verfügbar");
+            callback.onError(context.getString(R.string.hc_writer_error_service_unavailable));
             return;
         }
 
         try {
             BuiltRecords built = buildRecords(
+                    context,
                     timestampMs,
                     scaleMac,
                     heightCm,
@@ -86,15 +87,15 @@ final class HealthConnectWriter {
                     composition,
                     selection);
             if (built.records.isEmpty()) {
-                callback.onError("Keine gültigen ausgewählten Health-Connect-Werte vorhanden");
+                callback.onError(context.getString(R.string.hc_writer_error_no_valid_values));
                 return;
             }
             int expectedCount = expectedRecordCount(selection);
             if (built.records.size() != expectedCount) {
-                callback.onError(
-                        "Ausgewählte Health-Connect-Werte sind unvollständig: "
-                                + built.records.size() + " von " + expectedCount
-                                + " Datensätzen verfügbar");
+                callback.onError(context.getString(
+                        R.string.hc_writer_error_incomplete_records,
+                        built.records.size(),
+                        expectedCount));
                 return;
             }
 
@@ -104,15 +105,16 @@ final class HealthConnectWriter {
                     new OutcomeReceiver<InsertRecordsResponse, HealthConnectException>() {
                         @Override public void onResult(InsertRecordsResponse response) {
                             if (response == null || response.getRecords() == null) {
-                                callback.onError(
-                                        "Health Connect hat keine Bestätigung zurückgegeben");
+                                callback.onError(context.getString(
+                                        R.string.hc_writer_error_no_confirmation));
                                 return;
                             }
                             int count = response.getRecords().size();
                             if (count != built.records.size()) {
-                                callback.onError(
-                                        "nur " + count + " von " + built.records.size()
-                                                + " Datensätzen bestätigt");
+                                callback.onError(context.getString(
+                                        R.string.hc_writer_error_partial_confirmation,
+                                        count,
+                                        built.records.size()));
                                 return;
                             }
                             callback.onSuccess(count, built.summary());
@@ -121,17 +123,22 @@ final class HealthConnectWriter {
                         @Override public void onError(HealthConnectException error) {
                             String detail = error.getMessage();
                             if (detail == null || detail.isBlank()) {
-                                detail = "Fehlercode " + error.getErrorCode();
+                                detail = context.getString(R.string.hc_writer_error_code, error.getErrorCode());
                             }
                             callback.onError(detail);
                         }
                     });
         } catch (SecurityException e) {
-            callback.onError("Schreibrechte fehlen oder wurden entzogen");
+            callback.onError(context.getString(R.string.hc_writer_error_permissions_revoked));
         } catch (IllegalArgumentException e) {
-            callback.onError("Ungültiger Messwert: " + safeMessage(e));
+            callback.onError(context.getString(
+                    R.string.hc_writer_error_invalid_value,
+                    safeMessage(context, e)));
         } catch (RuntimeException e) {
-            callback.onError(e.getClass().getSimpleName() + ": " + safeMessage(e));
+            callback.onError(context.getString(
+                    R.string.hc_writer_error_with_type,
+                    e.getClass().getSimpleName(),
+                    safeMessage(context, e)));
         }
     }
 
@@ -147,7 +154,8 @@ final class HealthConnectWriter {
         return count;
     }
 
-    private static BuiltRecords buildRecords(long timestampMs,
+    private static BuiltRecords buildRecords(Context context,
+                                              long timestampMs,
                                               String scaleMac,
                                               float heightCm,
                                               S400Aggregator.Finalized measurement,
@@ -176,7 +184,9 @@ final class HealthConnectWriter {
                     time,
                     kilograms(measurement.weightKg))
                     .setZoneOffset(offset)
-                    .build(), selection.weight ? "Gewicht" : "Gewicht (BMI)");
+                    .build(), selection.weight
+                    ? context.getString(R.string.health_connect_weight)
+                    : context.getString(R.string.hc_writer_label_weight_bmi));
         }
 
         if (selection.bmi && isValidHeight(heightCm)) {
@@ -185,7 +195,7 @@ final class HealthConnectWriter {
                     time,
                     Length.fromMeters(heightCm / 100.0d))
                     .setZoneOffset(offset)
-                    .build(), "Größe (BMI)");
+                    .build(), context.getString(R.string.hc_writer_label_height_bmi));
         }
 
         if (selection.bodyFat && isPercent(composition.bodyFatPercent)) {
@@ -194,7 +204,7 @@ final class HealthConnectWriter {
                     time,
                     Percentage.fromValue(composition.bodyFatPercent))
                     .setZoneOffset(offset)
-                    .build(), "Körperfett");
+                    .build(), context.getString(R.string.health_connect_body_fat));
         }
 
         if (selection.bodyWater && isPositive(composition.totalBodyWaterKg)) {
@@ -203,7 +213,7 @@ final class HealthConnectWriter {
                     time,
                     kilograms(composition.totalBodyWaterKg))
                     .setZoneOffset(offset)
-                    .build(), "Körperwasser");
+                    .build(), context.getString(R.string.health_connect_body_water));
         }
 
         if (selection.boneMass && isPositive(composition.boneKg)) {
@@ -212,7 +222,7 @@ final class HealthConnectWriter {
                     time,
                     kilograms(composition.boneKg))
                     .setZoneOffset(offset)
-                    .build(), "Knochenmasse");
+                    .build(), context.getString(R.string.health_connect_bone_mass));
         }
 
         if (selection.leanBodyMass && isPositive(composition.fatFreeMassKg)) {
@@ -221,7 +231,7 @@ final class HealthConnectWriter {
                     time,
                     kilograms(composition.fatFreeMassKg))
                     .setZoneOffset(offset)
-                    .build(), "fettfreie Masse");
+                    .build(), context.getString(R.string.health_connect_lean_body_mass));
         }
 
         if (selection.basalMetabolicRate && isPositive(composition.basalMetabolicRateKcal)) {
@@ -231,7 +241,7 @@ final class HealthConnectWriter {
                     time,
                     Power.fromWatts(watts))
                     .setZoneOffset(offset)
-                    .build(), "Grundumsatz");
+                    .build(), context.getString(R.string.health_connect_bmr));
         }
 
         return built;
@@ -266,8 +276,10 @@ final class HealthConnectWriter {
         return value != null && Float.isFinite(value) && value >= 0f && value <= 100f;
     }
 
-    private static String safeMessage(Throwable error) {
+    private static String safeMessage(Context context, Throwable error) {
         String message = error.getMessage();
-        return message == null || message.isBlank() ? "ohne Detailangabe" : message;
+        return message == null || message.isBlank()
+                ? context.getString(R.string.hc_writer_no_detail)
+                : message;
     }
 }
