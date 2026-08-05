@@ -276,7 +276,7 @@ public final class ScaleScanService extends Service {
     }
 
     private void analyze(ScanResult result, String mac, String bindKey) {
-        BlePacket packet = BlePacket.from(result);
+        BlePacket packet = BlePacket.from(this, result);
         if (!scaleSeenLogged) {
             scaleSeenLogged = true;
             EventLog.info(this, "Waage erkannt – BLE-Empfang aktiv");

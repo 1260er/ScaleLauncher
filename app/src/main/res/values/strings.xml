@@ -208,4 +208,14 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="user_match_no_profiles">keine passenden Profile</string>
     <string name="user_match_candidate">%1$s Δ%2$.1f kg</string>
     <string name="log_user_match">Benutzerabgleich: %1$s</string>
+    <string name="ble_packet_no_record">Kein ScanRecord; RSSI %1$d</string>
+    <string name="ble_packet_summary">RSSI %1$d | Verbindbar %2$b | Tx %3$d</string>
+    <string name="ble_packet_raw">
+RAW: %1$s</string>
+    <string name="ble_packet_manufacturer">
+Hersteller %1$s: %2$s</string>
+    <string name="ble_packet_service_data">
+Servicedaten %1$s: %2$s</string>
+    <string name="ble_packet_uuids">
+UUIDs: %1$s</string>
 </resources>

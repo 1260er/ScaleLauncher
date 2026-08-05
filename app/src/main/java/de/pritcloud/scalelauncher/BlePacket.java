@@ -2,6 +2,7 @@ package de.pritcloud.scalelauncher;
 
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
+import android.content.Context;
 import android.os.ParcelUuid;
 import android.util.SparseArray;
 
@@ -24,21 +25,31 @@ final class BlePacket {
         this.activityData = activityData;
     }
 
-    static BlePacket from(ScanResult result) {
+    static BlePacket from(Context context, ScanResult result) {
         ScanRecord record = result.getScanRecord();
-        if (record == null) return new BlePacket("no-record", "Kein ScanRecord; RSSI " + result.getRssi(), false, null);
+        if (record == null) {
+            return new BlePacket(
+                    "no-record",
+                    context.getString(R.string.ble_packet_no_record, result.getRssi()),
+                    false,
+                    null);
+        }
 
         StringBuilder stable = new StringBuilder();
         StringBuilder out = new StringBuilder();
-        out.append("RSSI ").append(result.getRssi());
-        out.append(" | Connectable ").append(result.isConnectable());
-        out.append(" | Tx ").append(result.getTxPower());
+        out.append(context.getString(
+                R.string.ble_packet_summary,
+                result.getRssi(),
+                result.isConnectable(),
+                result.getTxPower()));
 
         byte[] raw = record.getBytes();
         if (raw != null) {
             String hex = hex(raw);
             stable.append("RAW:").append(hex);
-            out.append("\nRAW: ").append(hex);
+            out.append(context.getString(
+                    R.string.ble_packet_raw,
+                    hex));
         }
 
         SparseArray<byte[]> manufacturer = record.getManufacturerSpecificData();
@@ -46,7 +57,10 @@ final class BlePacket {
             int id = manufacturer.keyAt(i);
             String value = hex(manufacturer.valueAt(i));
             stable.append("|M").append(id).append(':').append(value);
-            out.append("\nHersteller ").append(String.format(Locale.US, "0x%04X", id)).append(": ").append(value);
+            out.append(context.getString(
+                    R.string.ble_packet_manufacturer,
+                    String.format(Locale.US, "0x%04X", id),
+                    value));
         }
 
         boolean activityPacket = false;
@@ -56,7 +70,10 @@ final class BlePacket {
             for (Map.Entry<ParcelUuid, byte[]> entry : serviceData.entrySet()) {
                 String value = hex(entry.getValue());
                 stable.append("|S").append(entry.getKey()).append(':').append(value);
-                out.append("\nServiceData ").append(entry.getKey()).append(": ").append(value);
+                out.append(context.getString(
+                        R.string.ble_packet_service_data,
+                        entry.getKey(),
+                        value));
                 String uuid = entry.getKey().toString().toLowerCase(Locale.US);
                 byte[] data = entry.getValue();
                 // Xiaomi S400: idle advertisements use a short FE95 packet beginning with 0x10.
@@ -74,7 +91,9 @@ final class BlePacket {
             List<String> names = new ArrayList<>();
             for (ParcelUuid uuid : uuids) names.add(uuid.toString());
             stable.append("|U").append(String.join(",", names));
-            out.append("\nUUIDs: ").append(String.join(", ", names));
+            out.append(context.getString(
+                    R.string.ble_packet_uuids,
+                    String.join(", ", names)));
         }
 
         return new BlePacket(shortHash(stable.toString()), out.toString(), activityPacket, activityData);
