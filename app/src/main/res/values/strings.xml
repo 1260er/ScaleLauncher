@@ -218,4 +218,10 @@ Hersteller %1$s: %2$s</string>
 Servicedaten %1$s: %2$s</string>
     <string name="ble_packet_uuids">
 UUIDs: %1$s</string>
+    <string name="service_ble_monitor_starting">BLE-Überwachung wird gestartet</string>
+    <string name="service_ble_monitor_starting_progress">BLE-Überwachung wird gestartet …</string>
+    <string name="log_service_started">Dienst gestartet – Stabilitätsmodus 3.2</string>
+    <string name="log_openscale_users_synced">openScale-Benutzer synchronisiert: %1$d Benutzer</string>
+    <string name="log_user_sync_permission_missing">Automatische Benutzersynchronisierung: Berechtigung fehlt</string>
+    <string name="log_user_sync_temporary_failure">Automatische Benutzersynchronisierung vorübergehend fehlgeschlagen</string>
 </resources>

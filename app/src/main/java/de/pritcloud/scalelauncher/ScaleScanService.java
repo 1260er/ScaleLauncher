@@ -77,14 +77,17 @@ public final class ScaleScanService extends Service {
     private long lastWatchdogWarningAtMs;
     private long undecipheredSessionStartedAtMs;
     private long lastUndecipheredFailureAtMs;
-    private String monitorText = "BLE-Überwachung wird gestartet …";
+    private String monitorText = "";
 
     @Override public void onCreate() {
         super.onCreate();
         createChannels();
-        ServiceState.starting(this, "BLE-Überwachung wird gestartet");
+        monitorText = getString(R.string.service_ble_monitor_starting_progress);
+        ServiceState.starting(
+                this,
+                getString(R.string.service_ble_monitor_starting));
         startForeground(NOTIFICATION_MONITOR, monitorNotification(monitorText));
-        EventLog.info(this, "Dienst gestartet – Stabilitätsmodus 3.2");
+        EventLog.info(this, getString(R.string.log_service_started));
         updateAssignmentNotification();
         handler.post(userSyncRunnable);
         handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS);
@@ -93,7 +96,7 @@ public final class ScaleScanService extends Service {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             explicitStop = true;
-            ServiceState.stopped(this, "Vom Benutzer gestoppt");
+            ServiceState.stopped(this, getString(R.string.service_stopped_by_user));
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -123,16 +126,18 @@ public final class ScaleScanService extends Service {
                     UserProfileStore.synchronize(prefs, currentUsers);
 
             if (previousCount != synchronizedProfiles.size()) {
-                EventLog.info(this,
-                        "openScale-Benutzer synchronisiert: "
-                                + synchronizedProfiles.size() + " Benutzer");
+                EventLog.info(this, getString(
+                        R.string.log_openscale_users_synced,
+                        synchronizedProfiles.size()));
             }
         } catch (SecurityException e) {
-            EventLog.debug(this,
-                    "Automatische Benutzersynchronisierung: Berechtigung fehlt");
+            EventLog.debug(
+                    this,
+                    getString(R.string.log_user_sync_permission_missing));
         } catch (RuntimeException e) {
-            EventLog.debug(this,
-                    "Automatische Benutzersynchronisierung vorübergehend fehlgeschlagen");
+            EventLog.debug(
+                    this,
+                    getString(R.string.log_user_sync_temporary_failure));
         }
     }
 
