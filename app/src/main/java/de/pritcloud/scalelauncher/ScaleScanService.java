@@ -927,7 +927,10 @@ public final class ScaleScanService extends Service {
                 .setContentTitle(title)
                 .setContentText(text)
                 .setContentIntent(open)
-                .addAction(new Notification.Action.Builder(null, "Stoppen", stop).build())
+                .addAction(new Notification.Action.Builder(
+                        null,
+                        getString(R.string.notification_action_stop),
+                        stop).build())
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .build();
@@ -965,14 +968,17 @@ public final class ScaleScanService extends Service {
                 new Intent(this, MainActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        String text = String.format(
-                Locale.GERMANY,
-                "%.1f kg – Benutzer auswählen%s",
-                item.weightKg,
-                count > 1 ? " (" + count + " offen)" : "");
+        String text = count > 1
+                ? getString(
+                        R.string.notification_assignment_multiple,
+                        item.weightKg,
+                        count)
+                : getString(
+                        R.string.notification_assignment_single,
+                        item.weightKg);
         return new Notification.Builder(this, CHANNEL_RESULT)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("Messung kann nicht zugeordnet werden")
+                .setContentTitle(getString(R.string.notification_assignment_title))
                 .setContentText(text)
                 .setContentIntent(open)
                 .setAutoCancel(false)
@@ -999,7 +1005,9 @@ public final class ScaleScanService extends Service {
     }
 
     private void updateMonitor(String text) {
-        monitorText = text == null || text.isBlank() ? "Warte auf S400-Messung" : text;
+        monitorText = text == null || text.isBlank()
+                ? getString(R.string.service_waiting_for_measurement)
+                : text;
         if (scanRunning && !terminalError) {
             ServiceState.running(this, monitorText, true);
         } else {
@@ -1013,7 +1021,7 @@ public final class ScaleScanService extends Service {
                 (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         NotificationChannel monitor = new NotificationChannel(
                 CHANNEL_MONITOR,
-                "Waagenüberwachung",
+                getString(R.string.notification_channel_monitor),
                 NotificationManager.IMPORTANCE_LOW);
         monitor.setSound(null, null);
         monitor.enableVibration(false);
@@ -1029,10 +1037,10 @@ public final class ScaleScanService extends Service {
 
         NotificationChannel result = new NotificationChannel(
                 CHANNEL_RESULT,
-                "Messergebnisse",
+                getString(R.string.notification_channel_results),
                 NotificationManager.IMPORTANCE_DEFAULT);
         result.setDescription(
-                "Erfolgreiche, fehlgeschlagene und nicht zuordenbare Messungen");
+                getString(R.string.notification_channel_results_description));
         result.enableVibration(true);
         result.setShowBadge(true);
         manager.createNotificationChannel(result);
@@ -1062,14 +1070,22 @@ public final class ScaleScanService extends Service {
         stopScan();
         aggregator.reset();
         if (explicitStop) {
-            ServiceState.stopped(this, "Vom Benutzer gestoppt");
-            EventLog.info(this, "Dienst gestoppt");
+            ServiceState.stopped(
+                    this,
+                    getString(R.string.service_stopped_by_user));
+            EventLog.info(this, getString(R.string.log_service_stopped));
         } else if (terminalError) {
             ServiceState.error(this, monitorText);
-            EventLog.warning(this, "Dienst im Fehlerzustand beendet – " + monitorText);
+            EventLog.warning(this, getString(
+                    R.string.log_service_stopped_in_error,
+                    monitorText));
         } else {
-            ServiceState.starting(this, "Dienst wurde beendet – Neustart wird erwartet");
-            EventLog.warning(this, "Dienst unerwartet beendet – automatischer Neustart wird erwartet");
+            ServiceState.starting(
+                    this,
+                    getString(R.string.service_restart_expected));
+            EventLog.warning(
+                    this,
+                    getString(R.string.log_service_unexpected_stop));
         }
         super.onDestroy();
     }

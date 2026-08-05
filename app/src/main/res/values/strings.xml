@@ -348,4 +348,16 @@ UUIDs: %1$s</string>
     <string name="notification_monitor_error_title">ScaleLauncher – Fehler</string>
     <string name="notification_monitor_starting_title">ScaleLauncher startet</string>
     <string name="notification_monitor_active_title">ScaleLauncher aktiv</string>
+    <string name="notification_action_stop">Stoppen</string>
+    <string name="notification_assignment_title">Messung kann nicht zugeordnet werden</string>
+    <string name="notification_assignment_single">%1$.1f kg – Benutzer auswählen</string>
+    <string name="notification_assignment_multiple">%1$.1f kg – Benutzer auswählen (%2$d offen)</string>
+    <string name="service_waiting_for_measurement">Warte auf S400-Messung</string>
+    <string name="notification_channel_monitor">Waagenüberwachung</string>
+    <string name="notification_channel_results">Messergebnisse</string>
+    <string name="notification_channel_results_description">Erfolgreiche, fehlgeschlagene und nicht zuordenbare Messungen</string>
+    <string name="log_service_stopped">Dienst gestoppt</string>
+    <string name="log_service_stopped_in_error">Dienst im Fehlerzustand beendet – %1$s</string>
+    <string name="service_restart_expected">Dienst wurde beendet – Neustart wird erwartet</string>
+    <string name="log_service_unexpected_stop">Dienst unerwartet beendet – automatischer Neustart wird erwartet</string>
 </resources>
