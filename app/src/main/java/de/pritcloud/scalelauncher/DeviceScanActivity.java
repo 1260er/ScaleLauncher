@@ -73,7 +73,11 @@ public class DeviceScanActivity extends Activity {
         for (ScanResult result : results.values()) {
             String name = result.getDevice().getName();
             if (name == null || name.trim().isEmpty()) name = getString(R.string.scan_unknown_device);
-            adapter.add(name + "\n" + result.getDevice().getAddress() + "   RSSI " + result.getRssi());
+            adapter.add(getString(
+                    R.string.scan_device_row,
+                    name,
+                    result.getDevice().getAddress(),
+                    result.getRssi()));
         }
         adapter.notifyDataSetChanged();
     }
