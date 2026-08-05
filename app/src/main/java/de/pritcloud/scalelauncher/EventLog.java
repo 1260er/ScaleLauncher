@@ -53,7 +53,14 @@ final class EventLog {
 
         String pruned = prune(stored);
         if (!stored.equals(pruned)) prefs.edit().putString(KEY, pruned).apply();
-        return pruned.isBlank() ? "Noch keine Ereignisse." : pruned;
+        if (pruned.isBlank()) return "Noch keine Ereignisse.";
+
+        List<String> newestFirst = new ArrayList<>();
+        for (String line : pruned.split("\n")) {
+            if (!line.isEmpty()) newestFirst.add(line);
+        }
+        java.util.Collections.reverse(newestFirst);
+        return String.join("\n", newestFirst);
     }
 
     static synchronized void clear(Context context) {
