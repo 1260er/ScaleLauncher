@@ -260,7 +260,7 @@ public final class MainActivity extends Activity {
         findViewById(R.id.savePermissions).setOnClickListener(
                 v -> savePermissionSettings());
         findViewById(R.id.stop).setOnClickListener(v -> {
-            ServiceState.stopped(this, "Vom Benutzer gestoppt");
+            ServiceState.stopped(this, getString(R.string.service_stopped_by_user));
             startService(new Intent(this, ScaleScanService.class)
                     .setAction(ScaleScanService.ACTION_STOP));
             refreshRuntimeStatus();
@@ -341,8 +341,8 @@ public final class MainActivity extends Activity {
         birthDate.setText(BirthDateUtils.toDisplay(selectedBirthDate));
         int currentAge = BirthDateUtils.ageToday(selectedBirthDate);
         birthDate.setHint(currentAge >= 0
-                ? "Aktuell " + currentAge + " Jahre"
-                : "Geburtstag auswählen");
+                ? getString(R.string.user_current_age, currentAge)
+                : getString(R.string.user_birth_date_hint));
     }
 
     private void prepareOpenScaleAccess() {
@@ -699,7 +699,7 @@ public final class MainActivity extends Activity {
             String mac = data.getStringExtra("mac");
             if (mac != null) {
                 macAddress.setText(mac);
-                EventLog.info(this, "Waage ausgewählt: " + mac);
+                EventLog.info(this, getString(R.string.log_scale_selected, mac));
             }
         }
     }
@@ -870,15 +870,17 @@ public final class MainActivity extends Activity {
         healthSelection.save(editor);
         editor.apply();
 
-        EventLog.info(this,
-                "Konfiguration gespeichert – " + enabledProfiles.size()
-                        + " Benutzerprofile aktiv | Health Connect "
-                        + (healthConnectEnabled.isChecked() ? "aktiv" : "aus"));
-        EventLog.debug(this,
-                "Provider-API " + openScaleMeta.apiVersion
-                        + " | Zuordnungsvorsprung mindestens "
-                        + UserMatcher.MINIMUM_LEAD_KG + " kg");
-        ServiceState.starting(this, "Überwachung wird gestartet");
+        EventLog.info(this, getString(
+                R.string.log_configuration_saved,
+                enabledProfiles.size(),
+                getString(healthConnectEnabled.isChecked()
+                        ? R.string.state_active
+                        : R.string.state_inactive)));
+        EventLog.debug(this, getString(
+                R.string.log_provider_status,
+                openScaleMeta.apiVersion,
+                UserMatcher.MINIMUM_LEAD_KG));
+        ServiceState.starting(this, getString(R.string.service_monitoring_starting));
         startForegroundService(new Intent(this, ScaleScanService.class));
         refreshRuntimeStatus();
     }
@@ -928,11 +930,12 @@ public final class MainActivity extends Activity {
         selection.save(editor);
         editor.apply();
 
-        EventLog.info(
-                this,
-                "Health Connect "
-                        + (healthConnectEnabled.isChecked() ? "aktiviert" : "deaktiviert")
-                        + " – " + selection.count() + " Werte ausgewählt");
+        EventLog.info(this, getString(
+                R.string.log_health_connect_saved,
+                getString(healthConnectEnabled.isChecked()
+                        ? R.string.state_enabled
+                        : R.string.state_disabled),
+                selection.count()));
 
         LoggedToast.makeText(
                 this,

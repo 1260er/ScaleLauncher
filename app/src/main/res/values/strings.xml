@@ -160,4 +160,15 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="time_minutes_ago">vor %1$d Minuten</string>
     <string name="time_hours_ago">vor %1$d Stunden</string>
     <string name="time_days_ago">vor %1$d Tagen</string>
+    <string name="service_stopped_by_user">Vom Benutzer gestoppt</string>
+    <string name="service_monitoring_starting">Überwachung wird gestartet</string>
+    <string name="user_current_age">Aktuell %1$d Jahre</string>
+    <string name="log_scale_selected">Waage ausgewählt: %1$s</string>
+    <string name="log_configuration_saved">Konfiguration gespeichert – %1$d Benutzerprofile aktiv | Health Connect %2$s</string>
+    <string name="log_provider_status">Provider-API %1$d | Zuordnungsvorsprung mindestens %2$.1f kg</string>
+    <string name="log_health_connect_saved">Health Connect %1$s – %2$d Werte ausgewählt</string>
+    <string name="state_active">aktiv</string>
+    <string name="state_inactive">aus</string>
+    <string name="state_enabled">aktiviert</string>
+    <string name="state_disabled">deaktiviert</string>
 </resources>
