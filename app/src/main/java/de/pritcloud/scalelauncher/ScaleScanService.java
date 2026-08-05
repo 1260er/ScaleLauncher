@@ -615,33 +615,42 @@ public final class ScaleScanService extends Service {
      * is finite and usable. Approximate/partial calculations are deliberately rejected.
      */
     private String validateCompleteComposition(S400BodyComposition.Result value) {
-        if (value == null) return "keine Berechnung erzeugt";
+        if (value == null) {
+            return getString(R.string.composition_error_no_result);
+        }
         if (value.reliability != S400BodyComposition.Reliability.OK) {
-            return "Qualität " + value.reliability.name();
+            return getString(
+                    R.string.composition_error_quality,
+                    value.reliability.name());
         }
 
         java.util.ArrayList<String> missing = new java.util.ArrayList<>();
-        requirePositive(missing, "BMI", value.bmi);
-        requirePositive(missing, "Körperwasser", value.totalBodyWaterKg);
-        requirePercent(missing, "Körperwasser %", value.totalBodyWaterPercent);
-        requirePositive(missing, "ECW", value.extracellularWaterKg);
-        requirePercent(missing, "ECW %", value.extracellularWaterPercent);
-        requirePositive(missing, "ICW", value.intracellularWaterKg);
-        requirePercent(missing, "ICW %", value.intracellularWaterPercent);
-        requirePositive(missing, "fettfreie Masse", value.fatFreeMassKg);
-        requirePercent(missing, "fettfreie Masse %", value.fatFreeMassPercent);
-        requirePositive(missing, "Körperfett", value.bodyFatKg);
-        requirePercent(missing, "Körperfett %", value.bodyFatPercent);
-        requirePositive(missing, "Muskelmasse", value.skeletalMuscleKg);
-        requirePercent(missing, "Muskelmasse %", value.skeletalMusclePercent);
-        requirePositive(missing, "Knochenmasse", value.boneKg);
-        requirePositive(missing, "Viszeralfett", value.visceralFatIndex);
-        requirePositive(missing, "Grundumsatz", value.basalMetabolicRateKcal);
-        requirePositive(missing, "Körperzellmasse", value.bodyCellMassKg);
-        requirePositive(missing, "Protein", value.proteinKg);
-        requirePercent(missing, "Protein %", value.proteinPercent);
-        requirePositive(missing, "weiche Magermasse", value.softLeanMassKg);
-        return missing.isEmpty() ? null : String.join(", ", missing) + " fehlt/ungültig";
+        requirePositive(missing, getString(R.string.composition_label_bmi), value.bmi);
+        requirePositive(missing, getString(R.string.composition_label_body_water), value.totalBodyWaterKg);
+        requirePercent(missing, getString(R.string.composition_label_body_water_percent), value.totalBodyWaterPercent);
+        requirePositive(missing, getString(R.string.composition_label_ecw), value.extracellularWaterKg);
+        requirePercent(missing, getString(R.string.composition_label_ecw_percent), value.extracellularWaterPercent);
+        requirePositive(missing, getString(R.string.composition_label_icw), value.intracellularWaterKg);
+        requirePercent(missing, getString(R.string.composition_label_icw_percent), value.intracellularWaterPercent);
+        requirePositive(missing, getString(R.string.composition_label_lean_mass), value.fatFreeMassKg);
+        requirePercent(missing, getString(R.string.composition_label_lean_mass_percent), value.fatFreeMassPercent);
+        requirePositive(missing, getString(R.string.composition_label_body_fat), value.bodyFatKg);
+        requirePercent(missing, getString(R.string.composition_label_body_fat_percent), value.bodyFatPercent);
+        requirePositive(missing, getString(R.string.composition_label_muscle_mass), value.skeletalMuscleKg);
+        requirePercent(missing, getString(R.string.composition_label_muscle_mass_percent), value.skeletalMusclePercent);
+        requirePositive(missing, getString(R.string.composition_label_bone_mass), value.boneKg);
+        requirePositive(missing, getString(R.string.composition_label_visceral_fat), value.visceralFatIndex);
+        requirePositive(missing, getString(R.string.composition_label_bmr), value.basalMetabolicRateKcal);
+        requirePositive(missing, getString(R.string.composition_label_body_cell_mass), value.bodyCellMassKg);
+        requirePositive(missing, getString(R.string.composition_label_protein), value.proteinKg);
+        requirePercent(missing, getString(R.string.composition_label_protein_percent), value.proteinPercent);
+        requirePositive(missing, getString(R.string.composition_label_soft_lean_mass), value.softLeanMassKg);
+
+        return missing.isEmpty()
+                ? null
+                : getString(
+                        R.string.composition_error_missing,
+                        String.join(", ", missing));
     }
 
     private static void requirePositive(List<String> missing, String name, Float value) {
@@ -743,53 +752,64 @@ public final class ScaleScanService extends Service {
                                        int age,
                                        S400Aggregator.Finalized measurement,
                                        S400BodyComposition.Result composition) {
-        StringBuilder text = new StringBuilder();
-        text.append(String.format(
-                Locale.GERMANY,
-                "S400 ausgewertet für %s (Alter %d): %.1f kg",
+        StringBuilder text = new StringBuilder(getString(
+                R.string.log_s400_evaluated,
                 userName,
                 age,
                 measurement.weightKg));
-        appendValue(text, "BMI", composition.bmi, "");
-        appendPercent(text, "Fett", composition.bodyFatPercent);
-        appendPercent(text, "Wasser", composition.totalBodyWaterPercent);
-        appendPercent(text, "Muskel", composition.skeletalMusclePercent);
-        appendKg(text, "Knochen", composition.boneKg);
-        appendKg(text, "LBM", composition.fatFreeMassKg);
-        appendValue(text, "Viszeralfett", composition.visceralFatIndex, "");
-        appendValue(text, "BMR", composition.basalMetabolicRateKcal, " kcal");
-        appendPercent(text, "Protein", composition.proteinPercent);
-        appendPercent(text, "ECW", composition.extracellularWaterPercent);
-        appendPercent(text, "ICW", composition.intracellularWaterPercent);
-        appendKg(text, "BCM", composition.bodyCellMassKg);
-        text.append(" | Qualität ").append(composition.reliability.name());
+
+        appendValue(text, getString(R.string.composition_label_bmi), composition.bmi, "");
+        appendPercent(text, getString(R.string.composition_log_fat), composition.bodyFatPercent);
+        appendPercent(text, getString(R.string.composition_log_water), composition.totalBodyWaterPercent);
+        appendPercent(text, getString(R.string.composition_log_muscle), composition.skeletalMusclePercent);
+        appendKg(text, getString(R.string.composition_log_bone), composition.boneKg);
+        appendKg(text, getString(R.string.composition_log_lbm), composition.fatFreeMassKg);
+        appendValue(text, getString(R.string.composition_label_visceral_fat), composition.visceralFatIndex, "");
+        appendValue(
+                text,
+                getString(R.string.composition_log_bmr),
+                composition.basalMetabolicRateKcal,
+                getString(R.string.unit_kcal_suffix));
+        appendPercent(text, getString(R.string.composition_label_protein), composition.proteinPercent);
+        appendPercent(text, getString(R.string.composition_label_ecw), composition.extracellularWaterPercent);
+        appendPercent(text, getString(R.string.composition_label_icw), composition.intracellularWaterPercent);
+        appendKg(text, getString(R.string.composition_log_bcm), composition.bodyCellMassKg);
+        text.append(getString(
+                R.string.log_calculation_quality,
+                composition.reliability.name()));
         return text.toString();
     }
 
-    private static void appendPercent(StringBuilder text, String label, Float value) {
+    private void appendPercent(StringBuilder text, String label, Float value) {
         if (value != null) {
-            text.append(String.format(Locale.GERMANY, " | %s %.1f %%", label, value));
+            text.append(getString(R.string.log_calculation_percent, label, value));
         }
     }
 
-    private static void appendKg(StringBuilder text, String label, Float value) {
+    private void appendKg(StringBuilder text, String label, Float value) {
         if (value != null) {
-            text.append(String.format(Locale.GERMANY, " | %s %.1f kg", label, value));
+            text.append(getString(R.string.log_calculation_kg, label, value));
         }
     }
 
-    private static void appendValue(StringBuilder text,
-                                    String label,
-                                    Float value,
-                                    String suffix) {
+    private void appendValue(StringBuilder text,
+                             String label,
+                             Float value,
+                             String suffix) {
         if (value != null) {
-            text.append(String.format(Locale.GERMANY, " | %s %.1f%s", label, value, suffix));
+            text.append(getString(
+                    R.string.log_calculation_value,
+                    label,
+                    value,
+                    suffix));
         }
     }
 
-    private static String safeMessage(Throwable error) {
+    private String safeMessage(Throwable error) {
         String message = error.getMessage();
-        return message == null || message.isBlank() ? "ohne Detailangabe" : message;
+        return message == null || message.isBlank()
+                ? getString(R.string.service_no_detail)
+                : message;
     }
 
     private void runWatchdog() {
