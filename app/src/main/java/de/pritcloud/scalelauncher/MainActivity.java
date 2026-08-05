@@ -251,7 +251,7 @@ public final class MainActivity extends Activity {
             clipboard.setPrimaryClip(ClipData.newPlainText(
                     "ScaleLauncher-Protokoll",
                     EventLog.read(this)));
-            Toast.makeText(this, "Protokoll kopiert", Toast.LENGTH_SHORT).show();
+            LoggedToast.makeText(this, "Protokoll kopiert", Toast.LENGTH_SHORT).show();
         });
         findViewById(R.id.clearLog).setOnClickListener(v -> {
             EventLog.clear(this);
@@ -507,7 +507,7 @@ public final class MainActivity extends Activity {
     private boolean saveCurrentProfile(boolean showToast) {
         int position = userSpinner.getSelectedItemPosition();
         if (position < 0 || position >= users.size()) {
-            if (showToast) Toast.makeText(this, "Kein openScale-Benutzer ausgewählt.", Toast.LENGTH_LONG).show();
+            if (showToast) LoggedToast.makeText(this, "Kein openScale-Benutzer ausgewählt.", Toast.LENGTH_LONG).show();
             return false;
         }
         OpenScaleProvider.User user = users.get(position);
@@ -525,25 +525,25 @@ public final class MainActivity extends Activity {
 
         if (enabled) {
             if (currentAge < 18 || currentAge > 120) {
-                Toast.makeText(this,
+                LoggedToast.makeText(this,
                         "Bitte für " + user.name + " einen gültigen Geburtstag wählen.",
                         Toast.LENGTH_LONG).show();
                 return false;
             }
             if (parsedHeight == null || parsedHeight < 100f || parsedHeight > 230f) {
-                Toast.makeText(this,
+                LoggedToast.makeText(this,
                         "Bitte für " + user.name + " eine Größe von 100–230 cm eintragen.",
                         Toast.LENGTH_LONG).show();
                 return false;
             }
             if (parsedReference == null || parsedReference < 20f || parsedReference > 300f) {
-                Toast.makeText(this,
+                LoggedToast.makeText(this,
                         "Bitte für " + user.name + " ein gültiges Referenzgewicht eintragen.",
                         Toast.LENGTH_LONG).show();
                 return false;
             }
             if (parsedTolerance == null || parsedTolerance < 0.2f || parsedTolerance > 30f) {
-                Toast.makeText(this,
+                LoggedToast.makeText(this,
                         "Die Gewichtstoleranz muss zwischen 0,2 und 30 kg liegen.",
                         Toast.LENGTH_LONG).show();
                 return false;
@@ -575,7 +575,7 @@ public final class MainActivity extends Activity {
         refreshPending();
 
         if (showToast) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Benutzerprofil " + user.name + " gespeichert.",
                     Toast.LENGTH_SHORT).show();
         }
@@ -658,7 +658,7 @@ public final class MainActivity extends Activity {
             refreshHealthConnectStatus();
             boolean granted = HealthConnectSupport.hasWritePermissions(this, selection);
             if (granted) healthConnectEnabled.setChecked(true);
-            Toast.makeText(
+            LoggedToast.makeText(
                     this,
                     granted
                             ? "Schreibrechte für die ausgewählten Werte wurden erlaubt."
@@ -674,7 +674,7 @@ public final class MainActivity extends Activity {
                 .apply();
 
         EventLog.info(this, getString(R.string.permissions_settings_saved));
-        Toast.makeText(
+        LoggedToast.makeText(
                 this,
                 R.string.permissions_settings_saved,
                 Toast.LENGTH_SHORT).show();
@@ -688,11 +688,11 @@ public final class MainActivity extends Activity {
         String key = bindKey.getText().toString().trim().toLowerCase(Locale.ROOT);
 
         if (!MAC_PATTERN.matcher(mac).matches()) {
-            Toast.makeText(this, R.string.scale_error_invalid_mac, Toast.LENGTH_LONG).show();
+            LoggedToast.makeText(this, R.string.scale_error_invalid_mac, Toast.LENGTH_LONG).show();
             return;
         }
         if (!KEY_PATTERN.matcher(key).matches()) {
-            Toast.makeText(this, R.string.scale_error_invalid_bind_key, Toast.LENGTH_LONG).show();
+            LoggedToast.makeText(this, R.string.scale_error_invalid_bind_key, Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -705,7 +705,7 @@ public final class MainActivity extends Activity {
         macAddress.setText(mac);
         bindKey.setText(key);
         EventLog.info(this, getString(R.string.scale_settings_saved));
-        Toast.makeText(this, R.string.scale_settings_saved, Toast.LENGTH_SHORT).show();
+        LoggedToast.makeText(this, R.string.scale_settings_saved, Toast.LENGTH_SHORT).show();
 
         findViewById(R.id.pageScale).setVisibility(View.GONE);
         findViewById(R.id.pageHome).setVisibility(View.VISIBLE);
@@ -715,29 +715,29 @@ public final class MainActivity extends Activity {
         if (!ensureReliabilityRequirements()) return;
         if (!hasBluetoothPermissions()) {
             requestNeededPermissions();
-            Toast.makeText(this, "Bitte zuerst Bluetooth erlauben.", Toast.LENGTH_LONG).show();
+            LoggedToast.makeText(this, "Bitte zuerst Bluetooth erlauben.", Toast.LENGTH_LONG).show();
             return;
         }
         String mac = macAddress.getText().toString().trim().toUpperCase(Locale.ROOT);
         String key = bindKey.getText().toString().trim().toLowerCase(Locale.ROOT);
         if (!MAC_PATTERN.matcher(mac).matches()) {
-            Toast.makeText(this, "Ungültige MAC-Adresse.", Toast.LENGTH_LONG).show();
+            LoggedToast.makeText(this, "Ungültige MAC-Adresse.", Toast.LENGTH_LONG).show();
             return;
         }
         if (!KEY_PATTERN.matcher(key).matches()) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Der Bind-Key muss aus genau 32 Hex-Zeichen bestehen.",
                     Toast.LENGTH_LONG).show();
             return;
         }
         if (openScaleAuthority == null || users.isEmpty()) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Bitte zuerst openScale verbinden und Benutzer laden.",
                     Toast.LENGTH_LONG).show();
             return;
         }
         if (!openScaleMeta.supportsGenericValues()) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Für eine vollständige und überprüfbare Messung wird openScale Provider-API 2 benötigt.",
                     Toast.LENGTH_LONG).show();
             return;
@@ -747,7 +747,7 @@ public final class MainActivity extends Activity {
         profiles = UserProfileStore.load(getSharedPreferences("prefs", MODE_PRIVATE));
         List<UserProfile> enabledProfiles = UserProfileStore.enabled(profiles);
         if (enabledProfiles.isEmpty()) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Bitte mindestens ein Benutzerprofil für die automatische Zuordnung aktivieren.",
                     Toast.LENGTH_LONG).show();
             return;
@@ -755,7 +755,7 @@ public final class MainActivity extends Activity {
         long now = System.currentTimeMillis();
         for (UserProfile profile : enabledProfiles) {
             if (!profile.hasValidBodyData(now) || !profile.hasValidMatchingData()) {
-                Toast.makeText(this,
+                LoggedToast.makeText(this,
                         "Das Profil " + profile.name + " ist noch nicht vollständig.",
                         Toast.LENGTH_LONG).show();
                 return;
@@ -767,21 +767,21 @@ public final class MainActivity extends Activity {
         long healthUserId = prefs.getLong("health_connect_user_id", -1L);
         if (healthConnectEnabled.isChecked()) {
             if (healthSelection.count() == 0) {
-                Toast.makeText(this,
+                LoggedToast.makeText(this,
                         "Bitte mindestens einen Health-Connect-Wert auswählen.",
                         Toast.LENGTH_LONG).show();
                 return;
             }
             UserProfile healthProfile = UserProfileStore.find(enabledProfiles, healthUserId);
             if (healthProfile == null) {
-                Toast.makeText(this,
+                LoggedToast.makeText(this,
                         "Bitte in einem aktiven Profil den Health-Connect-Hauptbenutzer festlegen.",
                         Toast.LENGTH_LONG).show();
                 return;
             }
             if (!HealthConnectSupport.hasWritePermissions(this, healthSelection)) {
                 requestHealthConnectPermissions();
-                Toast.makeText(this,
+                LoggedToast.makeText(this,
                         "Bitte zuerst die Schreibrechte für die ausgewählten Werte erlauben.",
                         Toast.LENGTH_LONG).show();
                 return;
@@ -818,7 +818,7 @@ public final class MainActivity extends Activity {
 
         if (healthConnectEnabled.isChecked()) {
             if (selection.count() == 0) {
-                Toast.makeText(
+                LoggedToast.makeText(
                         this,
                         "Bitte mindestens einen Health-Connect-Wert auswählen.",
                         Toast.LENGTH_LONG).show();
@@ -833,7 +833,7 @@ public final class MainActivity extends Activity {
                     UserProfileStore.find(currentProfiles, healthUserId);
 
             if (healthProfile == null) {
-                Toast.makeText(
+                LoggedToast.makeText(
                         this,
                         "Bitte zuerst bei einem Benutzer Health Connect aktivieren.",
                         Toast.LENGTH_LONG).show();
@@ -842,7 +842,7 @@ public final class MainActivity extends Activity {
 
             if (!HealthConnectSupport.hasWritePermissions(this, selection)) {
                 requestHealthConnectPermissions();
-                Toast.makeText(
+                LoggedToast.makeText(
                         this,
                         "Bitte zuerst die benötigten Schreibrechte erlauben.",
                         Toast.LENGTH_LONG).show();
@@ -863,7 +863,7 @@ public final class MainActivity extends Activity {
                         + (healthConnectEnabled.isChecked() ? "aktiviert" : "deaktiviert")
                         + " – " + selection.count() + " Werte ausgewählt");
 
-        Toast.makeText(
+        LoggedToast.makeText(
                 this,
                 R.string.health_connect_settings_saved,
                 Toast.LENGTH_SHORT).show();
@@ -874,14 +874,14 @@ public final class MainActivity extends Activity {
 
     private void requestHealthConnectPermissions() {
         if (!HealthConnectSupport.isSupported()) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Direkte Health-Connect-Übertragung benötigt Android 14 oder neuer.",
                     Toast.LENGTH_LONG).show();
             return;
         }
         HealthConnectSelection selection = healthConnectSelectionFromUi();
         if (selection.count() == 0) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Bitte zuerst mindestens einen Wert auswählen.",
                     Toast.LENGTH_LONG).show();
             return;
@@ -986,7 +986,7 @@ public final class MainActivity extends Activity {
                 .putExtra(ScaleScanService.EXTRA_PENDING_ID, item.id)
                 .putExtra(ScaleScanService.EXTRA_USER_ID, profile.userId);
         startForegroundService(intent);
-        Toast.makeText(this,
+        LoggedToast.makeText(this,
                 String.format(Locale.GERMANY, "%.1f kg wird %s zugeordnet.", item.weightKg, profile.name),
                 Toast.LENGTH_SHORT).show();
     }
@@ -1028,21 +1028,21 @@ public final class MainActivity extends Activity {
 
     private boolean ensureReliabilityRequirements() {
         if (!PowerSettingsHelper.isBatteryOptimizationDisabled(this)) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Bitte ScaleLauncher zuerst von der Akkuoptimierung ausnehmen.",
                     Toast.LENGTH_LONG).show();
             PowerSettingsHelper.requestBatteryOptimizationException(this);
             return false;
         }
         if (!PowerSettingsHelper.isUnusedAppManagementDisabled(this)) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Bitte 'App bei Nichtnutzung verwalten' für ScaleLauncher deaktivieren.",
                     Toast.LENGTH_LONG).show();
             PowerSettingsHelper.openUnusedAppSettings(this);
             return false;
         }
         if (!PowerSettingsHelper.areNotificationsUsable(this)) {
-            Toast.makeText(this,
+            LoggedToast.makeText(this,
                     "Benachrichtigungen müssen erlaubt sein, damit Messfehler zuverlässig angezeigt werden.",
                     Toast.LENGTH_LONG).show();
             PowerSettingsHelper.openNotificationSettings(this);
