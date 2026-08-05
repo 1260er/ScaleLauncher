@@ -58,31 +58,37 @@
             android:layout_marginTop="@dimen/spacing_lg"
             android:orientation="horizontal">
 
-            <Button
+            <ImageButton
                 android:id="@+id/refreshLog"
-                style="@style/UiPrimaryButton"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="@dimen/icon_button_size"
                 android:layout_weight="1"
-                android:text="@string/action_refresh" />
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/action_refresh"
+                android:padding="@dimen/spacing_sm"
+                android:src="@drawable/ic_refresh" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/copyLog"
-                style="@style/UiPrimaryButton"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="@dimen/icon_button_size"
                 android:layout_marginStart="@dimen/spacing_sm"
                 android:layout_weight="1"
-                android:text="@string/action_copy" />
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/action_copy"
+                android:padding="@dimen/spacing_sm"
+                android:src="@drawable/ic_copy" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/clearLog"
-                style="@style/UiPrimaryButton"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="@dimen/icon_button_size"
                 android:layout_marginStart="@dimen/spacing_sm"
                 android:layout_weight="1"
-                android:text="@string/action_clear" />
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/action_clear"
+                android:padding="@dimen/spacing_sm"
+                android:src="@drawable/ic_delete" />
         </LinearLayout>
 
         <TextView
