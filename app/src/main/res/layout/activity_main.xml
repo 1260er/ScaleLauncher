@@ -15,146 +15,156 @@
         android:layout_height="match_parent"
         android:fillViewport="true">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:paddingHorizontal="@dimen/screen_padding_horizontal"
+            android:paddingVertical="@dimen/screen_padding_vertical">
 
-            <ImageButton
-                android:id="@+id/buttonOpenMenu"
-                android:layout_width="@dimen/icon_button_size"
-                android:layout_height="@dimen/icon_button_size"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/action_open_menu"
-                android:padding="@dimen/spacing_sm"
-                android:src="@drawable/ic_menu" />
-
-            <TextView
-                style="@style/UiScreenTitle"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/spacing_sm"
-                android:text="@string/app_name"
-                android:textStyle="bold" />
-        </LinearLayout>
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_lg"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+                <TextView
+                    style="@style/UiScreenTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/app_name"
+                    android:textStyle="bold" />
 
-            <ImageView
-                android:id="@+id/scaleStatusImage"
-                android:layout_width="112dp"
-                android:layout_height="134dp"
-                android:layout_marginEnd="@dimen/spacing_lg"
-                android:adjustViewBounds="true"
-                android:contentDescription="@string/status_scale_disconnected"
-                android:scaleType="fitCenter"
-                android:src="@drawable/scale_disconnected" />
+                <ImageButton
+                    android:id="@+id/buttonOpenMenu"
+                    android:layout_width="@dimen/icon_button_size"
+                    android:layout_height="@dimen/icon_button_size"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/action_open_menu"
+                    android:padding="@dimen/spacing_sm"
+                    android:src="@drawable/ic_menu" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_xl"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/scaleStatusImage"
+                    android:layout_width="112dp"
+                    android:layout_height="134dp"
+                    android:layout_marginEnd="@dimen/spacing_xl"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="@string/status_scale_disconnected"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/scale_disconnected" />
+
+                <TextView
+                    android:id="@+id/status"
+                    style="@style/UiBodyText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/status_waiting_for_measurement"
+                    android:textSize="@dimen/text_body" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/status"
+                android:id="@+id/homeUsersSummary"
                 style="@style/UiBodyText"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/status_waiting_for_measurement" />
+                android:layout_marginTop="@dimen/spacing_xl"
+                android:text="@string/home_users_loading" />
+
+            <TextView
+                style="@style/UiBodyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_xl"
+                android:text="@string/home_health_connect_user_title" />
+
+            <TextView
+                android:id="@+id/homeHealthConnectUser"
+                style="@style/UiBodyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/home_health_connect_user_none" />
+
+            <TextView
+                style="@style/UiBodyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_xl"
+                android:text="@string/pending_measurements_title"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/pendingStatus"
+                style="@style/UiBodyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/pending_none" />
+
+            <Spinner
+                android:id="@+id/pendingUser"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_md" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_md"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/assignPending"
+                    style="@style/UiPrimaryButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/action_assign" />
+
+                <Button
+                    android:id="@+id/discardPending"
+                    style="@style/UiPrimaryButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/spacing_sm"
+                    android:layout_weight="1"
+                    android:text="@string/action_discard" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_lg"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/saveStart"
+                    style="@style/UiPrimaryButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/action_save_start" />
+
+                <Button
+                    android:id="@+id/stop"
+                    style="@style/UiPrimaryButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/spacing_sm"
+                    android:layout_weight="1"
+                    android:text="@string/action_stop_monitoring" />
+            </LinearLayout>
         </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            style="@style/UiBodyText"
-            android:text="@string/home_description" />
-
-
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            style="@style/UiBodyText"
-            android:layout_marginTop="@dimen/spacing_md"
-            android:text="@string/home_reference_info" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            style="@style/UiBodyText"
-            android:text="@string/pending_measurements_title"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/pendingStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            style="@style/UiBodyText"
-            android:text="@string/pending_none" />
-
-        <Spinner
-            android:id="@+id/pendingUser"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <Button
-                android:id="@+id/assignPending"
-                style="@style/UiPrimaryButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/action_assign" />
-            <Button
-                android:id="@+id/discardPending"
-                style="@style/UiPrimaryButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="@dimen/spacing_sm"
-                android:text="@string/action_discard" />
-        </LinearLayout>
-
-
-
-
-
-
-
-        <Button
-            android:id="@+id/saveStart"
-            style="@style/UiPrimaryButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
-            android:text="@string/action_save_start" />
-
-        <Button
-            android:id="@+id/stop"
-            style="@style/UiPrimaryButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
-            android:text="@string/action_stop_monitoring" />
-
-
-
-
-    </LinearLayout>
-</ScrollView>
+    </ScrollView>
 
         <include
             layout="@layout/page_scale"
