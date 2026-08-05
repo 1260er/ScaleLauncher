@@ -19,20 +19,20 @@ final class EventLog {
     private static final int MAX_CHARS = 48 * 1024;
 
     static void info(Context context, String message) {
-        append(context, "INFO", message);
+        append(context, context.getString(R.string.log_level_info), message);
     }
 
     static void warning(Context context, String message) {
-        append(context, "WARN", message);
+        append(context, context.getString(R.string.log_level_warning), message);
     }
 
     static void error(Context context, String message) {
-        append(context, "FEHLER", message);
+        append(context, context.getString(R.string.log_level_error), message);
     }
 
     static void debug(Context context, String message) {
         if (isDiagnosticEnabled(context)) {
-            append(context, "DEBUG", message);
+            append(context, context.getString(R.string.log_level_debug), message);
         }
     }
 
@@ -49,11 +49,11 @@ final class EventLog {
     static synchronized String read(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String stored = prefs.getString(KEY, "");
-        if (stored == null || stored.isBlank()) return "Noch keine Ereignisse.";
+        if (stored == null || stored.isBlank()) return context.getString(R.string.log_empty);
 
         String pruned = prune(stored);
         if (!stored.equals(pruned)) prefs.edit().putString(KEY, pruned).apply();
-        if (pruned.isBlank()) return "Noch keine Ereignisse.";
+        if (pruned.isBlank()) return context.getString(R.string.log_empty);
 
         List<String> newestFirst = new ArrayList<>();
         for (String line : pruned.split("\n")) {
@@ -67,8 +67,8 @@ final class EventLog {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY).apply();
     }
 
-    static String limitDescription() {
-        return "maximal " + MAX_LINES + " Einträge / 48 KB";
+    static String limitDescription(Context context) {
+        return context.getString(R.string.log_limit_description, MAX_LINES);
     }
 
     private static synchronized void append(Context context, String level, String message) {

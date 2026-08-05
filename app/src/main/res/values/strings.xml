@@ -171,4 +171,10 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="state_inactive">aus</string>
     <string name="state_enabled">aktiviert</string>
     <string name="state_disabled">deaktiviert</string>
+    <string name="log_empty">Noch keine Ereignisse.</string>
+    <string name="log_limit_description">maximal %1$d Einträge / 48 KB</string>
+    <string name="log_level_info">INFO</string>
+    <string name="log_level_warning">WARNUNG</string>
+    <string name="log_level_error">FEHLER</string>
+    <string name="log_level_debug">DEBUG</string>
 </resources>

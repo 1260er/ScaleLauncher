@@ -309,7 +309,7 @@ public final class MainActivity extends Activity {
         TextView logInfo = findViewById(R.id.logInfo);
         logInfo.setText(getString(
                 R.string.log_info_limits,
-                EventLog.limitDescription()));
+                EventLog.limitDescription(this)));
 
         requestNeededPermissions();
         refreshLog();
