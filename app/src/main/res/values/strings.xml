@@ -190,4 +190,5 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="log_toast">Toast: %1$s</string>
     <string name="scan_device_row">%1$s
 %2$s   RSSI %3$d</string>
+    <string name="health_connect_none">keine</string>
 </resources>

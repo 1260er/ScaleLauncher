@@ -1,5 +1,6 @@
 package de.pritcloud.scalelauncher;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 
 /** Selected Health Connect values. */
@@ -71,16 +72,18 @@ final class HealthConnectSelection {
         return count;
     }
 
-    String summary() {
+    String summary(Context context) {
         StringBuilder out = new StringBuilder();
-        append(out, weight, "Gewicht");
-        append(out, bodyFat, "Körperfett");
-        append(out, bodyWater, "Körperwasser");
-        append(out, boneMass, "Knochenmasse");
-        append(out, leanBodyMass, "fettfreie Masse");
-        append(out, basalMetabolicRate, "Grundumsatz");
-        append(out, bmi, "BMI-Grundlage");
-        return out.length() == 0 ? "keine" : out.toString();
+        append(out, weight, context.getString(R.string.health_connect_weight));
+        append(out, bodyFat, context.getString(R.string.health_connect_body_fat));
+        append(out, bodyWater, context.getString(R.string.health_connect_body_water));
+        append(out, boneMass, context.getString(R.string.health_connect_bone_mass));
+        append(out, leanBodyMass, context.getString(R.string.health_connect_lean_body_mass));
+        append(out, basalMetabolicRate, context.getString(R.string.health_connect_bmr));
+        append(out, bmi, context.getString(R.string.health_connect_bmi));
+        return out.length() == 0
+                ? context.getString(R.string.health_connect_none)
+                : out.toString();
     }
 
     private static void append(StringBuilder out, boolean enabled, String label) {
