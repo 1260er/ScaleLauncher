@@ -141,4 +141,10 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="health_connect_user_name">Benutzer %1$s</string>
     <string name="health_connect_status_ready">Health Connect bereit – %1$s, %2$d Werte ausgewählt</string>
     <string name="health_connect_status_permissions">Health Connect: %1$d/%2$d benötigte Rechte vorhanden – %3$s</string>
+    <string name="pending_status_summary">%1$d offene Messung(en) – nächste: %2$.1f kg (%3$s)</string>
+    <string name="pending_assignment_toast">%1$.1f kg wird %2$s zugeordnet.</string>
+    <string name="pending_discarded_log">Nicht zugeordnete Messung %1$.1f kg verworfen</string>
+    <string name="reliability_battery_required">Bitte ScaleLauncher zuerst von der Akkuoptimierung ausnehmen.</string>
+    <string name="reliability_unused_app_required">Bitte „App bei Nichtnutzung verwalten“ für ScaleLauncher deaktivieren.</string>
+    <string name="reliability_notifications_required">Benachrichtigungen müssen erlaubt sein, damit Messfehler zuverlässig angezeigt werden.</string>
 </resources>

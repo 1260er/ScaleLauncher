@@ -891,7 +891,7 @@ public final class MainActivity extends Activity {
             if (selection.count() == 0) {
                 LoggedToast.makeText(
                         this,
-                        "Bitte mindestens einen Health-Connect-Wert auswählen.",
+                        getString(R.string.health_connect_error_select_values),
                         Toast.LENGTH_LONG).show();
                 return;
             }
@@ -1041,9 +1041,8 @@ public final class MainActivity extends Activity {
             return;
         }
         PendingMeasurementStore.Item item = pendingMeasurements.get(0);
-        pendingStatus.setText(String.format(
-                Locale.GERMANY,
-                "%d offene Messung(en) – nächste: %.1f kg (%s)",
+        pendingStatus.setText(getString(
+                R.string.pending_status_summary,
                 pendingMeasurements.size(),
                 item.weightKg,
                 item.reason));
@@ -1060,8 +1059,12 @@ public final class MainActivity extends Activity {
                 .putExtra(ScaleScanService.EXTRA_PENDING_ID, item.id)
                 .putExtra(ScaleScanService.EXTRA_USER_ID, profile.userId);
         startForegroundService(intent);
-        LoggedToast.makeText(this,
-                String.format(Locale.GERMANY, "%.1f kg wird %s zugeordnet.", item.weightKg, profile.name),
+        LoggedToast.makeText(
+                this,
+                getString(
+                        R.string.pending_assignment_toast,
+                        item.weightKg,
+                        profile.name),
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -1071,10 +1074,11 @@ public final class MainActivity extends Activity {
         PendingMeasurementStore.remove(getSharedPreferences("prefs", MODE_PRIVATE), item.id);
         startForegroundService(new Intent(this, ScaleScanService.class)
                 .setAction(ScaleScanService.ACTION_REFRESH_PENDING));
-        EventLog.info(this, String.format(
-                Locale.GERMANY,
-                "Nicht zugeordnete Messung %.1f kg verworfen",
-                item.weightKg));
+        EventLog.info(
+                this,
+                getString(
+                        R.string.pending_discarded_log,
+                        item.weightKg));
         refreshPending();
     }
 
@@ -1103,21 +1107,21 @@ public final class MainActivity extends Activity {
     private boolean ensureReliabilityRequirements() {
         if (!PowerSettingsHelper.isBatteryOptimizationDisabled(this)) {
             LoggedToast.makeText(this,
-                    "Bitte ScaleLauncher zuerst von der Akkuoptimierung ausnehmen.",
+                    getString(R.string.reliability_battery_required),
                     Toast.LENGTH_LONG).show();
             PowerSettingsHelper.requestBatteryOptimizationException(this);
             return false;
         }
         if (!PowerSettingsHelper.isUnusedAppManagementDisabled(this)) {
             LoggedToast.makeText(this,
-                    "Bitte 'App bei Nichtnutzung verwalten' für ScaleLauncher deaktivieren.",
+                    getString(R.string.reliability_unused_app_required),
                     Toast.LENGTH_LONG).show();
             PowerSettingsHelper.openUnusedAppSettings(this);
             return false;
         }
         if (!PowerSettingsHelper.areNotificationsUsable(this)) {
             LoggedToast.makeText(this,
-                    "Benachrichtigungen müssen erlaubt sein, damit Messfehler zuverlässig angezeigt werden.",
+                    getString(R.string.reliability_notifications_required),
                     Toast.LENGTH_LONG).show();
             PowerSettingsHelper.openNotificationSettings(this);
             return false;
