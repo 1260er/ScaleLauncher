@@ -1,5 +1,7 @@
 package de.pritcloud.scalelauncher;
 
+import android.content.Context;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -56,12 +58,16 @@ final class UserMatcher {
         return new Result(Status.AMBIGUOUS, null, candidates);
     }
 
-    static String diagnosticSummary(Result result) {
-        if (result.candidates.isEmpty()) return "keine passenden Profile";
+    static String diagnosticSummary(Context context, Result result) {
+        if (result.candidates.isEmpty()) {
+            return context.getString(R.string.user_match_no_profiles);
+        }
         List<String> parts = new ArrayList<>();
         for (Candidate candidate : result.candidates) {
-            parts.add(candidate.profile.name + " Δ"
-                    + String.format(java.util.Locale.GERMANY, "%.1f kg", candidate.differenceKg));
+            parts.add(context.getString(
+                    R.string.user_match_candidate,
+                    candidate.profile.name,
+                    candidate.differenceKg));
         }
         return String.join(", ", parts);
     }

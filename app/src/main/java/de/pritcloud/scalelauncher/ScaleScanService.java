@@ -376,7 +376,9 @@ public final class ScaleScanService extends Service {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
         UserMatcher.Result match = UserMatcher.match(profiles, measurement.weightKg);
-        EventLog.debug(this, "Benutzerabgleich: " + UserMatcher.diagnosticSummary(match));
+        EventLog.debug(this, getString(
+                R.string.log_user_match,
+                UserMatcher.diagnosticSummary(this, match)));
 
         if (match.status == UserMatcher.Status.MATCHED && match.profile != null) {
             EventLog.info(this, String.format(

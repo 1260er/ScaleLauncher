@@ -205,4 +205,7 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="hc_writer_no_detail">ohne Detailangabe</string>
     <string name="hc_writer_label_weight_bmi">Gewicht (BMI)</string>
     <string name="hc_writer_label_height_bmi">Größe (BMI)</string>
+    <string name="user_match_no_profiles">keine passenden Profile</string>
+    <string name="user_match_candidate">%1$s Δ%2$.1f kg</string>
+    <string name="log_user_match">Benutzerabgleich: %1$s</string>
 </resources>
