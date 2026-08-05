@@ -238,4 +238,17 @@ UUIDs: %1$s</string>
     <string name="service_error_incomplete_profile">Benutzerprofil unvollständig: %1$s</string>
     <string name="service_error_bluetooth_disabled">Bluetooth ist ausgeschaltet</string>
     <string name="service_error_bluetooth_scanner">Bluetooth-Scanner nicht verfügbar</string>
+    <string name="service_scale_reachable_waiting">Waage erreichbar – warte auf Messung</string>
+    <string name="log_ble_scan_interrupted">BLE-Scan unterbrochen (Fehler %1$d) – Neustart läuft</string>
+    <string name="service_ble_scan_restarting">BLE-Scan wird neu gestartet</string>
+    <string name="log_ble_scan_error_reason">BLE-Scanfehler %1$d</string>
+    <string name="service_searching_scale">Suche S400-Waage</string>
+    <string name="log_monitor_active_profiles">Überwachung aktiv – %1$d Benutzerprofile bereit</string>
+    <string name="log_ble_monitor_restarted">BLE-Überwachung erfolgreich neu gestartet</string>
+    <string name="log_ble_scan_active_for">BLE-Scan aktiv für %1$s</string>
+    <string name="log_scan_start_failed">Scanstart fehlgeschlagen: %1$s – automatischer Neustart</string>
+    <string name="service_scan_start_failed">Scanstart fehlgeschlagen</string>
+    <string name="log_scale_detected">Waage erkannt – BLE-Empfang aktiv</string>
+    <string name="log_first_ble_pattern">Erstes BLE-Muster %1$s</string>
+    <string name="log_s400_activity_decrypt_failed">S400-Aktivitätspaket konnte nicht entschlüsselt werden</string>
 </resources>

@@ -235,7 +235,7 @@ public final class ScaleScanService extends Service {
                     if (!scaleSeenLogged
                             || previousPacketAt <= 0L
                             || lastPacketAtMs - previousPacketAt > SCALE_STALE_AFTER_MS) {
-                        updateMonitor("Waage erreichbar – warte auf Messung");
+                        updateMonitor(getString(R.string.service_scale_reachable_waiting));
                     }
                     analyze(result, mac, bindKey);
                 }
@@ -243,10 +243,11 @@ public final class ScaleScanService extends Service {
 
             @Override public void onScanFailed(int code) {
                 scanRunning = false;
-                EventLog.warning(ScaleScanService.this,
-                        "BLE-Scan unterbrochen (Fehler " + code + ") – Neustart läuft");
-                enterRecoverableError("BLE-Scan wird neu gestartet");
-                scheduleScanRestart("BLE-Scanfehler " + code);
+                EventLog.warning(
+                        ScaleScanService.this,
+                        getString(R.string.log_ble_scan_interrupted, code));
+                enterRecoverableError(getString(R.string.service_ble_scan_restarting));
+                scheduleScanRestart(getString(R.string.log_ble_scan_error_reason, code));
             }
         };
 
@@ -259,26 +260,27 @@ public final class ScaleScanService extends Service {
             scanRunning = true;
             terminalError = false;
             scanStartedAtMs = System.currentTimeMillis();
-            monitorText = lastPacketAtMs > 0L
-                    ? "Waage erreichbar – warte auf Messung"
-                    : "Suche S400-Waage";
+            monitorText = getString(lastPacketAtMs > 0L
+                    ? R.string.service_scale_reachable_waiting
+                    : R.string.service_searching_scale);
             ServiceState.running(this, monitorText, true);
             if (!activeLogged) {
                 activeLogged = true;
-                EventLog.info(this,
-                        "Überwachung aktiv – " + profiles.size() + " Benutzerprofile bereit");
+                EventLog.info(this, getString(
+                        R.string.log_monitor_active_profiles,
+                        profiles.size()));
             } else {
-                EventLog.debug(this, "BLE-Überwachung erfolgreich neu gestartet");
+                EventLog.debug(this, getString(R.string.log_ble_monitor_restarted));
             }
-            EventLog.debug(this, "BLE-Scan aktiv für " + mac);
+            EventLog.debug(this, getString(R.string.log_ble_scan_active_for, mac));
             notifyMonitor();
         } catch (RuntimeException e) {
             scanRunning = false;
-            EventLog.warning(this,
-                    "Scanstart fehlgeschlagen: " + e.getClass().getSimpleName()
-                            + " – automatischer Neustart");
+            EventLog.warning(this, getString(
+                    R.string.log_scan_start_failed,
+                    e.getClass().getSimpleName()));
             enterRecoverableError("BLE-Scan wird neu gestartet");
-            scheduleScanRestart("Scanstart fehlgeschlagen");
+            scheduleScanRestart(getString(R.string.service_scan_start_failed));
         }
     }
 
@@ -286,11 +288,11 @@ public final class ScaleScanService extends Service {
         BlePacket packet = BlePacket.from(this, result);
         if (!scaleSeenLogged) {
             scaleSeenLogged = true;
-            EventLog.info(this, "Waage erkannt – BLE-Empfang aktiv");
+            EventLog.info(this, getString(R.string.log_scale_detected));
         }
         if (lastLoggedSignature == null) {
             lastLoggedSignature = packet.signature;
-            EventLog.debug(this, "Erstes BLE-Muster " + packet.signature);
+            EventLog.debug(this, getString(R.string.log_first_ble_pattern, packet.signature));
         } else if (!packet.signature.equals(lastLoggedSignature)) {
             lastLoggedSignature = packet.signature;
         }
@@ -301,7 +303,7 @@ public final class ScaleScanService extends Service {
                 mac,
                 bindKey);
         if (decoded == null) {
-            EventLog.debug(this, "S400-Aktivitätspaket konnte nicht entschlüsselt werden");
+            EventLog.debug(this, getString(R.string.log_s400_activity_decrypt_failed));
             long now = System.currentTimeMillis();
             if (now - lastUndecipheredFailureAtMs >= S400Aggregator.SESSION_TIMEOUT_MS
                     && undecipheredSessionStartedAtMs == 0L) {
