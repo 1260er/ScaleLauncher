@@ -395,6 +395,7 @@ public final class MainActivity extends Activity {
                     prefs.getLong("openscale_user_id", -1L));
             updateUserSpinner(storedUser);
             refreshUserList();
+            refreshHomeUserSummary();
 
             String openScaleLine = users.isEmpty()
                     ? getString(R.string.permissions_openscale_no_users)
