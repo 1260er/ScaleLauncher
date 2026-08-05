@@ -473,11 +473,13 @@ public final class ScaleScanService extends Service {
 
         String compositionError = validateCompleteComposition(composition);
         if (compositionError != null) {
-            rejectMeasurement("Körperanalyse unvollständig: " + compositionError);
+            rejectMeasurement(getString(
+                    R.string.service_error_incomplete_composition,
+                    compositionError));
             return false;
         }
         if (composition.impedanceLabelsSwapped) {
-            EventLog.debug(this, "Impedanzbänder waren vertauscht und wurden korrigiert");
+            EventLog.debug(this, getString(R.string.log_impedance_labels_swapped));
         }
         EventLog.debug(this, buildCalculationLog(profile.name, age, measurement, composition));
 
@@ -502,26 +504,26 @@ public final class ScaleScanService extends Service {
                         5);
                 if (average > 0f) {
                     UserProfileStore.updateReferenceWeight(prefs, profile.userId, average);
-                    EventLog.debug(this, String.format(
-                            Locale.GERMANY,
-                            "Referenzgewicht %s aktualisiert: %.1f kg",
+                    EventLog.debug(this, getString(
+                            R.string.log_reference_weight_updated,
                             profile.name,
                             average));
                 }
             }
         } catch (SecurityException e) {
             rejectMeasurement(
-                    "openScale-Zugriff verweigert – Berechtigung erneut erteilen");
+                    getString(R.string.service_error_openscale_access));
             return false;
         } catch (RuntimeException e) {
-            rejectMeasurement(
-                    "Übergabe an openScale fehlgeschlagen: "
-                            + e.getClass().getSimpleName() + " – " + safeMessage(e));
+            rejectMeasurement(getString(
+                    R.string.service_error_openscale_transfer,
+                    e.getClass().getSimpleName(),
+                    safeMessage(e)));
             return false;
         }
 
         if (!openScaleStored) {
-            rejectMeasurement("Speicherung in openScale konnte nicht vollständig bestätigt werden");
+            rejectMeasurement(getString(R.string.service_error_openscale_unconfirmed));
             return false;
         }
 
@@ -539,18 +541,20 @@ public final class ScaleScanService extends Service {
         if (!prefs.getBoolean("health_connect_enabled", false)) return false;
         long healthUserId = prefs.getLong("health_connect_user_id", -1L);
         if (profile.userId != healthUserId) {
-            EventLog.debug(this,
-                    "Health Connect übersprungen: " + profile.name + " ist nicht der Hauptbenutzer");
+            EventLog.debug(this, getString(
+                    R.string.log_health_connect_skipped_user,
+                    profile.name));
             return false;
         }
 
         HealthConnectSelection selection = HealthConnectSelection.fromPreferences(prefs);
         if (selection.count() == 0) {
-            EventLog.error(this,
-                    "Health Connect ist aktiv, aber es wurden keine Werte ausgewählt");
+            EventLog.error(
+                    this,
+                    getString(R.string.log_health_connect_no_values));
             notifyTransferFailure(
-                    "openScale wurde gespeichert, Health Connect ist jedoch falsch konfiguriert.");
-            updateMonitor("openScale gespeichert – Health Connect falsch konfiguriert");
+                    getString(R.string.transfer_health_connect_misconfigured));
+            updateMonitor(getString(R.string.service_health_connect_misconfigured));
             return true;
         }
 
@@ -567,22 +571,27 @@ public final class ScaleScanService extends Service {
                     @Override public void onSuccess(int writtenRecordCount, String writtenValues) {
                         EventLog.info(
                                 ScaleScanService.this,
-                                "Health Connect: " + profile.name + " – "
-                                        + writtenRecordCount + " Werte gespeichert");
+                                getString(
+                                        R.string.log_health_connect_values_saved,
+                                        profile.name,
+                                        writtenRecordCount));
                         EventLog.debug(
                                 ScaleScanService.this,
-                                "Health Connect geschrieben: " + writtenValues);
+                                getString(
+                                        R.string.log_health_connect_written,
+                                        writtenValues));
                         markMeasurementSuccess(profile.name);
                     }
 
                     @Override public void onError(String message) {
                         EventLog.error(
                                 ScaleScanService.this,
-                                "Health Connect fehlgeschlagen: " + message);
+                                getString(
+                                        R.string.log_health_connect_failed,
+                                        message));
                         notifyTransferFailure(
-                                "openScale wurde gespeichert, Health Connect jedoch nicht. "
-                                        + "Bitte Berechtigungen prüfen.");
-                        updateMonitor("openScale gespeichert – Health Connect fehlgeschlagen");
+                                getString(R.string.transfer_health_connect_permissions));
+                        updateMonitor(getString(R.string.service_health_connect_failed));
                     }
                 });
         return true;

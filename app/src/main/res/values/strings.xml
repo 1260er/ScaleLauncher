@@ -268,4 +268,19 @@ UUIDs: %1$s</string>
     <string name="service_error_selected_profile">Gewähltes Benutzerprofil ist nicht verfügbar oder unvollständig</string>
     <string name="log_measurement_manually_assigned">Manuell zugeordnet: %1$.1f kg → %2$s</string>
     <string name="service_error_invalid_birth_date">Geburtstag von %1$s ist ungültig</string>
+    <string name="service_error_incomplete_composition">Körperanalyse unvollständig: %1$s</string>
+    <string name="log_impedance_labels_swapped">Impedanzbänder waren vertauscht und wurden korrigiert</string>
+    <string name="log_reference_weight_updated">Referenzgewicht %1$s aktualisiert: %2$.1f kg</string>
+    <string name="service_error_openscale_access">openScale-Zugriff verweigert – Berechtigung erneut erteilen</string>
+    <string name="service_error_openscale_transfer">Übergabe an openScale fehlgeschlagen: %1$s – %2$s</string>
+    <string name="service_error_openscale_unconfirmed">Speicherung in openScale konnte nicht vollständig bestätigt werden</string>
+    <string name="log_health_connect_skipped_user">Health Connect übersprungen: %1$s ist nicht der Hauptbenutzer</string>
+    <string name="log_health_connect_no_values">Health Connect ist aktiv, aber es wurden keine Werte ausgewählt</string>
+    <string name="transfer_health_connect_misconfigured">openScale wurde gespeichert, Health Connect ist jedoch falsch konfiguriert.</string>
+    <string name="service_health_connect_misconfigured">openScale gespeichert – Health Connect falsch konfiguriert</string>
+    <string name="log_health_connect_values_saved">Health Connect: %1$s – %2$d Werte gespeichert</string>
+    <string name="log_health_connect_written">Health Connect geschrieben: %1$s</string>
+    <string name="log_health_connect_failed">Health Connect fehlgeschlagen: %1$s</string>
+    <string name="transfer_health_connect_permissions">openScale wurde gespeichert, Health Connect jedoch nicht. Bitte Berechtigungen prüfen.</string>
+    <string name="service_health_connect_failed">openScale gespeichert – Health Connect fehlgeschlagen</string>
 </resources>
