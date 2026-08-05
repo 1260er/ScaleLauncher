@@ -187,4 +187,5 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="boot_start_requested">Automatischer Start nach Neustart/App-Update angefordert</string>
     <string name="boot_start_failed">Automatischer Start fehlgeschlagen</string>
     <string name="boot_start_failed_detail">Automatischer Start fehlgeschlagen: %1$s</string>
+    <string name="log_toast">Toast: %1$s</string>
 </resources>
