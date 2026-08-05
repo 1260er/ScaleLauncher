@@ -141,44 +141,6 @@
 
 
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="Ereignisprotokoll"
-            android:textStyle="bold" />
-
-        <CheckBox
-            android:id="@+id/diagnosticLogging"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Diagnoseprotokoll aktivieren (detaillierte Messwerte und Zuordnungsgründe)" />
-
-        <TextView
-            android:id="@+id/logInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Im Normalmodus werden nur wichtige Statusmeldungen, erfolgreiche Übergaben und Fehler gespeichert. Alte Einträge werden automatisch gelöscht." />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <Button android:id="@+id/refreshLog" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Aktualisieren" />
-            <Button android:id="@+id/copyLog" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Kopieren" />
-            <Button android:id="@+id/clearLog" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Leeren" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/log"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="#11000000"
-            android:fontFamily="monospace"
-            android:minHeight="180dp"
-            android:padding="10dp"
-            android:text="Noch kein Ereignis" />
     </LinearLayout>
 </ScrollView>
 
@@ -200,6 +162,10 @@
 
         <include
             layout="@layout/page_health_connect"
+            android:visibility="gone" />
+
+        <include
+            layout="@layout/page_log"
             android:visibility="gone" />
     </FrameLayout>
 
