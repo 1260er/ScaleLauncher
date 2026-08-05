@@ -602,11 +602,11 @@ public final class ScaleScanService extends Service {
         handler.removeCallbacks(decryptionFailureRunnable);
         undecipheredSessionStartedAtMs = 0L;
         String detail = reason == null || reason.isBlank()
-                ? "Messdaten waren unvollständig"
+                ? getString(R.string.service_error_measurement_incomplete)
                 : reason;
-        EventLog.error(this, "Messung vollständig verworfen – " + detail);
+        EventLog.error(this, getString(R.string.log_measurement_rejected, detail));
         ServiceState.measurementFailed(this);
-        updateMonitor("Letzte Messung fehlgeschlagen – bitte wiederholen");
+        updateMonitor(getString(R.string.service_last_measurement_failed));
         notifyMeasurementFailure(detail);
     }
 
@@ -666,10 +666,14 @@ public final class ScaleScanService extends Service {
         manager.notify(
                 NOTIFICATION_RESULT,
                 resultNotification(
-                        "Messung erfolgreich an " + userName + " zugeordnet",
-                        "Alle vollständigen Messwerte wurden gespeichert.",
+                        getString(
+                                R.string.notification_measurement_success_title,
+                                userName),
+                        getString(R.string.notification_measurement_success_text),
                         false));
-        updateMonitor("Letzte Messung für " + userName + " vollständig gespeichert");
+        updateMonitor(getString(
+                R.string.service_measurement_saved_for,
+                userName));
     }
 
     private void notifyMeasurementFailure(String reason) {
@@ -679,7 +683,7 @@ public final class ScaleScanService extends Service {
         manager.notify(
                 NOTIFICATION_RESULT,
                 resultNotification(
-                        "Messung fehlgeschlagen, bitte wiederholen",
+                        getString(R.string.notification_measurement_failure_title),
                         shorten(reason),
                         true));
     }
@@ -689,40 +693,49 @@ public final class ScaleScanService extends Service {
                 (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.notify(
                 NOTIFICATION_RESULT,
-                resultNotification("Übertragung unvollständig", shorten(reason), true));
+                resultNotification(
+                        getString(R.string.notification_transfer_incomplete_title),
+                        shorten(reason),
+                        true));
     }
 
-    private static String shorten(String value) {
-        if (value == null || value.isBlank()) return "Unbekannter Fehler";
+    private String shorten(String value) {
+        if (value == null || value.isBlank()) return getString(R.string.service_error_unknown);
         String clean = value.replace('\n', ' ').replace('\r', ' ').trim();
         return clean.length() <= 150 ? clean : clean.substring(0, 147) + "…";
     }
 
     private boolean logProviderResult(OpenScaleProvider.InsertResult result, String userName) {
         if (result.apiVersion < 2) {
-            EventLog.error(this,
-                    "openScale Provider-API 2 fehlt – vollständige Messung nicht möglich");
+            EventLog.error(
+                    this,
+                    getString(R.string.log_provider_api_missing));
             return false;
         }
 
         if (result.measurementVerified && result.additionalValuesVerified) {
-            EventLog.info(this,
-                    "openScale: " + userName + " – vollständige Messung gespeichert ("
-                            + result.storedValueCount + " Werte)");
-            EventLog.debug(this,
-                    "openScale Provider-API " + result.apiVersion + " erfolgreich geprüft");
-            updateMonitor("Messung für " + userName + " gespeichert");
+            EventLog.info(this, getString(
+                    R.string.log_openscale_measurement_saved,
+                    userName,
+                    result.storedValueCount));
+            EventLog.debug(this, getString(
+                    R.string.log_provider_api_verified,
+                    result.apiVersion));
+            updateMonitor(getString(
+                    R.string.service_measurement_saved,
+                    userName));
             return true;
         }
 
         String missing = result.missingValueKeys == null || result.missingValueKeys.isEmpty()
-                ? "unbekannte Werte"
+                ? getString(R.string.log_openscale_unknown_values)
                 : String.join(", ", result.missingValueKeys);
-        EventLog.error(this,
-                "openScale-Übergabe für " + userName + " unvollständig – fehlend: "
-                        + missing + (result.rollbackPerformed
-                        ? "; unvollständiger Eintrag wurde gelöscht"
-                        : "; Löschung konnte nicht bestätigt werden"));
+        EventLog.error(this, getString(
+                result.rollbackPerformed
+                        ? R.string.log_openscale_incomplete_deleted
+                        : R.string.log_openscale_incomplete_delete_failed,
+                userName,
+                missing));
         return false;
     }
 

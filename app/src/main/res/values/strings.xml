@@ -283,4 +283,20 @@ UUIDs: %1$s</string>
     <string name="log_health_connect_failed">Health Connect fehlgeschlagen: %1$s</string>
     <string name="transfer_health_connect_permissions">openScale wurde gespeichert, Health Connect jedoch nicht. Bitte Berechtigungen prüfen.</string>
     <string name="service_health_connect_failed">openScale gespeichert – Health Connect fehlgeschlagen</string>
+    <string name="service_error_measurement_incomplete">Messdaten waren unvollständig</string>
+    <string name="log_measurement_rejected">Messung vollständig verworfen – %1$s</string>
+    <string name="service_last_measurement_failed">Letzte Messung fehlgeschlagen – bitte wiederholen</string>
+    <string name="notification_measurement_success_title">Messung erfolgreich an %1$s zugeordnet</string>
+    <string name="notification_measurement_success_text">Alle vollständigen Messwerte wurden gespeichert.</string>
+    <string name="service_measurement_saved_for">Letzte Messung für %1$s vollständig gespeichert</string>
+    <string name="notification_measurement_failure_title">Messung fehlgeschlagen, bitte wiederholen</string>
+    <string name="notification_transfer_incomplete_title">Übertragung unvollständig</string>
+    <string name="service_error_unknown">Unbekannter Fehler</string>
+    <string name="log_provider_api_missing">openScale Provider-API 2 fehlt – vollständige Messung nicht möglich</string>
+    <string name="log_openscale_measurement_saved">openScale: %1$s – vollständige Messung gespeichert (%2$d Werte)</string>
+    <string name="log_provider_api_verified">openScale Provider-API %1$d erfolgreich geprüft</string>
+    <string name="service_measurement_saved">Messung für %1$s gespeichert</string>
+    <string name="log_openscale_unknown_values">unbekannte Werte</string>
+    <string name="log_openscale_incomplete_deleted">openScale-Übergabe für %1$s unvollständig – fehlend: %2$s; unvollständiger Eintrag wurde gelöscht</string>
+    <string name="log_openscale_incomplete_delete_failed">openScale-Übergabe für %1$s unvollständig – fehlend: %2$s; Löschung konnte nicht bestätigt werden</string>
 </resources>
