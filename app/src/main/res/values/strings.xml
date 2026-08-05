@@ -183,4 +183,8 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="s400_error_missing_packet_a">Paket A mit Gewicht und hoher Impedanz fehlte</string>
     <string name="s400_error_missing_packet_b">Paket B mit niedriger Impedanz fehlte</string>
     <string name="pending_reason_ambiguous">Nicht eindeutig</string>
+    <string name="boot_start_preparing">Automatischer Start wird vorbereitet</string>
+    <string name="boot_start_requested">Automatischer Start nach Neustart/App-Update angefordert</string>
+    <string name="boot_start_failed">Automatischer Start fehlgeschlagen</string>
+    <string name="boot_start_failed_detail">Automatischer Start fehlgeschlagen: %1$s</string>
 </resources>
