@@ -61,7 +61,7 @@ final class ServiceState {
         }
         return new Snapshot(
                 mode,
-                prefs.getString(KEY_MESSAGE, "Gestoppt"),
+                prefs.getString(KEY_MESSAGE, context.getString(R.string.service_state_stopped_default)),
                 prefs.getLong(KEY_HEARTBEAT, 0L),
                 prefs.getBoolean(KEY_SCAN_RUNNING, false),
                 prefs.getLong(KEY_LAST_SCALE_SEEN, 0L),
