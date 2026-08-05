@@ -108,18 +108,6 @@ public final class MainActivity extends Activity {
         findViewById(R.id.buttonOpenMenu).setOnClickListener(
                 view -> drawerLayout.openDrawer(android.view.Gravity.END));
 
-        View homeUsersList = findViewById(R.id.homeUsersList);
-        View homeUsersDropdown = findViewById(R.id.homeUsersDropdown);
-        homeUsersDropdown.setOnClickListener(view -> {
-            boolean showUsers = homeUsersList.getVisibility() != View.VISIBLE;
-            homeUsersList.setVisibility(showUsers ? View.VISIBLE : View.GONE);
-            homeUsersDropdown.setRotation(showUsers ? 180f : 0f);
-            homeUsersDropdown.setContentDescription(getString(
-                    showUsers
-                            ? R.string.home_users_collapse
-                            : R.string.home_users_expand));
-        });
-
         View pageHome = findViewById(R.id.pageHome);
         View pageScale = findViewById(R.id.pageScale);
         View pagePermissions = findViewById(R.id.pagePermissions);
@@ -621,15 +609,11 @@ public final class MainActivity extends Activity {
     private void refreshHomeUserSummary() {
         TextView usersSummary = findViewById(R.id.homeUsersSummary);
         TextView usersList = findViewById(R.id.homeUsersList);
-        View usersDropdown = findViewById(R.id.homeUsersDropdown);
         TextView healthConnectUser = findViewById(R.id.homeHealthConnectUser);
 
         if (users == null || users.isEmpty()) {
             usersSummary.setText(R.string.home_users_none);
             usersList.setText("");
-            usersList.setVisibility(View.GONE);
-            usersDropdown.setEnabled(false);
-            usersDropdown.setRotation(0f);
         } else {
             usersSummary.setText(getResources().getQuantityString(
                     R.plurals.home_user_count,
@@ -639,21 +623,21 @@ public final class MainActivity extends Activity {
             StringBuilder names = new StringBuilder();
             for (OpenScaleProvider.User user : users) {
                 if (names.length() > 0) names.append((char) 10);
-                names.append(user.name);
+                names.append("• ").append(user.name);
             }
-
             usersList.setText(names.toString());
-            usersDropdown.setEnabled(true);
         }
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        List<UserProfile> storedProfiles = UserProfileStore.load(prefs);
         long healthUserId = prefs.getLong("health_connect_user_id", -1L);
-        UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
+        UserProfile healthProfile =
+                UserProfileStore.find(storedProfiles, healthUserId);
 
         healthConnectUser.setText(
                 healthProfile == null
                         ? getString(R.string.home_health_connect_user_none)
-                        : healthProfile.name);
+                        : "• " + healthProfile.name);
     }
 
     private void updateProfileStatus() {
