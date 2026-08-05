@@ -1018,7 +1018,7 @@ public final class MainActivity extends Activity {
         boolean available = !pendingMeasurements.isEmpty() && !pendingProfiles.isEmpty();
         findViewById(R.id.assignPending).setEnabled(available);
         findViewById(R.id.discardPending).setEnabled(!pendingMeasurements.isEmpty());
-        pendingUserSpinner.setEnabled(available);
+        pendingUserSpinner.setEnabled(!pendingProfiles.isEmpty());
 
         if (pendingMeasurements.isEmpty()) {
             pendingStatus.setText("Keine offene Messung");

@@ -119,8 +119,13 @@
             <Spinner
                 android:id="@+id/pendingUser"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_md" />
+                android:layout_height="@dimen/input_height"
+                android:layout_marginTop="@dimen/spacing_md"
+                android:background="@drawable/ui_spinner_background"
+                android:paddingStart="@dimen/spacing_lg"
+                android:paddingEnd="56dp"
+                android:spinnerMode="dropdown"
+                android:textAlignment="viewStart" />
 
             <LinearLayout
                 android:layout_width="match_parent"
