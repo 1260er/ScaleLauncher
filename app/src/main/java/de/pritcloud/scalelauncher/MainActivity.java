@@ -271,9 +271,9 @@ public final class MainActivity extends Activity {
         findViewById(R.id.copyLog).setOnClickListener(v -> {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             clipboard.setPrimaryClip(ClipData.newPlainText(
-                    "ScaleLauncher-Protokoll",
+                    getString(R.string.clipboard_log_label),
                     EventLog.read(this)));
-            LoggedToast.makeText(this, "Protokoll kopiert", Toast.LENGTH_SHORT).show();
+            LoggedToast.makeText(this, R.string.log_copied, Toast.LENGTH_SHORT).show();
         });
         findViewById(R.id.clearLog).setOnClickListener(v -> {
             EventLog.clear(this);
@@ -300,17 +300,16 @@ public final class MainActivity extends Activity {
             getSharedPreferences("prefs", MODE_PRIVATE).edit()
                     .putBoolean("diagnostic_logging", enabled)
                     .apply();
-            EventLog.info(this, enabled
-                    ? "Diagnoseprotokoll aktiviert"
-                    : "Diagnoseprotokoll deaktiviert");
+            EventLog.info(this, getString(enabled
+                    ? R.string.log_diagnostic_started
+                    : R.string.log_diagnostic_stopped));
             refreshLog();
         });
 
         TextView logInfo = findViewById(R.id.logInfo);
-        logInfo.setText("Im Normalmodus werden nur wichtige Statusmeldungen, erfolgreiche "
-                + "Übergaben und Fehler gespeichert. Alte Einträge werden automatisch gelöscht ("
-                + EventLog.limitDescription()
-                + ").");
+        logInfo.setText(getString(
+                R.string.log_info_limits,
+                EventLog.limitDescription()));
 
         requestNeededPermissions();
         refreshLog();
@@ -531,7 +530,10 @@ public final class MainActivity extends Activity {
     private boolean saveCurrentProfile(boolean showToast) {
         int position = userSpinner.getSelectedItemPosition();
         if (position < 0 || position >= users.size()) {
-            if (showToast) LoggedToast.makeText(this, "Kein openScale-Benutzer ausgewählt.", Toast.LENGTH_LONG).show();
+            if (showToast) LoggedToast.makeText(
+                    this,
+                    R.string.profile_error_no_user,
+                    Toast.LENGTH_LONG).show();
             return false;
         }
         OpenScaleProvider.User user = users.get(position);
@@ -550,25 +552,25 @@ public final class MainActivity extends Activity {
         if (enabled) {
             if (currentAge < 18 || currentAge > 120) {
                 LoggedToast.makeText(this,
-                        "Bitte für " + user.name + " einen gültigen Geburtstag wählen.",
+                        getString(R.string.profile_error_birth_date, user.name),
                         Toast.LENGTH_LONG).show();
                 return false;
             }
             if (parsedHeight == null || parsedHeight < 100f || parsedHeight > 230f) {
                 LoggedToast.makeText(this,
-                        "Bitte für " + user.name + " eine Größe von 100–230 cm eintragen.",
+                        getString(R.string.profile_error_height, user.name),
                         Toast.LENGTH_LONG).show();
                 return false;
             }
             if (parsedReference == null || parsedReference < 20f || parsedReference > 300f) {
                 LoggedToast.makeText(this,
-                        "Bitte für " + user.name + " ein gültiges Referenzgewicht eintragen.",
+                        getString(R.string.profile_error_reference_weight, user.name),
                         Toast.LENGTH_LONG).show();
                 return false;
             }
             if (parsedTolerance == null || parsedTolerance < 0.2f || parsedTolerance > 30f) {
                 LoggedToast.makeText(this,
-                        "Die Gewichtstoleranz muss zwischen 0,2 und 30 kg liegen.",
+                        getString(R.string.profile_error_tolerance),
                         Toast.LENGTH_LONG).show();
                 return false;
             }
@@ -601,7 +603,7 @@ public final class MainActivity extends Activity {
 
         if (showToast) {
             LoggedToast.makeText(this,
-                    "Benutzerprofil " + user.name + " gespeichert.",
+                    getString(R.string.user_profile_saved, user.name),
                     Toast.LENGTH_SHORT).show();
         }
         return true;

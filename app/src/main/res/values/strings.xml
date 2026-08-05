@@ -109,4 +109,13 @@
 Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internetzugriff und übermittelt keine Daten an Xiaomi oder andere Server. Die Berechtigungen können jederzeit in den Health-Connect-Einstellungen entzogen werden.</string>
     <string name="scan_info">Waage einschalten oder kurz betreten. Scan läuft 12 Sekunden …</string>
     <string name="scan_unknown_device">Unbekanntes BLE-Gerät</string>
+    <string name="clipboard_log_label">ScaleLauncher-Protokoll</string>
+    <string name="log_info_limits">Im Normalmodus werden nur wichtige Statusmeldungen, erfolgreiche Übergaben und Fehler gespeichert. Alte Einträge werden automatisch gelöscht (%1$s).</string>
+    <string name="log_diagnostic_started">Diagnoseprotokoll aktiviert</string>
+    <string name="log_diagnostic_stopped">Diagnoseprotokoll deaktiviert</string>
+    <string name="profile_error_no_user">Kein openScale-Benutzer ausgewählt.</string>
+    <string name="profile_error_birth_date">Bitte für %1$s einen gültigen Geburtstag wählen.</string>
+    <string name="profile_error_height">Bitte für %1$s eine Größe von 100–230 cm eintragen.</string>
+    <string name="profile_error_reference_weight">Bitte für %1$s ein gültiges Referenzgewicht eintragen.</string>
+    <string name="profile_error_tolerance">Die Gewichtstoleranz muss zwischen 0,2 und 30 kg liegen.</string>
 </resources>
