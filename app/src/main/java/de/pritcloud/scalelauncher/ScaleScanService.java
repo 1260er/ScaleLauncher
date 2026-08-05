@@ -147,15 +147,15 @@ public final class ScaleScanService extends Service {
         restartScheduled = false;
 
         if (!PowerSettingsHelper.isBatteryOptimizationDisabled(this)) {
-            enterTerminalError("Akkuoptimierung ist noch aktiv");
+            enterTerminalError(getString(R.string.service_error_battery_optimization));
             return;
         }
         if (!PowerSettingsHelper.isUnusedAppManagementDisabled(this)) {
-            enterTerminalError("Verwaltung bei Nichtnutzung ist noch aktiv");
+            enterTerminalError(getString(R.string.service_error_unused_app_management));
             return;
         }
         if (!PowerSettingsHelper.areNotificationsUsable(this)) {
-            enterTerminalError("Benachrichtigungen sind nicht vollständig erlaubt");
+            enterTerminalError(getString(R.string.service_error_notifications));
             return;
         }
 
@@ -163,7 +163,7 @@ public final class ScaleScanService extends Service {
                 != PackageManager.PERMISSION_GRANTED
                 || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 != PackageManager.PERMISSION_GRANTED) {
-            enterTerminalError("Bluetooth-Berechtigung fehlt");
+            enterTerminalError(getString(R.string.service_error_bluetooth_permission));
             return;
         }
 
@@ -174,38 +174,40 @@ public final class ScaleScanService extends Service {
         List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
 
         if (!S400Decryptor.isValidMacAddress(mac)) {
-            enterTerminalError("Keine gültige Waagen-MAC gespeichert");
+            enterTerminalError(getString(R.string.service_error_invalid_mac));
             return;
         }
         if (!S400Decryptor.isValidBindKey(bindKey)) {
-            enterTerminalError("Kein gültiger S400 Bind-Key gespeichert");
+            enterTerminalError(getString(R.string.service_error_invalid_bind_key));
             return;
         }
         if (authority == null || authority.isBlank()) {
-            enterTerminalError("Keine openScale-Verbindung gespeichert");
+            enterTerminalError(getString(R.string.service_error_no_openscale_connection));
             return;
         }
         try {
             OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
             if (!meta.supportsGenericValues()) {
-                enterTerminalError("openScale Provider-API 2 wird benötigt");
+                enterTerminalError(getString(R.string.service_error_provider_api));
                 return;
             }
         } catch (SecurityException e) {
-            enterTerminalError("openScale-Berechtigung fehlt");
+            enterTerminalError(getString(R.string.service_error_openscale_permission));
             return;
         } catch (RuntimeException e) {
-            enterTerminalError("openScale ist nicht erreichbar");
+            enterTerminalError(getString(R.string.service_error_openscale_unreachable));
             return;
         }
         if (profiles.isEmpty()) {
-            enterTerminalError("Kein aktives Benutzerprofil eingerichtet");
+            enterTerminalError(getString(R.string.service_error_no_active_profile));
             return;
         }
         long now = System.currentTimeMillis();
         for (UserProfile profile : profiles) {
             if (!profile.hasValidBodyData(now) || !profile.hasValidMatchingData()) {
-                enterTerminalError("Benutzerprofil unvollständig: " + profile.name);
+                enterTerminalError(getString(
+                        R.string.service_error_incomplete_profile,
+                        profile.name));
                 return;
             }
         }
@@ -213,13 +215,13 @@ public final class ScaleScanService extends Service {
         BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
         BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
         if (adapter == null || !adapter.isEnabled()) {
-            enterRecoverableError("Bluetooth ist ausgeschaltet");
+            enterRecoverableError(getString(R.string.service_error_bluetooth_disabled));
             return;
         }
         scanner = adapter.getBluetoothLeScanner();
         if (scanner == null) {
-            enterRecoverableError("Bluetooth-Scanner nicht verfügbar");
-            scheduleScanRestart("Bluetooth-Scanner nicht verfügbar");
+            enterRecoverableError(getString(R.string.service_error_bluetooth_scanner));
+            scheduleScanRestart(getString(R.string.service_error_bluetooth_scanner));
             return;
         }
 

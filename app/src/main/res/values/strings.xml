@@ -224,4 +224,18 @@ UUIDs: %1$s</string>
     <string name="log_openscale_users_synced">openScale-Benutzer synchronisiert: %1$d Benutzer</string>
     <string name="log_user_sync_permission_missing">Automatische Benutzersynchronisierung: Berechtigung fehlt</string>
     <string name="log_user_sync_temporary_failure">Automatische Benutzersynchronisierung vorübergehend fehlgeschlagen</string>
+    <string name="service_error_battery_optimization">Akkuoptimierung ist noch aktiv</string>
+    <string name="service_error_unused_app_management">Verwaltung bei Nichtnutzung ist noch aktiv</string>
+    <string name="service_error_notifications">Benachrichtigungen sind nicht vollständig erlaubt</string>
+    <string name="service_error_bluetooth_permission">Bluetooth-Berechtigung fehlt</string>
+    <string name="service_error_invalid_mac">Keine gültige Waagen-MAC gespeichert</string>
+    <string name="service_error_invalid_bind_key">Kein gültiger S400 Bind-Key gespeichert</string>
+    <string name="service_error_no_openscale_connection">Keine openScale-Verbindung gespeichert</string>
+    <string name="service_error_provider_api">openScale Provider-API 2 wird benötigt</string>
+    <string name="service_error_openscale_permission">openScale-Berechtigung fehlt</string>
+    <string name="service_error_openscale_unreachable">openScale ist nicht erreichbar</string>
+    <string name="service_error_no_active_profile">Kein aktives Benutzerprofil eingerichtet</string>
+    <string name="service_error_incomplete_profile">Benutzerprofil unvollständig: %1$s</string>
+    <string name="service_error_bluetooth_disabled">Bluetooth ist ausgeschaltet</string>
+    <string name="service_error_bluetooth_scanner">Bluetooth-Scanner nicht verfügbar</string>
 </resources>
