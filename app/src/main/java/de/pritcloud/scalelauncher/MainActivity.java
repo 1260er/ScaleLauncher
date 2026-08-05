@@ -1044,11 +1044,14 @@ public final class MainActivity extends Activity {
             return;
         }
         PendingMeasurementStore.Item item = pendingMeasurements.get(0);
+        String reason = item.reason == null || item.reason.isBlank()
+                ? getString(R.string.pending_reason_ambiguous)
+                : item.reason;
         pendingStatus.setText(getString(
                 R.string.pending_status_summary,
                 pendingMeasurements.size(),
                 item.weightKg,
-                item.reason));
+                reason));
     }
 
     private void assignPendingMeasurement() {

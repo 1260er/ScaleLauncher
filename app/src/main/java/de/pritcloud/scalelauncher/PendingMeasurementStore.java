@@ -71,7 +71,7 @@ final class PendingMeasurementStore {
                     low,
                     object.optBoolean("timedOut", false),
                     object.optLong("timestampMs", System.currentTimeMillis()),
-                    object.optString("reason", "Nicht eindeutig"));
+                    object.optString("reason", ""));
         }
     }
 
