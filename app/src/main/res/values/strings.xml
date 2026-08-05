@@ -122,4 +122,23 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="profile_health_user_not_set">nicht festgelegt</string>
     <string name="health_connect_no_values_status">Health Connect: keine Werte ausgewählt</string>
     <string name="status_service_unresponsive">Status: FEHLER – Dienst antwortet nicht</string>
+    <string name="health_permissions_granted">Schreibrechte für die ausgewählten Werte wurden erlaubt.</string>
+    <string name="health_permissions_incomplete">Nicht alle Schreibrechte für die ausgewählten Werte wurden erlaubt.</string>
+    <string name="start_error_bluetooth_permission">Bitte zuerst Bluetooth erlauben.</string>
+    <string name="start_error_openscale_missing">Bitte zuerst openScale verbinden und Benutzer laden.</string>
+    <string name="start_error_provider_api">Für eine vollständige und überprüfbare Messung wird openScale Provider-API 2 benötigt.</string>
+    <string name="start_error_no_active_profile">Bitte mindestens ein Benutzerprofil für die automatische Zuordnung aktivieren.</string>
+    <string name="start_error_profile_incomplete">Das Profil %1$s ist noch nicht vollständig.</string>
+    <string name="health_connect_error_select_values">Bitte mindestens einen Health-Connect-Wert auswählen.</string>
+    <string name="health_connect_error_main_user">Bitte in einem aktiven Profil den Health-Connect-Hauptbenutzer festlegen.</string>
+    <string name="health_connect_error_write_permissions">Bitte zuerst die Schreibrechte für die ausgewählten Werte erlauben.</string>
+    <string name="health_connect_error_user_assignment">Bitte zuerst bei einem Benutzer Health Connect aktivieren.</string>
+    <string name="health_connect_error_required_permissions">Bitte zuerst die benötigten Schreibrechte erlauben.</string>
+    <string name="health_connect_requires_android_14">Direkte Health-Connect-Übertragung benötigt Android 14 oder neuer.</string>
+    <string name="health_connect_error_select_first">Bitte zuerst mindestens einen Wert auswählen.</string>
+    <string name="health_connect_status_unavailable">Health Connect: nicht verfügbar – direkte Übertragung benötigt Android 14+</string>
+    <string name="health_connect_main_user_missing">Hauptbenutzer fehlt</string>
+    <string name="health_connect_user_name">Benutzer %1$s</string>
+    <string name="health_connect_status_ready">Health Connect bereit – %1$s, %2$d Werte ausgewählt</string>
+    <string name="health_connect_status_permissions">Health Connect: %1$d/%2$d benötigte Rechte vorhanden – %3$s</string>
 </resources>

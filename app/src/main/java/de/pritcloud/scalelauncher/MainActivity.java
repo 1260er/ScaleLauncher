@@ -726,8 +726,8 @@ public final class MainActivity extends Activity {
             LoggedToast.makeText(
                     this,
                     granted
-                            ? "Schreibrechte für die ausgewählten Werte wurden erlaubt."
-                            : "Nicht alle Schreibrechte für die ausgewählten Werte wurden erlaubt.",
+                            ? R.string.health_permissions_granted
+                            : R.string.health_permissions_incomplete,
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -780,30 +780,36 @@ public final class MainActivity extends Activity {
         if (!ensureReliabilityRequirements()) return;
         if (!hasBluetoothPermissions()) {
             requestNeededPermissions();
-            LoggedToast.makeText(this, "Bitte zuerst Bluetooth erlauben.", Toast.LENGTH_LONG).show();
+            LoggedToast.makeText(
+                    this,
+                    R.string.start_error_bluetooth_permission,
+                    Toast.LENGTH_LONG).show();
             return;
         }
         String mac = macAddress.getText().toString().trim().toUpperCase(Locale.ROOT);
         String key = bindKey.getText().toString().trim().toLowerCase(Locale.ROOT);
         if (!MAC_PATTERN.matcher(mac).matches()) {
-            LoggedToast.makeText(this, "Ungültige MAC-Adresse.", Toast.LENGTH_LONG).show();
+            LoggedToast.makeText(
+                    this,
+                    R.string.scale_error_invalid_mac,
+                    Toast.LENGTH_LONG).show();
             return;
         }
         if (!KEY_PATTERN.matcher(key).matches()) {
             LoggedToast.makeText(this,
-                    "Der Bind-Key muss aus genau 32 Hex-Zeichen bestehen.",
+                    getString(R.string.scale_error_invalid_bind_key),
                     Toast.LENGTH_LONG).show();
             return;
         }
         if (openScaleAuthority == null || users.isEmpty()) {
             LoggedToast.makeText(this,
-                    "Bitte zuerst openScale verbinden und Benutzer laden.",
+                    getString(R.string.start_error_openscale_missing),
                     Toast.LENGTH_LONG).show();
             return;
         }
         if (!openScaleMeta.supportsGenericValues()) {
             LoggedToast.makeText(this,
-                    "Für eine vollständige und überprüfbare Messung wird openScale Provider-API 2 benötigt.",
+                    getString(R.string.start_error_provider_api),
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -813,7 +819,7 @@ public final class MainActivity extends Activity {
         List<UserProfile> enabledProfiles = UserProfileStore.enabled(profiles);
         if (enabledProfiles.isEmpty()) {
             LoggedToast.makeText(this,
-                    "Bitte mindestens ein Benutzerprofil für die automatische Zuordnung aktivieren.",
+                    getString(R.string.start_error_no_active_profile),
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -821,7 +827,7 @@ public final class MainActivity extends Activity {
         for (UserProfile profile : enabledProfiles) {
             if (!profile.hasValidBodyData(now) || !profile.hasValidMatchingData()) {
                 LoggedToast.makeText(this,
-                        "Das Profil " + profile.name + " ist noch nicht vollständig.",
+                        getString(R.string.start_error_profile_incomplete, profile.name),
                         Toast.LENGTH_LONG).show();
                 return;
             }
@@ -833,21 +839,21 @@ public final class MainActivity extends Activity {
         if (healthConnectEnabled.isChecked()) {
             if (healthSelection.count() == 0) {
                 LoggedToast.makeText(this,
-                        "Bitte mindestens einen Health-Connect-Wert auswählen.",
+                        getString(R.string.health_connect_error_select_values),
                         Toast.LENGTH_LONG).show();
                 return;
             }
             UserProfile healthProfile = UserProfileStore.find(enabledProfiles, healthUserId);
             if (healthProfile == null) {
                 LoggedToast.makeText(this,
-                        "Bitte in einem aktiven Profil den Health-Connect-Hauptbenutzer festlegen.",
+                        getString(R.string.health_connect_error_main_user),
                         Toast.LENGTH_LONG).show();
                 return;
             }
             if (!HealthConnectSupport.hasWritePermissions(this, healthSelection)) {
                 requestHealthConnectPermissions();
                 LoggedToast.makeText(this,
-                        "Bitte zuerst die Schreibrechte für die ausgewählten Werte erlauben.",
+                        getString(R.string.health_connect_error_write_permissions),
                         Toast.LENGTH_LONG).show();
                 return;
             }
@@ -900,7 +906,7 @@ public final class MainActivity extends Activity {
             if (healthProfile == null) {
                 LoggedToast.makeText(
                         this,
-                        "Bitte zuerst bei einem Benutzer Health Connect aktivieren.",
+                        getString(R.string.health_connect_error_user_assignment),
                         Toast.LENGTH_LONG).show();
                 return;
             }
@@ -909,7 +915,7 @@ public final class MainActivity extends Activity {
                 requestHealthConnectPermissions();
                 LoggedToast.makeText(
                         this,
-                        "Bitte zuerst die benötigten Schreibrechte erlauben.",
+                        getString(R.string.health_connect_error_required_permissions),
                         Toast.LENGTH_LONG).show();
                 return;
             }
@@ -940,14 +946,14 @@ public final class MainActivity extends Activity {
     private void requestHealthConnectPermissions() {
         if (!HealthConnectSupport.isSupported()) {
             LoggedToast.makeText(this,
-                    "Direkte Health-Connect-Übertragung benötigt Android 14 oder neuer.",
+                    getString(R.string.health_connect_requires_android_14),
                     Toast.LENGTH_LONG).show();
             return;
         }
         HealthConnectSelection selection = healthConnectSelectionFromUi();
         if (selection.count() == 0) {
             LoggedToast.makeText(this,
-                    "Bitte zuerst mindestens einen Wert auswählen.",
+                    getString(R.string.health_connect_error_select_first),
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -959,7 +965,7 @@ public final class MainActivity extends Activity {
         View connectButton = findViewById(R.id.connectHealthConnect);
         if (!HealthConnectSupport.isSupported()) {
             healthConnectStatus.setText(
-                    "Health Connect: nicht verfügbar – direkte Übertragung benötigt Android 14+");
+                    R.string.health_connect_status_unavailable);
             healthConnectEnabled.setChecked(false);
             healthConnectEnabled.setEnabled(false);
             connectButton.setEnabled(false);
@@ -982,16 +988,19 @@ public final class MainActivity extends Activity {
         long healthUserId = prefs.getLong("health_connect_user_id", -1L);
         UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
         String userText = healthProfile == null
-                ? "Hauptbenutzer fehlt"
-                : "Benutzer " + healthProfile.name;
+                ? getString(R.string.health_connect_main_user_missing)
+                : getString(R.string.health_connect_user_name, healthProfile.name);
         if (granted == required) {
-            healthConnectStatus.setText(
-                    "Health Connect bereit – " + userText + ", " + selected
-                            + " Werte ausgewählt");
+            healthConnectStatus.setText(getString(
+                    R.string.health_connect_status_ready,
+                    userText,
+                    selected));
         } else {
-            healthConnectStatus.setText(
-                    "Health Connect: " + granted + "/" + required
-                            + " benötigte Rechte vorhanden – " + userText);
+            healthConnectStatus.setText(getString(
+                    R.string.health_connect_status_permissions,
+                    granted,
+                    required,
+                    userText));
             if (healthConnectEnabled.isChecked()) healthConnectEnabled.setChecked(false);
         }
     }
