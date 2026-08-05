@@ -106,7 +106,7 @@ public final class MainActivity extends Activity {
         androidx.drawerlayout.widget.DrawerLayout drawerLayout =
                 findViewById(R.id.drawerLayout);
         findViewById(R.id.buttonOpenMenu).setOnClickListener(
-                view -> drawerLayout.openDrawer(android.view.Gravity.START));
+                view -> drawerLayout.openDrawer(android.view.Gravity.END));
 
         View pageHome = findViewById(R.id.pageHome);
         View pageScale = findViewById(R.id.pageScale);
@@ -123,7 +123,7 @@ public final class MainActivity extends Activity {
             pageHealthConnect.setVisibility(View.GONE);
             pageLog.setVisibility(View.GONE);
             pageScale.setVisibility(View.VISIBLE);
-            drawerLayout.closeDrawer(android.view.Gravity.START);
+            drawerLayout.closeDrawer(android.view.Gravity.END);
         });
 
         findViewById(R.id.navPermissions).setOnClickListener(view -> {
@@ -134,7 +134,7 @@ public final class MainActivity extends Activity {
             pageHealthConnect.setVisibility(View.GONE);
             pageLog.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.VISIBLE);
-            drawerLayout.closeDrawer(android.view.Gravity.START);
+            drawerLayout.closeDrawer(android.view.Gravity.END);
         });
 
         findViewById(R.id.navUsers).setOnClickListener(view -> {
@@ -146,7 +146,7 @@ public final class MainActivity extends Activity {
             pageHealthConnect.setVisibility(View.GONE);
             pageLog.setVisibility(View.GONE);
             pageUsers.setVisibility(View.VISIBLE);
-            drawerLayout.closeDrawer(android.view.Gravity.START);
+            drawerLayout.closeDrawer(android.view.Gravity.END);
         });
 
         findViewById(R.id.navHealthConnect).setOnClickListener(view -> {
@@ -158,7 +158,7 @@ public final class MainActivity extends Activity {
             pageLog.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.VISIBLE);
             refreshHealthConnectStatus();
-            drawerLayout.closeDrawer(android.view.Gravity.START);
+            drawerLayout.closeDrawer(android.view.Gravity.END);
         });
 
         findViewById(R.id.navLog).setOnClickListener(view -> {
@@ -170,7 +170,7 @@ public final class MainActivity extends Activity {
             pageHealthConnect.setVisibility(View.GONE);
             pageLog.setVisibility(View.VISIBLE);
             refreshLog();
-            drawerLayout.closeDrawer(android.view.Gravity.START);
+            drawerLayout.closeDrawer(android.view.Gravity.END);
         });
 
         findViewById(R.id.backUsers).setOnClickListener(view -> {

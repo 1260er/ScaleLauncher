@@ -3,7 +3,7 @@
     android:id="@+id/navigationDrawer"
     android:layout_width="@dimen/drawer_width"
     android:layout_height="match_parent"
-    android:layout_gravity="start"
+    android:layout_gravity="end"
     android:background="@color/ui_input_background"
     android:fillViewport="true">
 
