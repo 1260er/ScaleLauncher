@@ -118,4 +118,8 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="profile_error_height">Bitte für %1$s eine Größe von 100–230 cm eintragen.</string>
     <string name="profile_error_reference_weight">Bitte für %1$s ein gültiges Referenzgewicht eintragen.</string>
     <string name="profile_error_tolerance">Die Gewichtstoleranz muss zwischen 0,2 und 30 kg liegen.</string>
+    <string name="profile_status_summary">Aktive Zuordnungsprofile: %1$d | Health-Connect-Benutzer: %2$s</string>
+    <string name="profile_health_user_not_set">nicht festgelegt</string>
+    <string name="health_connect_no_values_status">Health Connect: keine Werte ausgewählt</string>
+    <string name="status_service_unresponsive">Status: FEHLER – Dienst antwortet nicht</string>
 </resources>

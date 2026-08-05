@@ -649,9 +649,13 @@ public final class MainActivity extends Activity {
         long healthUserId = getSharedPreferences("prefs", MODE_PRIVATE)
                 .getLong("health_connect_user_id", -1L);
         UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
-        String healthName = healthProfile == null ? "nicht festgelegt" : healthProfile.name;
-        profileStatus.setText("Aktive Zuordnungsprofile: " + enabledCount
-                + " | Health-Connect-Benutzer: " + healthName);
+        String healthName = healthProfile == null
+                ? getString(R.string.profile_health_user_not_set)
+                : healthProfile.name;
+        profileStatus.setText(getString(
+                R.string.profile_status_summary,
+                enabledCount,
+                healthName));
     }
 
     private void applyHealthConnectSelection(HealthConnectSelection selection) {
@@ -967,7 +971,7 @@ public final class MainActivity extends Activity {
         HealthConnectSelection selection = healthConnectSelectionFromUi();
         int selected = selection.count();
         if (selected == 0) {
-            healthConnectStatus.setText("Health Connect: keine Werte ausgewählt");
+            healthConnectStatus.setText(R.string.health_connect_no_values_status);
             healthConnectEnabled.setChecked(false);
             return;
         }
@@ -1024,7 +1028,7 @@ public final class MainActivity extends Activity {
         pendingUserSpinner.setEnabled(!pendingProfiles.isEmpty());
 
         if (pendingMeasurements.isEmpty()) {
-            pendingStatus.setText("Keine offene Messung");
+            pendingStatus.setText(R.string.pending_none);
             return;
         }
         PendingMeasurementStore.Item item = pendingMeasurements.get(0);
@@ -1143,7 +1147,7 @@ public final class MainActivity extends Activity {
                 getString(R.string.status_scale_disconnected));
 
         if (snapshot.isStale(now)) {
-            status.setText("Status: FEHLER – Dienst antwortet nicht");
+            status.setText(R.string.status_service_unresponsive);
             status.setTextColor(getColor(R.color.ui_text_primary));
             return;
         }
