@@ -19,7 +19,9 @@ final class UserProfile {
 
     UserProfile(long userId, String name) {
         this.userId = userId;
-        this.name = name == null ? "Benutzer " + userId : name;
+        this.name = name == null || name.isBlank()
+                ? "#" + userId
+                : name;
         this.birthDateIso = "";
         this.toleranceKg = DEFAULT_TOLERANCE_KG;
     }
@@ -57,7 +59,7 @@ final class UserProfile {
 
     static UserProfile fromJson(JSONObject object) {
         long id = object.optLong("userId", -1L);
-        UserProfile profile = new UserProfile(id, object.optString("name", "Benutzer " + id));
+        UserProfile profile = new UserProfile(id, object.optString("name", ""));
         profile.enabled = object.optBoolean("enabled", false);
         profile.birthDateIso = object.optString("birthDate", "");
         profile.heightCm = (float) object.optDouble("heightCm", 0.0d);
