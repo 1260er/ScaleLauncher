@@ -177,4 +177,9 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="log_level_warning">WARNUNG</string>
     <string name="log_level_error">FEHLER</string>
     <string name="log_level_debug">DEBUG</string>
+    <string name="s400_error_incomplete_data">Messdaten unvollständig</string>
+    <string name="s400_error_missing_packet_a_or_b">Paket A oder Paket B fehlte</string>
+    <string name="s400_error_missing_both_packets">Paket A und Paket B wurden nicht vollständig empfangen</string>
+    <string name="s400_error_missing_packet_a">Paket A mit Gewicht und hoher Impedanz fehlte</string>
+    <string name="s400_error_missing_packet_b">Paket B mit niedriger Impedanz fehlte</string>
 </resources>

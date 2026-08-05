@@ -350,7 +350,7 @@ public final class ScaleScanService extends Service {
         }
         handler.removeCallbacks(timeoutRunnable);
         if (outcome.status == S400Aggregator.Status.INCOMPLETE) {
-            rejectMeasurement(outcome.reason);
+            rejectMeasurement(getString(outcome.reasonResId));
             return;
         }
         if (outcome.finalized == null || !outcome.finalized.isComplete()) {

@@ -14,21 +14,26 @@ final class S400Aggregator {
     static final class Outcome {
         final Status status;
         final Finalized finalized;
-        final String reason;
+        final int reasonResId;
 
-        private Outcome(Status status, Finalized finalized, String reason) {
+        private Outcome(Status status, Finalized finalized, int reasonResId) {
             this.status = status;
             this.finalized = finalized;
-            this.reason = reason;
+            this.reasonResId = reasonResId;
         }
 
-        static Outcome pending() { return new Outcome(Status.PENDING, null, ""); }
-        static Outcome duplicate() { return new Outcome(Status.DUPLICATE, null, ""); }
+        static Outcome pending() { return new Outcome(Status.PENDING, null, 0); }
+        static Outcome duplicate() { return new Outcome(Status.DUPLICATE, null, 0); }
         static Outcome finalized(Finalized value) {
-            return new Outcome(Status.FINALIZED, value, "");
+            return new Outcome(Status.FINALIZED, value, 0);
         }
-        static Outcome incomplete(String reason) {
-            return new Outcome(Status.INCOMPLETE, null, reason == null ? "Messdaten unvollständig" : reason);
+        static Outcome incomplete(int reasonResId) {
+            return new Outcome(
+                    Status.INCOMPLETE,
+                    null,
+                    reasonResId == 0
+                            ? R.string.s400_error_incomplete_data
+                            : reasonResId);
         }
     }
 
@@ -108,9 +113,9 @@ final class S400Aggregator {
         if (session == null) return Outcome.pending();
         if (nowMs - session.firstSeenAt < SESSION_TIMEOUT_MS) return Outcome.pending();
 
-        String reason = missingParts(session);
+        int reasonResId = missingParts(session);
         session = null;
-        return Outcome.incomplete(reason);
+        return Outcome.incomplete(reasonResId);
     }
 
     long remainingTimeoutMs(long nowMs) {
@@ -129,7 +134,7 @@ final class S400Aggregator {
                 || current.weightKg == null
                 || current.impedanceHigh == null
                 || current.impedanceLow == null) {
-            return Outcome.incomplete("Paket A oder Paket B fehlte");
+            return Outcome.incomplete(R.string.s400_error_missing_packet_a_or_b);
         }
 
         if (recent != null
@@ -168,13 +173,13 @@ final class S400Aggregator {
         return false;
     }
 
-    private static String missingParts(Session value) {
+    private static int missingParts(Session value) {
         boolean missingA = value.weightKg == null || value.impedanceHigh == null;
         boolean missingB = value.impedanceLow == null;
-        if (missingA && missingB) return "Paket A und Paket B wurden nicht vollständig empfangen";
-        if (missingA) return "Paket A mit Gewicht und hoher Impedanz fehlte";
-        if (missingB) return "Paket B mit niedriger Impedanz fehlte";
-        return "Messdaten waren unvollständig";
+        if (missingA && missingB) return R.string.s400_error_missing_both_packets;
+        if (missingA) return R.string.s400_error_missing_packet_a;
+        if (missingB) return R.string.s400_error_missing_packet_b;
+        return R.string.s400_error_incomplete_data;
     }
 
     void reset() {
