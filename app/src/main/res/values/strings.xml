@@ -84,4 +84,12 @@
     <string name="action_clear">Leeren</string>
     <string name="log_copied">Protokoll kopiert</string>
     <string name="log_cleared">Protokoll geleert</string>
+    <string name="home_description">Ordnet S400-Messungen anhand des Gewichts automatisch openScale-Benutzern zu. Unsichere Messungen bleiben gespeichert, bis ein Benutzer ausgewählt wurde.</string>
+    <string name="home_reference_info">Das Referenzgewicht wird beim Laden aus den letzten fünf openScale-Messungen vorgeschlagen. Nach jeder eindeutig zugeordneten Messung wird es automatisch aktualisiert. Bei weniger als 1 kg Vorsprung zum zweitbesten Profil wird nicht geraten.</string>
+    <string name="pending_measurements_title">Nicht zugeordnete Messungen</string>
+    <string name="pending_none">Keine offene Messung</string>
+    <string name="action_assign">Zuordnen</string>
+    <string name="action_discard">Verwerfen</string>
+    <string name="action_save_start">Konfiguration speichern und Überwachung starten</string>
+    <string name="action_stop_monitoring">Überwachung stoppen</string>
 </resources>
