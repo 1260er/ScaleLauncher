@@ -102,4 +102,11 @@
         <item quantity="one">%1$d Benutzer</item>
         <item quantity="other">%1$d Benutzer</item>
     </plurals>
+    <string name="health_privacy_title">Health Connect – Datenschutz</string>
+    <string name="health_privacy_heading">Verwendung der Gesundheitsdaten</string>
+    <string name="health_privacy_text">ScaleLauncher verarbeitet die Messdaten der Xiaomi S400 lokal auf dem Gerät. Du kannst selbst auswählen, welche der unterstützten Werte – Gewicht, Körperfett, Körperwasser, Knochenmasse, fettfreie Masse und Grundumsatz – nach Health Connect geschrieben werden. Für die BMI-Option werden Gewicht und Körpergröße übertragen, da Health Connect keinen eigenen BMI-Datentyp besitzt.
+
+Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internetzugriff und übermittelt keine Daten an Xiaomi oder andere Server. Die Berechtigungen können jederzeit in den Health-Connect-Einstellungen entzogen werden.</string>
+    <string name="scan_info">Waage einschalten oder kurz betreten. Scan läuft 12 Sekunden …</string>
+    <string name="scan_unknown_device">Unbekanntes BLE-Gerät</string>
 </resources>

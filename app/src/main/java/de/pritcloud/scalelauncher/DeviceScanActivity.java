@@ -39,11 +39,11 @@ public class DeviceScanActivity extends Activity {
             Intent data = new Intent();
             data.putExtra("mac", result.getDevice().getAddress());
             String name = result.getDevice().getName();
-            data.putExtra("name", name == null ? "Unbekanntes BLE-Gerät" : name);
+            data.putExtra("name", name == null ? getString(R.string.scan_unknown_device) : name);
             setResult(RESULT_OK, data);
             finish();
         });
-        info.setText("Waage einschalten oder kurz betreten. Scan läuft 12 Sekunden …");
+        info.setText(R.string.scan_info);
         startScan();
         handler.postDelayed(this::finishScan, 12_000);
     }
@@ -72,7 +72,7 @@ public class DeviceScanActivity extends Activity {
         adapter.clear();
         for (ScanResult result : results.values()) {
             String name = result.getDevice().getName();
-            if (name == null || name.trim().isEmpty()) name = "Unbekanntes BLE-Gerät";
+            if (name == null || name.trim().isEmpty()) name = getString(R.string.scan_unknown_device);
             adapter.add(name + "\n" + result.getDevice().getAddress() + "   RSSI " + result.getRssi());
         }
         adapter.notifyDataSetChanged();

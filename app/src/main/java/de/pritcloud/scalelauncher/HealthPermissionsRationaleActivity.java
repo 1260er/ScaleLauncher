@@ -11,7 +11,7 @@ import android.widget.TextView;
 public final class HealthPermissionsRationaleActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        setTitle("Health Connect – Datenschutz");
+        setTitle(R.string.health_privacy_title);
 
         int padding = Math.round(20f * getResources().getDisplayMetrics().density);
         LinearLayout content = new LinearLayout(this);
@@ -19,7 +19,7 @@ public final class HealthPermissionsRationaleActivity extends Activity {
         content.setPadding(padding, padding, padding, padding);
 
         TextView title = new TextView(this);
-        title.setText("Verwendung der Gesundheitsdaten");
+        title.setText(R.string.health_privacy_heading);
         title.setTextSize(22f);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
         content.addView(title, new LinearLayout.LayoutParams(
@@ -27,15 +27,7 @@ public final class HealthPermissionsRationaleActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView text = new TextView(this);
-        text.setText("ScaleLauncher verarbeitet die Messdaten der Xiaomi S400 lokal auf dem Gerät. "
-                + "Du kannst selbst auswählen, welche der unterstützten Werte – Gewicht, Körperfett, "
-                + "Körperwasser, Knochenmasse, fettfreie Masse und Grundumsatz – nach "
-                + "Health Connect geschrieben werden. Für die BMI-Option werden Gewicht und "
-                + "Körpergröße übertragen, da Health Connect keinen eigenen BMI-Datentyp besitzt.\n\n"
-                + "Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen "
-                + "Internetzugriff und übermittelt keine Daten an Xiaomi oder andere Server. "
-                + "Die Berechtigungen können jederzeit in den Health-Connect-Einstellungen "
-                + "entzogen werden.");
+        text.setText(R.string.health_privacy_text);
         text.setTextSize(16f);
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
