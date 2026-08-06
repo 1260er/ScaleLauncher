@@ -362,4 +362,10 @@ UUIDs: %1$s</string>
     <string name="log_service_unexpected_stop">Dienst unerwartet beendet – automatischer Neustart wird erwartet</string>
     <string name="provider_error_values_json">values_json konnte nicht erstellt werden</string>
     <string name="service_state_stopped_default">Gestoppt</string>
+    <string name="nav_help">Hilfe</string>
+    <string name="nav_support">Projekt unterstützen</string>
+    <string name="help_link_error">Die Projektseite konnte nicht geöffnet werden.</string>
+    <string name="support_link_error">Der Unterstützungslink konnte nicht geöffnet werden.</string>
+    <string name="help_url" translatable="false">https://github.com/1260er/ScaleLauncher</string>
+    <string name="support_url" translatable="false">https://ko-fi.com/1260er</string>
 </resources>

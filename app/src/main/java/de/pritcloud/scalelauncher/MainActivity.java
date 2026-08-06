@@ -173,6 +173,16 @@ public final class MainActivity extends Activity {
             drawerLayout.closeDrawer(android.view.Gravity.END);
         });
 
+        findViewById(R.id.navHelp).setOnClickListener(view -> {
+            drawerLayout.closeDrawer(android.view.Gravity.END);
+            openExternalLink(R.string.help_url, R.string.help_link_error);
+        });
+
+        findViewById(R.id.navSupport).setOnClickListener(view -> {
+            drawerLayout.closeDrawer(android.view.Gravity.END);
+            openExternalLink(R.string.support_url, R.string.support_link_error);
+        });
+
         findViewById(R.id.backUsers).setOnClickListener(view -> {
             pageUsers.setVisibility(View.GONE);
             pageHome.setVisibility(View.VISIBLE);
@@ -318,6 +328,22 @@ public final class MainActivity extends Activity {
         refreshReliabilityRequirements();
         prepareOpenScaleAccess();
         refreshHealthConnectStatus();
+    }
+
+    private void openExternalLink(int urlResource, int errorResource) {
+        Intent intent = new Intent(
+                Intent.ACTION_VIEW,
+                android.net.Uri.parse(getString(urlResource)));
+
+        try {
+            startActivity(intent);
+        } catch (android.content.ActivityNotFoundException exception) {
+            LoggedToast.makeText(
+                    this,
+                    errorResource,
+                    Toast.LENGTH_LONG
+            ).show();
+        }
     }
 
     private void showBirthDatePicker() {
