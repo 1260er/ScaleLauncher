@@ -54,6 +54,7 @@ final class UserProfileStore {
                 byId.put(user.id, profile);
             }
             profile.name = user.name;
+            profile.enabled = true;
         }
 
         List<UserProfile> synchronizedProfiles = new ArrayList<>();

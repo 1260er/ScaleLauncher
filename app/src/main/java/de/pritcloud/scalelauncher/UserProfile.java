@@ -6,7 +6,7 @@ import org.json.JSONObject;
 import java.time.LocalDate;
 
 final class UserProfile {
-    static final float DEFAULT_TOLERANCE_KG = 3.0f;
+    static final float DEFAULT_TOLERANCE_KG = 2.0f;
 
     final long userId;
     String name;

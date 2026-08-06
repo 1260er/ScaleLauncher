@@ -61,9 +61,9 @@
     <string name="user_height_example">155</string>
     <string name="user_sex_female">Weiblich</string>
     <string name="user_sex_male">Männlich</string>
-    <string name="user_reference_weight_hint">Referenzgewicht in kg</string>
+    <string name="user_reference_weight_hint">Gewicht in kg</string>
     <string name="user_reference_weight_example">50</string>
-    <string name="user_weight_tolerance_hint">Zulässige Abweichung in kg, z. B. 3,0</string>
+    <string name="user_weight_tolerance_hint">Zulässige Abweichung in kg, z. B. 2,0</string>
     <string name="user_health_connect">Health Connect nur für diesen Benutzer verwenden</string>
     <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
     <string name="page_health_connect_title">Health Connect</string>
@@ -88,7 +88,7 @@
     <string name="log_copied">Protokoll kopiert</string>
     <string name="log_cleared">Protokoll geleert</string>
     <string name="home_description">Ordnet S400-Messungen anhand des Gewichts automatisch openScale-Benutzern zu. Unsichere Messungen bleiben gespeichert, bis ein Benutzer ausgewählt wurde.</string>
-    <string name="home_reference_info">Das Referenzgewicht wird beim Laden aus den letzten fünf openScale-Messungen vorgeschlagen. Nach jeder eindeutig zugeordneten Messung wird es automatisch aktualisiert. Bei weniger als 1 kg Vorsprung zum zweitbesten Profil wird nicht geraten.</string>
+    <string name="home_reference_info">Das Gewicht wird beim Laden aus den letzten fünf openScale-Messungen vorgeschlagen. Nach jeder eindeutig zugeordneten Messung wird es automatisch aktualisiert. Liegt eine Messung innerhalb der Toleranz mehrerer Benutzer, wird sie nicht automatisch zugeordnet.</string>
     <string name="pending_measurements_title">Nicht zugeordnete Messung</string>
     <string name="pending_none">Keine offene Messung</string>
     <string name="action_assign">Zuordnen</string>
@@ -168,7 +168,7 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="user_current_age">Aktuell %1$d Jahre</string>
     <string name="log_scale_selected">Waage ausgewählt: %1$s</string>
     <string name="log_configuration_saved">Konfiguration gespeichert – %1$d Benutzerprofile aktiv | Health Connect %2$s</string>
-    <string name="log_provider_status">Provider-API %1$d | Zuordnungsvorsprung mindestens %2$.1f kg</string>
+    <string name="log_provider_status">Provider-API %1$d | mehrdeutige Messungen werden nicht automatisch zugeordnet</string>
     <string name="log_health_connect_saved">Health Connect %1$s – %2$d Werte ausgewählt</string>
     <string name="state_active">aktiv</string>
     <string name="state_inactive">aus</string>

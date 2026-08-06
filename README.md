@@ -176,7 +176,9 @@ flowchart TD
 
 ### 1. Create the users in openScale first
 
-ScaleLauncher does not create independent openScale users. Every person who may receive a measurement must **first exist in openScale**.
+ScaleLauncher does not create independent openScale users. **Every person who uses the scale must first have their own user account in openScale.**
+
+This is required even when a person does not normally use the ScaleLauncher app themselves. If an unknown person has a similar weight to a configured user, their measurement could otherwise be assigned to that user.
 
 Example:
 
@@ -442,14 +444,13 @@ Open each user and enter:
 
 | Setting | Meaning |
 |---|---|
-| Enabled | Only enabled profiles participate in automatic assignment. |
 | Birth date | Required for body-composition calculations. ScaleLauncher currently accepts adults from 18 to 120 years. |
 | Height | Required for body composition and BMI. |
 | Sex | Used by the body-composition calculation. |
-| Reference weight | The user's expected current weight. |
-| Weight tolerance | Maximum permitted distance between the measured and reference weight. |
+| Weight | The user's expected current weight used for assignment. |
+| Weight tolerance | Maximum permitted distance between the measured and stored weight. The default is 2 kg. |
 
-Save every profile separately.
+Save every profile separately. Monitoring can start only after all users loaded from openScale have been configured completely.
 
 > Rename or delete users in openScale. ScaleLauncher synchronizes those changes and removes obsolete assignments.
 
@@ -530,7 +531,7 @@ Repeat the measurement. ScaleLauncher deliberately does not report partial data 
 
 ## User assignment
 
-ScaleLauncher compares the measured weight with the reference weight of each enabled profile.
+ScaleLauncher compares the measured weight with the stored weight of every openScale user profile.
 
 ### Example
 
@@ -539,9 +540,9 @@ ScaleLauncher compares the measured weight with the reference weight of each ena
 | Alex | 80.0 kg | 79.4 kg | 0.6 kg |
 | Sam | 76.5 kg | 79.4 kg | 2.9 kg |
 
-When a measurement lies within the configured tolerance and one profile is clearly closer, ScaleLauncher assigns it automatically.
+When the measurement lies within the configured tolerance of **exactly one** user, ScaleLauncher assigns it automatically.
 
-If two profiles are similarly close, **no automatic assignment** is made. This avoids placing a complete measurement under the wrong user.
+If the measurement lies within the tolerance of **more than one user**, no automatic assignment is made, even when one profile is closer. The correct user must then be selected manually. If no profile is within its tolerance, the measurement also remains unassigned.
 
 ### Handle an unassigned measurement
 

@@ -7,8 +7,6 @@ import java.util.Comparator;
 import java.util.List;
 
 final class UserMatcher {
-    static final float MINIMUM_LEAD_KG = 1.0f;
-
     enum Status { MATCHED, AMBIGUOUS, NO_MATCH }
 
     static final class Candidate {
@@ -50,11 +48,6 @@ final class UserMatcher {
             return new Result(Status.MATCHED, candidates.get(0).profile, candidates);
         }
 
-        Candidate first = candidates.get(0);
-        Candidate second = candidates.get(1);
-        if (second.differenceKg - first.differenceKg >= MINIMUM_LEAD_KG) {
-            return new Result(Status.MATCHED, first.profile, candidates);
-        }
         return new Result(Status.AMBIGUOUS, null, candidates);
     }
 

@@ -178,7 +178,9 @@ flowchart TD
 
 ### 1. Benutzer zuerst in openScale anlegen
 
-ScaleLauncher erstellt keine eigenständigen openScale-Benutzer. Jeder Benutzer, dem später eine Messung zugeordnet werden soll, muss **zuerst in openScale** vorhanden sein.
+ScaleLauncher erstellt keine eigenständigen openScale-Benutzer. **Jede Person, die die Waage benutzt, muss vorher einen eigenen Benutzer in openScale besitzen.**
+
+Das gilt auch für Personen, die ScaleLauncher selbst normalerweise nicht verwenden. Ist eine Person mit ähnlichem Gewicht nicht bekannt, könnte ihre Messung sonst fälschlich einem bereits eingerichteten Benutzer zugeordnet werden.
 
 Beispiel:
 
@@ -484,14 +486,14 @@ Android kann Hintergrunddienste, Bluetooth-Scans oder Benachrichtigungen einschr
 
 | Einstellung | Bedeutung |
 |---|---|
-| Aktiv | Nur aktive Profile nehmen an der automatischen Zuordnung teil. |
-| Geburtstag | Wird für die Körperanalyse benötigt. Unterstützt werden Erwachsene von 18 bis 120 Jahren. |
+| Geburtstag | Wird des Benutzers. |
+| Gewichtstoleranz | Maximal erlaubter Abstand zwischen Messung und Referenzgewicht für die Körperanalyse benötigt. Unterstützt werden Erwachsene von 18 bis 120 Jahren. |
 | Größe | Wird für Körperanalyse und BMI benötigt. |
 | Geschlecht | Wird bei der Berechnung der Körperanalyse verwendet. |
-| Referenzgewicht | Erwartetes aktuelles Gewicht des Benutzers. |
-| Gewichtstoleranz | Maximal erlaubter Abstand zwischen Messung und Referenzgewicht. |
+| Gewicht | Erwartetes aktuelles Gewicht des Benutzers für die Zuordnung. |
+| Gewichtstoleranz | Maximal erlaubter Abstand zwischen Messung und hinterlegtem Gewicht. Der Standardwert beträgt 2 kg. |
 
-Speichere jedes Profil einzeln.
+Speichere jedes Profil einzeln. Die Überwachung kann erst gestartet werden, wenn alle aus openScale geladenen Benutzer vollständig eingerichtet sind.
 
 > Benutzer werden in openScale gelöscht oder umbenannt. ScaleLauncher synchronisiert diese Änderungen und entfernt veraltete Zuordnungen.
 
@@ -574,7 +576,7 @@ Wiederhole die Messung. Teilwerte werden nicht absichtlich als vollständige Mes
 
 ## Benutzerzuordnung
 
-ScaleLauncher vergleicht das gemessene Gewicht mit dem Referenzgewicht jedes aktiven Profils.
+ScaleLauncher vergleicht das gemessene Gewicht mit dem hinterlegten Gewicht jedes openScale-Benutzerprofils.
 
 ### Beispiel
 
@@ -583,9 +585,9 @@ ScaleLauncher vergleicht das gemessene Gewicht mit dem Referenzgewicht jedes akt
 | Alex | 80,0 kg | 79,4 kg | 0,6 kg |
 | Sam | 76,5 kg | 79,4 kg | 2,9 kg |
 
-Wenn die Messung innerhalb der eingestellten Toleranz liegt und ein Profil deutlich besser passt, wird sie automatisch zugeordnet.
+Liegt die Messung innerhalb der eingestellten Toleranz von **genau einem** Benutzer, wird sie automatisch zugeordnet.
 
-Sind zwei Profile ähnlich passend, erfolgt **keine automatische Zuordnung**. Dadurch wird verhindert, dass eine vollständige Messung versehentlich beim falschen Benutzer landet.
+Liegt die Messung innerhalb der Toleranz von **mehreren Benutzern**, erfolgt keine automatische Zuordnung – auch dann nicht, wenn ein Profil näher liegt. Der richtige Benutzer muss anschließend manuell ausgewählt werden. Liegt kein Profil innerhalb seiner Toleranz, bleibt die Messung ebenfalls offen.
 
 ### Nicht zugeordnete Messung bearbeiten
 

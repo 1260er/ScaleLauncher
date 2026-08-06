@@ -852,7 +852,7 @@ public final class MainActivity extends Activity {
             return;
         }
         long now = System.currentTimeMillis();
-        for (UserProfile profile : enabledProfiles) {
+        for (UserProfile profile : profiles) {
             if (!profile.hasValidBodyData(now) || !profile.hasValidMatchingData()) {
                 LoggedToast.makeText(this,
                         getString(R.string.start_error_profile_incomplete, profile.name),
@@ -906,8 +906,7 @@ public final class MainActivity extends Activity {
                         : R.string.state_inactive)));
         EventLog.debug(this, getString(
                 R.string.log_provider_status,
-                openScaleMeta.apiVersion,
-                UserMatcher.MINIMUM_LEAD_KG));
+                openScaleMeta.apiVersion));
         ServiceState.starting(this, getString(R.string.service_monitoring_starting));
         startForegroundService(new Intent(this, ScaleScanService.class));
         refreshRuntimeStatus();

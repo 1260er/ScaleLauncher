@@ -58,9 +58,9 @@
     <string name="user_height_example">155</string>
     <string name="user_sex_female">Female</string>
     <string name="user_sex_male">Male</string>
-    <string name="user_reference_weight_hint">Reference weight in kg</string>
+    <string name="user_reference_weight_hint">Weight in kg</string>
     <string name="user_reference_weight_example">50</string>
-    <string name="user_weight_tolerance_hint">Allowed deviation in kg, e.g. 3.0</string>
+    <string name="user_weight_tolerance_hint">Allowed deviation in kg, e.g. 2.0</string>
     <string name="user_health_connect">Use Health Connect only for this user</string>
     <string name="user_profile_saved">User profile %1$s saved.</string>
     <string name="page_health_connect_title">Health Connect</string>
@@ -85,7 +85,7 @@
     <string name="log_copied">Log copied</string>
     <string name="log_cleared">Log cleared</string>
     <string name="home_description">Automatically assigns S400 measurements to openScale users based on weight. Uncertain measurements remain saved until a user is selected.</string>
-    <string name="home_reference_info">The reference weight is suggested from the five most recent openScale measurements when loading. It is updated automatically after every clearly assigned measurement. No automatic choice is made when the lead over the second-best profile is less than 1 kg.</string>
+    <string name="home_reference_info">The weight is suggested from the five most recent openScale measurements when loading. It is updated automatically after every clearly assigned measurement. If a measurement is within the tolerance of multiple users, it is not assigned automatically.</string>
     <string name="pending_measurements_title">Unassigned measurement</string>
     <string name="pending_none">No pending measurement</string>
     <string name="action_assign">Assign</string>
@@ -165,7 +165,7 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="user_current_age">Currently %1$d years old</string>
     <string name="log_scale_selected">Scale selected: %1$s</string>
     <string name="log_configuration_saved">Configuration saved – %1$d user profiles active | Health Connect %2$s</string>
-    <string name="log_provider_status">Provider API %1$d | minimum assignment lead %2$.1f kg</string>
+    <string name="log_provider_status">Provider API %1$d | ambiguous measurements are not assigned automatically</string>
     <string name="log_health_connect_saved">Health Connect %1$s – %2$d values selected</string>
     <string name="state_active">active</string>
     <string name="state_inactive">off</string>
