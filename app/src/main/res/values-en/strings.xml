@@ -60,7 +60,7 @@
     <string name="user_sex_male">Male</string>
     <string name="user_reference_weight_hint">Weight in kg</string>
     <string name="user_reference_weight_example">50</string>
-    <string name="user_weight_tolerance_hint">Allowed deviation in kg, e.g. 2.0</string>
+    <string name="user_weight_tolerance_hint">Allowed deviation</string>
     <string name="user_health_connect">Use Health Connect only for this user</string>
     <string name="user_profile_saved">User profile %1$s saved.</string>
     <string name="page_health_connect_title">Health Connect</string>

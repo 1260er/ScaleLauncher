@@ -63,7 +63,7 @@
     <string name="user_sex_male">Männlich</string>
     <string name="user_reference_weight_hint">Gewicht in kg</string>
     <string name="user_reference_weight_example">50</string>
-    <string name="user_weight_tolerance_hint">Zulässige Abweichung in kg, z. B. 2,0</string>
+    <string name="user_weight_tolerance_hint">Zulässige Abweichung</string>
     <string name="user_health_connect">Health Connect nur für diesen Benutzer verwenden</string>
     <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
     <string name="page_health_connect_title">Health Connect</string>
