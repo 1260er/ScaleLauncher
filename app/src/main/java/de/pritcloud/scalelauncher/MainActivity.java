@@ -296,6 +296,14 @@ public final class MainActivity extends Activity {
         findViewById(R.id.unusedAppSettings).setOnClickListener(
                 v -> PowerSettingsHelper.openUnusedAppSettings(this));
 
+        healthConnectEnabled.setOnCheckedChangeListener((button, enabled) -> {
+            getSharedPreferences("prefs", MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("health_connect_enabled", enabled)
+                    .apply();
+            refreshHealthConnectStatus();
+        });
+
         android.widget.CompoundButton.OnCheckedChangeListener selectionListener =
                 (button, checked) -> refreshHealthConnectStatus();
         hcWeight.setOnCheckedChangeListener(selectionListener);
@@ -368,7 +376,7 @@ public final class MainActivity extends Activity {
         int currentAge = BirthDateUtils.ageToday(selectedBirthDate);
         birthDate.setHint(currentAge >= 0
                 ? getString(R.string.user_current_age, currentAge)
-                : getString(R.string.user_birth_date_hint));
+                : getString(R.string.user_birth_date_example));
     }
 
     private void prepareOpenScaleAccess() {

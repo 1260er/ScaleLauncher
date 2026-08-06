@@ -52,11 +52,14 @@
     <string name="user_profile_deleted">User profile deleted</string>
     <string name="page_user_title">%1$s</string>
     <string name="user_auto_assign">Automatically assign this user</string>
-    <string name="user_birth_date_hint">Select date of birth</string>
+    <string name="user_birth_date_hint">Date of birth</string>
+    <string name="user_birth_date_example">01.01.2000</string>
     <string name="user_height_hint">Height in cm</string>
+    <string name="user_height_example">155</string>
     <string name="user_sex_female">Female</string>
     <string name="user_sex_male">Male</string>
     <string name="user_reference_weight_hint">Reference weight in kg</string>
+    <string name="user_reference_weight_example">50</string>
     <string name="user_weight_tolerance_hint">Allowed deviation in kg, e.g. 3.0</string>
     <string name="user_health_connect">Use Health Connect only for this user</string>
     <string name="user_profile_saved">User profile %1$s saved.</string>
