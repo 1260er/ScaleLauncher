@@ -40,7 +40,7 @@
     <string name="permissions_openscale_access_denied">✗ openScale: Zugriff verweigert</string>
     <string name="permissions_openscale_query_failed">✗ openScale: Abfrage fehlgeschlagen</string>
     <string name="permissions_api_complete">✔ API %1$d: vollständige Messwerte</string>
-    <string name="permissions_api_incomplete">API %1$d: eingeschränkte Messwerte</string>
+    <string name="permissions_api_incomplete">⚠ API %1$d: eingeschränkte Messwerte</string>
     <string name="permissions_battery_ok">✔ Akkuoptimierung: aus / uneingeschränkt</string>
     <string name="permissions_battery_bad">✗ Akkuoptimierung: noch aktiv</string>
     <string name="permissions_unused_ok">✔ Verwaltung bei Nichtnutzung: deaktiviert</string>
