@@ -833,12 +833,6 @@ public final class MainActivity extends Activity {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        if (!openScaleMeta.supportsGenericValues()) {
-            LoggedToast.makeText(this,
-                    getString(R.string.start_error_provider_api),
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
         if (!saveCurrentProfile(false)) return;
 
         profiles = UserProfileStore.load(getSharedPreferences("prefs", MODE_PRIVATE));

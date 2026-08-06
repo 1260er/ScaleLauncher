@@ -279,7 +279,12 @@ public final class OpenScaleProvider {
                     int count = 0;
                     for (String column : new String[]{"weight", "fat", "water", "muscle"}) {
                         int index = cursor.getColumnIndex(column);
-                        if (index >= 0 && !cursor.isNull(index)) count++;
+                        if (index < 0 || cursor.isNull(index)) continue;
+
+                        float storedValue = cursor.getFloat(index);
+                        if (Float.isFinite(storedValue) && storedValue > 0f) {
+                            count++;
+                        }
                     }
                     return new Verification(true, false, count, new HashSet<>());
                 }

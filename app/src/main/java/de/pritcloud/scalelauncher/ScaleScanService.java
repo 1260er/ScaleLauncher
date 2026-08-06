@@ -186,11 +186,7 @@ public final class ScaleScanService extends Service {
             return;
         }
         try {
-            OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
-            if (!meta.supportsGenericValues()) {
-                enterTerminalError(getString(R.string.service_error_provider_api));
-                return;
-            }
+            OpenScaleProvider.readMeta(this, authority);
         } catch (SecurityException e) {
             enterTerminalError(getString(R.string.service_error_openscale_permission));
             return;
@@ -716,6 +712,20 @@ public final class ScaleScanService extends Service {
 
     private boolean logProviderResult(OpenScaleProvider.InsertResult result, String userName) {
         if (result.apiVersion < 2) {
+            if (result.measurementVerified && result.storedValueCount == 4) {
+                EventLog.info(this, getString(
+                        R.string.log_openscale_measurement_saved,
+                        userName,
+                        result.storedValueCount));
+                EventLog.debug(this, getString(
+                        R.string.log_provider_api_verified,
+                        result.apiVersion));
+                updateMonitor(getString(
+                        R.string.service_measurement_saved,
+                        userName));
+                return true;
+            }
+
             EventLog.error(
                     this,
                     getString(R.string.log_provider_api_missing));
