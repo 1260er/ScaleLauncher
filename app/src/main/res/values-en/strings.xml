@@ -37,7 +37,7 @@
     <string name="permissions_openscale_access_denied">✗ openScale: access denied</string>
     <string name="permissions_openscale_query_failed">✗ openScale: query failed</string>
     <string name="permissions_api_complete">✔ API %1$d: complete measurements</string>
-    <string name="permissions_api_incomplete">⚠ API %1$d: weight, body fat, body water and muscle percentage are stored</string>
+    <string name="permissions_api_incomplete">API %1$d: limited measurement values</string>
     <string name="permissions_battery_ok">✔ Battery optimization: off / unrestricted</string>
     <string name="permissions_battery_bad">✗ Battery optimization: still active</string>
     <string name="permissions_unused_ok">✔ Unused app management: disabled</string>
