@@ -53,7 +53,7 @@ Die App übernimmt dabei folgende Aufgaben:
 3. Sie akzeptiert eine Messung nur, wenn alle benötigten Pakete vollständig vorliegen.
 4. Sie berechnet und prüft die Körperanalysewerte.
 5. Sie ordnet die Messung anhand des Gewichts einem openScale-Benutzer zu.
-6. Sie schreibt die bestätigten Messwerte über die openScale Provider API 2 in openScale.
+6. Sie schreibt die bestätigten Messwerte in openScale. Mit Provider API 1 werden Gewicht, Körperfett, Körperwasser und Muskelanteil gespeichert; Provider API 2 speichert zusätzlich den vollständigen Wertesatz.
 7. Optional überträgt sie ausgewählte Werte für einen Hauptbenutzer an Health Connect.
 8. Sie informiert über erfolgreiche, fehlgeschlagene oder nicht eindeutig zuordenbare Messungen.
 
@@ -65,7 +65,7 @@ flowchart LR
     D -->|Nein| E[Messung verwerfen und melden]
     D -->|Ja| F[Körperwerte prüfen]
     F --> G[Benutzer automatisch zuordnen]
-    G --> H[openScale Provider API 2]
+    G --> H[openScale Provider API 1 oder 2]
     H --> I[(openScale)]
     H --> J{Health Connect aktiviert?}
     J -->|Ja, Hauptbenutzer| K[(Health Connect)]
@@ -123,7 +123,7 @@ Für die Nutzung werden benötigt:
 |---|---|
 | Xiaomi Body Composition Scale S400 | Andere Waagenmodelle werden derzeit nicht unterstützt. |
 | Android 12 oder neuer | Die App hat eine Mindestversion von Android 12. |
-| openScale | Die verwendete Version muss die Provider API 2 unterstützen. |
+| openScale | Provider API 1 genügt für die vier Basiswerte. Provider API 2 wird für den vollständigen Wertesatz empfohlen. |
 | S400-MAC-Adresse | Format: `AA:BB:CC:DD:EE:FF` |
 | S400-Bind-Key | 32 hexadezimale Zeichen, zum Beispiel `001122...` |
 | Bluetooth | Muss eingeschaltet sein. |
@@ -722,7 +722,7 @@ werden.
 | Messung wird immer verworfen | Paket A oder B fehlt | Messung erneut durchführen und Telefon näher an der Waage platzieren. |
 | Benutzer wird nicht automatisch erkannt | Referenzgewicht oder Toleranz unpassend | Benutzerprofil prüfen und Referenzgewicht aktualisieren. |
 | Zwei Benutzer werden verwechselt | Referenzgewichte liegen zu nah beieinander | Engere Toleranzen verwenden; unklare Messungen manuell zuordnen. |
-| openScale-Speicherung schlägt fehl | Provider API 2 oder Berechtigung fehlt | Kompatible openScale-Version verwenden und Zugriff erneut erlauben. |
+| openScale-Speicherung schlägt fehl | Berechtigung fehlt oder die gespeicherten Werte konnten nicht bestätigt werden | openScale-Zugriff erneut erlauben und das Protokoll prüfen. |
 | Health Connect bleibt leer | Kein Hauptbenutzer, keine Werte oder Rechte fehlen | Health-Connect-Seite vollständig konfigurieren. |
 | Nach Neustart keine Überwachung | Autostart oder Systemfreigaben fehlen | Automatischen Start aktivieren und Energiespar-Einstellungen prüfen. |
 | Status bleibt nach Sprachwechsel in alter Sprache | Dienst lief bereits | Überwachung stoppen und erneut starten. |
