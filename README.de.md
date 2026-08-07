@@ -101,10 +101,10 @@ ScaleLauncher verwendet ein bewusst strenges **Alles-oder-nichts-Prinzip**:
 ### Mehrere Benutzer
 
 - openScale-Benutzer werden in ScaleLauncher als Profile geladen.
-- Jedes Profil besitzt eigene Werte für Geburtstag, Größe, Geschlecht, Referenzgewicht und Gewichtstoleranz.
+- Jedes Profil besitzt eigene Werte für Geburtstag, Größe, Geschlecht, Gewicht und Gewichtstoleranz.
 - Eindeutige Messungen werden automatisch zugeordnet.
 - Nicht eindeutige Messungen können später manuell zugeordnet oder verworfen werden.
-- Das Referenzgewicht wird nach einer erfolgreichen Speicherung anhand der neuesten openScale-Messungen aktualisiert.
+- Das hinterlegte Gewicht wird nach einer erfolgreichen Speicherung anhand der neuesten openScale-Messungen aktualisiert.
 
 ### Hintergrundüberwachung
 
@@ -192,7 +192,7 @@ Beispiel:
 
 openScale speichert Messungen getrennt nach Benutzer-ID. ScaleLauncher benötigt diese vorhandenen Benutzer-IDs, damit eine Messung korrekt an das passende openScale-Profil übergeben werden kann.
 
-Es ist hilfreich, wenn für jeden Benutzer bereits einige aktuelle Gewichtsmessungen in openScale vorhanden sind. ScaleLauncher kann daraus ein geeignetes Referenzgewicht vorschlagen.
+Es ist hilfreich, wenn für jeden Benutzer bereits einige aktuelle Gewichtsmessungen in openScale vorhanden sind. ScaleLauncher kann daraus ein geeignetes aktuelles Gewicht vorschlagen.
 
 ### 2. Waage einrichten
 
@@ -486,8 +486,7 @@ Android kann Hintergrunddienste, Bluetooth-Scans oder Benachrichtigungen einschr
 
 | Einstellung | Bedeutung |
 |---|---|
-| Geburtstag | Wird des Benutzers. |
-| Gewichtstoleranz | Maximal erlaubter Abstand zwischen Messung und Referenzgewicht für die Körperanalyse benötigt. Unterstützt werden Erwachsene von 18 bis 120 Jahren. |
+| Geburtstag | Wird für die Körperanalyse benötigt. Unterstützt werden Erwachsene von 18 bis 120 Jahren. |
 | Größe | Wird für Körperanalyse und BMI benötigt. |
 | Geschlecht | Wird bei der Berechnung der Körperanalyse verwendet. |
 | Gewicht | Erwartetes aktuelles Gewicht des Benutzers für die Zuordnung. |
@@ -580,7 +579,7 @@ ScaleLauncher vergleicht das gemessene Gewicht mit dem hinterlegten Gewicht jede
 
 ### Beispiel
 
-| Benutzer | Referenzgewicht | Gemessen | Abstand |
+| Benutzer | Gewicht | Gemessen | Abstand |
 |---|---:|---:|---:|
 | Alex | 80,0 kg | 79,4 kg | 0,6 kg |
 | Sam | 76,5 kg | 79,4 kg | 2,9 kg |
@@ -722,8 +721,8 @@ werden.
 | Waage wird nicht gefunden | Bluetooth aus oder falsche MAC-Adresse | Bluetooth einschalten und die S400 erneut auswählen. |
 | S400-Pakete können nicht entschlüsselt werden | Bind-Key falsch | Den 32-stelligen Bind-Key prüfen. |
 | Messung wird immer verworfen | Paket A oder B fehlt | Messung erneut durchführen und Telefon näher an der Waage platzieren. |
-| Benutzer wird nicht automatisch erkannt | Referenzgewicht oder Toleranz unpassend | Benutzerprofil prüfen und Referenzgewicht aktualisieren. |
-| Zwei Benutzer werden verwechselt | Referenzgewichte liegen zu nah beieinander | Engere Toleranzen verwenden; unklare Messungen manuell zuordnen. |
+| Benutzer wird nicht automatisch erkannt | Gewicht oder Toleranz unpassend | Benutzerprofil prüfen und hinterlegtes Gewicht aktualisieren. |
+| Zwei Benutzer werden verwechselt | Hinterlegte Gewichte liegen zu nah beieinander | Engere Toleranzen verwenden; unklare Messungen manuell zuordnen. |
 | openScale-Speicherung schlägt fehl | Berechtigung fehlt oder die gespeicherten Werte konnten nicht bestätigt werden | openScale-Zugriff erneut erlauben und das Protokoll prüfen. |
 | Health Connect bleibt leer | Kein Hauptbenutzer, keine Werte oder Rechte fehlen | Health-Connect-Seite vollständig konfigurieren. |
 | Nach Neustart keine Überwachung | Autostart oder Systemfreigaben fehlen | Automatischen Start aktivieren und Energiespar-Einstellungen prüfen. |
@@ -785,7 +784,7 @@ Standardmäßig verwendet ScaleLauncher die Systemsprache. Ab Android 13 kann di
 - Health Connect kann nur für einen Hauptbenutzer aktiviert werden.
 - Der S400-Bind-Key muss bereits bekannt sein.
 - Unvollständige Messungen werden bewusst vollständig verworfen.
-- Die Benutzerzuordnung basiert auf Referenzgewicht und Toleranz; sehr ähnliche Benutzer müssen unter Umständen manuell ausgewählt werden.
+- Die Benutzerzuordnung basiert auf hinterlegtem Gewicht und Toleranz; Benutzer mit sehr ähnlichem Gewicht müssen unter Umständen manuell ausgewählt werden.
 
 ---
 

@@ -101,10 +101,10 @@ ScaleLauncher deliberately follows an **all-or-nothing** approach:
 ### Multiple users
 
 - openScale users are loaded into ScaleLauncher as profiles.
-- Every profile has its own birth date, height, sex, reference weight, and weight tolerance.
+- Every profile has its own birth date, height, sex, weight, and weight tolerance.
 - Clear matches are assigned automatically.
 - Ambiguous measurements can be assigned manually or discarded later.
-- After a successful insertion, the reference weight can be updated from recent openScale measurements.
+- After a successful insertion, the stored weight can be updated from recent openScale measurements.
 
 ### Background monitoring
 
@@ -190,7 +190,7 @@ Example:
 
 openScale stores measurements under internal user IDs. ScaleLauncher needs those existing IDs to insert a measurement into the correct openScale profile.
 
-It is useful to have a few recent weight measurements for each user in openScale. ScaleLauncher can use them as a basis for the reference weight.
+It is useful to have a few recent weight measurements for each user in openScale. ScaleLauncher can use them to suggest the current weight.
 
 ### 2. Configure the scale
 
@@ -535,7 +535,7 @@ ScaleLauncher compares the measured weight with the stored weight of every openS
 
 ### Example
 
-| User | Reference weight | Measured | Difference |
+| User | Weight | Measured | Difference |
 |---|---:|---:|---:|
 | Alex | 80.0 kg | 79.4 kg | 0.6 kg |
 | Sam | 76.5 kg | 79.4 kg | 2.9 kg |
@@ -675,8 +675,8 @@ The toolbar can:
 | Scale is not detected | Bluetooth is off or the MAC is wrong | Enable Bluetooth and select the S400 again. |
 | S400 packets cannot be decrypted | Bind key is wrong | Verify the 32-character bind key. |
 | Measurements are repeatedly rejected | Packet A or B is missing | Repeat the measurement and move the phone closer to the scale. |
-| User is not assigned automatically | Reference weight or tolerance is unsuitable | Review the profile and update the reference weight. |
-| Two users are confused | Their reference weights are very similar | Use narrower tolerances and assign ambiguous measurements manually. |
+| User is not assigned automatically | Weight or tolerance is unsuitable | Review the profile and update the stored weight. |
+| Two users are confused | Their stored weights are very similar | Use narrower tolerances and assign ambiguous measurements manually. |
 | openScale storage fails | Permission is missing or the stored values could not be verified | Grant openScale access again and check the protocol for details. |
 | Health Connect remains empty | No primary user, no values, or missing permissions | Complete the Health Connect setup page. |
 | Monitoring does not return after reboot | Auto-start or system exemptions are missing | Enable automatic start and review the power settings. |
@@ -738,7 +738,7 @@ ScaleLauncher follows the system language by default. On Android 13 and newer, t
 - Health Connect can be enabled for only one primary user.
 - The S400 bind key must already be known.
 - Incomplete measurements are deliberately rejected completely.
-- User assignment is based on reference weight and tolerance; users with very similar weights may require manual assignment.
+- User assignment is based on stored weight and tolerance; users with very similar weights may require manual assignment.
 
 ---
 
