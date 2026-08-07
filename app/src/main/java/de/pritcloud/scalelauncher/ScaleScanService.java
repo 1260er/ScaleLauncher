@@ -41,7 +41,6 @@ public final class ScaleScanService extends Service {
     private static final int NOTIFICATION_RESULT = 12;
     private static final int LEGACY_NOTIFICATION_TRANSFER_FAILURE = 13;
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
-    private static final long SCALE_STALE_AFTER_MS = 90_000L;
     private static final long SCAN_RESTART_DELAY_MS = 3_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
 
@@ -230,7 +229,7 @@ public final class ScaleScanService extends Service {
                     ServiceState.scaleSeen(ScaleScanService.this);
                     if (!scaleSeenLogged
                             || previousPacketAt <= 0L
-                            || lastPacketAtMs - previousPacketAt > SCALE_STALE_AFTER_MS) {
+                            || lastPacketAtMs - previousPacketAt > ServiceState.SCALE_SEEN_RECENT_MS) {
                         updateMonitor(getString(R.string.service_scale_reachable_waiting));
                     }
                     analyze(result, mac, bindKey);
@@ -256,7 +255,10 @@ public final class ScaleScanService extends Service {
             scanRunning = true;
             terminalError = false;
             scanStartedAtMs = System.currentTimeMillis();
-            monitorText = getString(lastPacketAtMs > 0L
+            long statusNow = System.currentTimeMillis();
+            boolean scaleRecentlySeen = lastPacketAtMs > 0L
+                    && statusNow - lastPacketAtMs <= ServiceState.SCALE_SEEN_RECENT_MS;
+            monitorText = getString(scaleRecentlySeen
                     ? R.string.service_scale_reachable_waiting
                     : R.string.service_searching_scale);
             ServiceState.running(this, monitorText, true);
@@ -855,15 +857,12 @@ public final class ScaleScanService extends Service {
             } else if (!scanRunning) {
                 scheduleScanRestart(getString(R.string.service_error_monitor_inactive));
             } else {
-                long reference = lastPacketAtMs > 0L ? lastPacketAtMs : scanStartedAtMs;
-                if (reference > 0L && now - reference > SCALE_STALE_AFTER_MS) {
-                    if (now - lastWatchdogWarningAtMs > 5 * 60_000L) {
-                        EventLog.warning(
-                                this,
-                                getString(R.string.log_scale_watchdog_restart));
-                        lastWatchdogWarningAtMs = now;
-                    }
-                    scheduleScanRestart(getString(R.string.service_scale_unreachable_restart));
+                if (lastPacketAtMs > 0L
+                        && now - lastPacketAtMs > ServiceState.SCALE_SEEN_RECENT_MS) {
+                    lastPacketAtMs = 0L;
+                    monitorText = getString(R.string.service_searching_scale);
+                    ServiceState.heartbeat(this, true, monitorText);
+                    notifyMonitor();
                 } else {
                     ServiceState.heartbeat(this, true, monitorText);
                 }

@@ -15,6 +15,7 @@ final class ServiceState {
     private static final String KEY_LAST_FAILURE = "last_failure";
 
     static final long STALE_AFTER_MS = 45_000L;
+    static final long SCALE_SEEN_RECENT_MS = 90_000L;
 
     enum Mode { STOPPED, STARTING, RUNNING, ERROR }
 

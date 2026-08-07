@@ -1201,9 +1201,14 @@ public final class MainActivity extends Activity {
         StringBuilder text = new StringBuilder(getString(R.string.status_prefix));
         switch (snapshot.mode) {
             case RUNNING:
-                scaleStatusImage.setImageResource(R.drawable.scale_connected);
-                scaleStatusImage.setContentDescription(
-                        getString(R.string.status_scale_connected));
+                boolean scaleRecentlySeen = snapshot.lastScaleSeenMs > 0L
+                        && now - snapshot.lastScaleSeenMs
+                        <= ServiceState.SCALE_SEEN_RECENT_MS;
+                if (scaleRecentlySeen) {
+                    scaleStatusImage.setImageResource(R.drawable.scale_connected);
+                    scaleStatusImage.setContentDescription(
+                            getString(R.string.status_scale_connected));
+                }
                 text.append(getString(snapshot.scanRunning
                         ? R.string.status_active
                         : R.string.status_waiting));
