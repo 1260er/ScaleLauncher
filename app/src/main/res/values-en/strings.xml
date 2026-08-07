@@ -116,9 +116,9 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="profile_error_no_user">No openScale user selected.</string>
     <string name="profile_error_birth_date">Select a valid date of birth for %1$s.</string>
     <string name="profile_error_height">Enter a height between 100 and 230 cm for %1$s.</string>
-    <string name="profile_error_reference_weight">Enter a valid reference weight for %1$s.</string>
+    <string name="profile_error_reference_weight">Enter a valid weight for %1$s.</string>
     <string name="profile_error_tolerance">The weight tolerance must be between 0.2 and 30 kg.</string>
-    <string name="profile_status_summary">Active assignment profiles: %1$d | Health Connect user: %2$s</string>
+    <string name="profile_status_summary">User profiles: %1$d | Health Connect user: %2$s</string>
     <string name="profile_health_user_not_set">not set</string>
     <string name="health_connect_no_values_status">Health Connect: no values selected</string>
     <string name="status_service_unresponsive">Status: ERROR – service is not responding</string>
@@ -130,7 +130,7 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="start_error_no_active_profile">Enable at least one user profile for automatic assignment.</string>
     <string name="start_error_profile_incomplete">Profile %1$s is not complete yet.</string>
     <string name="health_connect_error_select_values">Select at least one Health Connect value.</string>
-    <string name="health_connect_error_main_user">Set the main Health Connect user in an active profile.</string>
+    <string name="health_connect_error_main_user">Select a user as the main Health Connect user.</string>
     <string name="health_connect_error_write_permissions">Allow write access for the selected values first.</string>
     <string name="health_connect_error_user_assignment">Enable Health Connect for a user first.</string>
     <string name="health_connect_error_required_permissions">Allow the required write permissions first.</string>
@@ -270,7 +270,7 @@ UUIDs: %1$s</string>
     <string name="service_error_invalid_birth_date">Date of birth for %1$s is invalid</string>
     <string name="service_error_incomplete_composition">Body composition analysis incomplete: %1$s</string>
     <string name="log_impedance_labels_swapped">Impedance bands were swapped and corrected</string>
-    <string name="log_reference_weight_updated">Reference weight for %1$s updated: %2$.1f kg</string>
+    <string name="log_reference_weight_updated">Weight for %1$s updated: %2$.1f kg</string>
     <string name="service_error_openscale_access">openScale access denied – grant permission again</string>
     <string name="service_error_openscale_transfer">Transfer to openScale failed: %1$s – %2$s</string>
     <string name="service_error_openscale_unconfirmed">Saving to openScale could not be fully confirmed</string>

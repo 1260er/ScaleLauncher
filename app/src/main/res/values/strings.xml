@@ -119,9 +119,9 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="profile_error_no_user">Kein openScale-Benutzer ausgewählt.</string>
     <string name="profile_error_birth_date">Bitte für %1$s einen gültigen Geburtstag wählen.</string>
     <string name="profile_error_height">Bitte für %1$s eine Größe von 100–230 cm eintragen.</string>
-    <string name="profile_error_reference_weight">Bitte für %1$s ein gültiges Referenzgewicht eintragen.</string>
+    <string name="profile_error_reference_weight">Bitte für %1$s ein gültiges Gewicht eintragen.</string>
     <string name="profile_error_tolerance">Die Gewichtstoleranz muss zwischen 0,2 und 30 kg liegen.</string>
-    <string name="profile_status_summary">Aktive Zuordnungsprofile: %1$d | Health-Connect-Benutzer: %2$s</string>
+    <string name="profile_status_summary">Benutzerprofile: %1$d | Health-Connect-Benutzer: %2$s</string>
     <string name="profile_health_user_not_set">nicht festgelegt</string>
     <string name="health_connect_no_values_status">Health Connect: keine Werte ausgewählt</string>
     <string name="status_service_unresponsive">Status: FEHLER – Dienst antwortet nicht</string>
@@ -133,7 +133,7 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="start_error_no_active_profile">Bitte mindestens ein Benutzerprofil für die automatische Zuordnung aktivieren.</string>
     <string name="start_error_profile_incomplete">Das Profil %1$s ist noch nicht vollständig.</string>
     <string name="health_connect_error_select_values">Bitte mindestens einen Health-Connect-Wert auswählen.</string>
-    <string name="health_connect_error_main_user">Bitte in einem aktiven Profil den Health-Connect-Hauptbenutzer festlegen.</string>
+    <string name="health_connect_error_main_user">Bitte einen Benutzer als Health-Connect-Hauptbenutzer festlegen.</string>
     <string name="health_connect_error_write_permissions">Bitte zuerst die Schreibrechte für die ausgewählten Werte erlauben.</string>
     <string name="health_connect_error_user_assignment">Bitte zuerst bei einem Benutzer Health Connect aktivieren.</string>
     <string name="health_connect_error_required_permissions">Bitte zuerst die benötigten Schreibrechte erlauben.</string>
@@ -273,7 +273,7 @@ UUIDs: %1$s</string>
     <string name="service_error_invalid_birth_date">Geburtstag von %1$s ist ungültig</string>
     <string name="service_error_incomplete_composition">Körperanalyse unvollständig: %1$s</string>
     <string name="log_impedance_labels_swapped">Impedanzbänder waren vertauscht und wurden korrigiert</string>
-    <string name="log_reference_weight_updated">Referenzgewicht %1$s aktualisiert: %2$.1f kg</string>
+    <string name="log_reference_weight_updated">Gewicht %1$s aktualisiert: %2$.1f kg</string>
     <string name="service_error_openscale_access">openScale-Zugriff verweigert – Berechtigung erneut erteilen</string>
     <string name="service_error_openscale_transfer">Übergabe an openScale fehlgeschlagen: %1$s – %2$s</string>
     <string name="service_error_openscale_unconfirmed">Speicherung in openScale konnte nicht vollständig bestätigt werden</string>
