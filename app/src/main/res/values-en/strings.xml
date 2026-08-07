@@ -127,7 +127,7 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="start_error_bluetooth_permission">Allow Bluetooth first.</string>
     <string name="start_error_openscale_missing">Connect openScale and load users first.</string>
     <string name="start_error_provider_api">openScale Provider API 2 is required for a complete and verifiable measurement.</string>
-    <string name="start_error_no_active_profile">Enable at least one user profile for automatic assignment.</string>
+    <string name="start_error_no_active_profile">No user profile is available for automatic assignment.</string>
     <string name="start_error_profile_incomplete">Profile %1$s is not complete yet.</string>
     <string name="health_connect_error_select_values">Select at least one Health Connect value.</string>
     <string name="health_connect_error_main_user">Select a user as the main Health Connect user.</string>
@@ -234,7 +234,7 @@ UUIDs: %1$s</string>
     <string name="service_error_provider_api">openScale Provider API 2 is required</string>
     <string name="service_error_openscale_permission">openScale permission missing</string>
     <string name="service_error_openscale_unreachable">openScale is not reachable</string>
-    <string name="service_error_no_active_profile">No active user profile configured</string>
+    <string name="service_error_no_active_profile">No user profile configured</string>
     <string name="service_error_incomplete_profile">User profile incomplete: %1$s</string>
     <string name="service_error_bluetooth_disabled">Bluetooth is turned off</string>
     <string name="service_error_bluetooth_scanner">Bluetooth scanner unavailable</string>
