@@ -291,8 +291,12 @@ public final class ScaleScanService extends Service {
         if (lastLoggedSignature == null) {
             lastLoggedSignature = packet.signature;
             EventLog.debug(this, getString(R.string.log_first_ble_pattern, packet.signature));
+            EventLog.debug(this, "BLE-Details | Aktivität=" + packet.activityPacket
+                    + " | " + packet.details);
         } else if (!packet.signature.equals(lastLoggedSignature)) {
             lastLoggedSignature = packet.signature;
+            EventLog.debug(this, "BLE-Muster geändert " + packet.signature
+                    + " | Aktivität=" + packet.activityPacket + " | " + packet.details);
         }
         if (!packet.activityPacket || packet.activityData == null) return;
 
