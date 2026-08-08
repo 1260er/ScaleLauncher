@@ -18,7 +18,7 @@
 
 > **In one sentence:** ScaleLauncher receives the encrypted Bluetooth data sent by the Xiaomi S400, decrypts and validates it locally, assigns the measurement to an openScale user, and stores the complete measurement in openScale. Selected values for one primary user can optionally also be written to Health Connect.
 
-> **Documentation last updated: August 5, 2026**
+> **Documentation last updated: August 8, 2026**
 
 ---
 
@@ -625,7 +625,7 @@ Result notifications remain visible until dismissed or replaced by a newer resul
 Open **Log** to inspect important events.
 
 <p align="center">
-  <img src="docs/images/protokoll.png" alt="ScaleLauncher log screen; German example" width="320">
+  <img src="docs/images/protokoll-en.png" alt="ScaleLauncher log screen in English" width="320">
 </p>
 
 ### Normal mode
@@ -673,6 +673,7 @@ The toolbar can:
 | Monitoring does not start | “Manage app if unused” is enabled | Disable that Android option for ScaleLauncher. |
 | No persistent notification | Notification permission is missing | Allow notifications in App info. |
 | Scale is not detected | Bluetooth is off or the MAC is wrong | Enable Bluetooth and select the S400 again. |
+| Scale is reachable but no measurement arrives | The S400 may temporarily broadcast only idle BLE packets | Stop ScaleLauncher monitoring, complete one full measurement in Xiaomi Home, fully close Xiaomi Home, then start ScaleLauncher monitoring again. |
 | S400 packets cannot be decrypted | Bind key is wrong | Verify the 32-character bind key. |
 | Measurements are repeatedly rejected | Packet A or B is missing | Repeat the measurement and move the phone closer to the scale. |
 | User is not assigned automatically | Weight or tolerance is unsuitable | Review the profile and update the stored weight. |
