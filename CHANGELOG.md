@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## 1.2.0
+
+- BLE-Scan-Watchdog startet einen festgefahrenen Scan wieder automatisch neu
+- erweiterte BLE-Diagnose protokolliert geänderte Paketmuster zur Fehlersuche
+- Fehlerbehebung dokumentiert, wenn die S400 erreichbar ist, aber keine Messdaten sendet
+- englische Screenshots in der englischen Dokumentation korrigiert
+- gleichzeitiger Betrieb von ScaleLauncher auf zwei Geräten mit derselben S400 erfolgreich getestet
+
 ## 1.1.0
 
 - Unterstützung für openScale Provider API 1 und API 2
