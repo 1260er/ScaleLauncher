@@ -857,12 +857,17 @@ public final class ScaleScanService extends Service {
             } else if (!scanRunning) {
                 scheduleScanRestart(getString(R.string.service_error_monitor_inactive));
             } else {
-                if (lastPacketAtMs > 0L
-                        && now - lastPacketAtMs > ServiceState.SCALE_SEEN_RECENT_MS) {
-                    lastPacketAtMs = 0L;
-                    monitorText = getString(R.string.service_searching_scale);
-                    ServiceState.heartbeat(this, true, monitorText);
-                    notifyMonitor();
+                long reference = lastPacketAtMs > 0L ? lastPacketAtMs : scanStartedAtMs;
+                if (reference > 0L
+                        && now - reference > ServiceState.SCALE_SEEN_RECENT_MS) {
+                    if (now - lastWatchdogWarningAtMs > 5 * 60_000L) {
+                        EventLog.warning(
+                                this,
+                                getString(R.string.log_scale_watchdog_restart));
+                        lastWatchdogWarningAtMs = now;
+                    }
+                    scheduleScanRestart(
+                            getString(R.string.service_scale_unreachable_restart));
                 } else {
                     ServiceState.heartbeat(this, true, monitorText);
                 }
