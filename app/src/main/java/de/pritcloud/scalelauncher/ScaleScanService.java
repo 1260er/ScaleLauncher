@@ -861,7 +861,7 @@ public final class ScaleScanService extends Service {
             } else if (!scanRunning) {
                 scheduleScanRestart(getString(R.string.service_error_monitor_inactive));
             } else {
-                long reference = lastPacketAtMs > 0L ? lastPacketAtMs : scanStartedAtMs;
+                long reference = Math.max(lastPacketAtMs, scanStartedAtMs);
                 if (reference > 0L
                         && now - reference > ServiceState.SCALE_SEEN_RECENT_MS) {
                     if (now - lastWatchdogWarningAtMs > 5 * 60_000L) {
