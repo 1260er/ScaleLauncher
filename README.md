@@ -18,7 +18,7 @@
 
 > **In one sentence:** ScaleLauncher receives the encrypted Bluetooth data sent by the Xiaomi S400, decrypts and validates it locally, assigns the measurement to an openScale user, and stores the complete measurement in openScale. Selected values for one primary user can optionally also be written to Health Connect.
 
-> **Documentation last updated: August 8, 2026**
+> **Documentation last updated: August 13, 2026**
 
 ---
 
@@ -53,7 +53,7 @@ The app performs the following tasks:
 3. Accepts a measurement only when all required packets are complete.
 4. Calculates and validates the body-composition values.
 5. Assigns the measurement to an openScale user based on weight.
-6. Writes the verified values to openScale. Provider API 1 stores weight, body fat, body water and muscle percentage; Provider API 2 additionally stores the complete value set.
+6. Writes the complete verified value set to openScale through openScale Provider API 2.
 7. Optionally writes selected values for one primary user to Health Connect.
 8. Reports successful, failed, or ambiguous measurements.
 
@@ -65,7 +65,7 @@ flowchart LR
     D -->|No| E[Reject measurement and report error]
     D -->|Yes| F[Validate body values]
     F --> G[Assign user automatically]
-    G --> H[openScale Provider API 1 or 2]
+    G --> H[openScale Provider API 2]
     H --> I[(openScale)]
     H --> J{Health Connect enabled?}
     J -->|Yes, primary user| K[(Health Connect)]
@@ -121,7 +121,7 @@ ScaleLauncher deliberately follows an **all-or-nothing** approach:
 |---|---|
 | Xiaomi Body Composition Scale S400 | Other scale models are not currently supported. |
 | Android 12 or newer | ScaleLauncher currently uses Android 12 as its minimum version. |
-| openScale | Provider API 1 is sufficient for the four basic values. Provider API 2 is recommended for the complete value set. |
+| openScale | Provider API 2 is required. Older provider APIs are not supported. |
 | S400 MAC address | Format: `AA:BB:CC:DD:EE:FF` |
 | S400 bind key | 32 hexadecimal characters, for example `001122...` |
 | Bluetooth | Must be enabled. |

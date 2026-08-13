@@ -37,7 +37,7 @@
     <string name="permissions_openscale_access_denied">✗ openScale: access denied</string>
     <string name="permissions_openscale_query_failed">✗ openScale: query failed</string>
     <string name="permissions_api_complete">✔ API %1$d: complete measurements</string>
-    <string name="permissions_api_incomplete">⚠ API %1$d: limited measurement values</string>
+    <string name="permissions_api_incomplete">✗ API %1$d: unsupported – API 2 required</string>
     <string name="permissions_battery_ok">✔ Battery optimization: off / unrestricted</string>
     <string name="permissions_battery_bad">✗ Battery optimization: still active</string>
     <string name="permissions_unused_ok">✔ Unused app management: disabled</string>
@@ -292,7 +292,6 @@ UUIDs: %1$s</string>
     <string name="notification_measurement_failure_title">Measurement failed, please try again</string>
     <string name="notification_transfer_incomplete_title">Transfer incomplete</string>
     <string name="service_error_unknown">Unknown error</string>
-    <string name="log_provider_api_missing">openScale API 1: the four basic values could not be fully verified</string>
     <string name="log_openscale_measurement_saved">openScale: %1$s – complete measurement saved (%2$d values)</string>
     <string name="log_provider_api_verified">openScale Provider API %1$d verified successfully</string>
     <string name="service_measurement_saved">Measurement for %1$s saved</string>

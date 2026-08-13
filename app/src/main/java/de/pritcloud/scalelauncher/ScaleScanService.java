@@ -184,13 +184,18 @@ public final class ScaleScanService extends Service {
             enterTerminalError(getString(R.string.service_error_no_openscale_connection));
             return;
         }
+        OpenScaleProvider.Meta providerMeta;
         try {
-            OpenScaleProvider.readMeta(this, authority);
+            providerMeta = OpenScaleProvider.readMeta(this, authority);
         } catch (SecurityException e) {
             enterTerminalError(getString(R.string.service_error_openscale_permission));
             return;
         } catch (RuntimeException e) {
             enterTerminalError(getString(R.string.service_error_openscale_unreachable));
+            return;
+        }
+        if (!providerMeta.supportsGenericValues()) {
+            enterTerminalError(getString(R.string.service_error_provider_api));
             return;
         }
         if (profiles.isEmpty()) {
@@ -488,6 +493,10 @@ public final class ScaleScanService extends Service {
         boolean openScaleStored;
         try {
             OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
+            if (!meta.supportsGenericValues()) {
+                rejectMeasurement(getString(R.string.service_error_provider_api));
+                return false;
+            }
             prefs.edit().putInt("openscale_api_version", meta.apiVersion).apply();
             OpenScaleProvider.InsertResult result = OpenScaleProvider.insertMeasurement(
                     this,
@@ -717,27 +726,6 @@ public final class ScaleScanService extends Service {
     }
 
     private boolean logProviderResult(OpenScaleProvider.InsertResult result, String userName) {
-        if (result.apiVersion < 2) {
-            if (result.measurementVerified && result.storedValueCount == 4) {
-                EventLog.info(this, getString(
-                        R.string.log_openscale_measurement_saved,
-                        userName,
-                        result.storedValueCount));
-                EventLog.debug(this, getString(
-                        R.string.log_provider_api_verified,
-                        result.apiVersion));
-                updateMonitor(getString(
-                        R.string.service_measurement_saved,
-                        userName));
-                return true;
-            }
-
-            EventLog.error(
-                    this,
-                    getString(R.string.log_provider_api_missing));
-            return false;
-        }
-
         if (result.measurementVerified && result.additionalValuesVerified) {
             EventLog.info(this, getString(
                     R.string.log_openscale_measurement_saved,

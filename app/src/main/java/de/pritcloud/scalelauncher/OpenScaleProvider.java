@@ -136,7 +136,7 @@ public final class OpenScaleProvider {
                 return new Meta(Math.max(1, apiVersion), versionCode);
             }
         } catch (RuntimeException ignored) {
-            // Older compatible providers may not expose /meta. Treat them as API 1.
+            // Providers without /meta are legacy and unsupported.
         }
         return new Meta(1, -1);
     }
@@ -210,7 +210,7 @@ public final class OpenScaleProvider {
     }
 
     /**
-     * API 1 receives the four legacy fields. API 2 additionally receives values_json.
+     * Provider API 2 receives the complete measurement including values_json.
      * Because openScale returns null even after a successful insert, the inserted timestamp
      * is queried afterwards and used as the actual success check.
      */
@@ -228,12 +228,9 @@ public final class OpenScaleProvider {
         if (composition.totalBodyWaterPercent != null) values.put("water", composition.totalBodyWaterPercent);
         if (composition.skeletalMusclePercent != null) values.put("muscle", composition.skeletalMusclePercent);
 
-        boolean requestAdditionalValues = apiVersion >= 2;
-        if (requestAdditionalValues) {
-            values.put(
-                    "values_json",
-                    buildValuesJson(context, measurement, composition));
-        }
+        values.put(
+                "values_json",
+                buildValuesJson(context, measurement, composition));
 
         Uri uri = Uri.parse("content://" + authority + "/measurements/" + userId);
         ContentResolver resolver = context.getContentResolver();
@@ -242,12 +239,11 @@ public final class OpenScaleProvider {
         Verification verification = verifyMeasurement(
                 resolver,
                 uri,
-                timestamp,
-                apiVersion);
+                timestamp);
         boolean complete = verification.found
-                && (!requestAdditionalValues || verification.additionalValuesFound);
+                && verification.additionalValuesFound;
         boolean rollbackPerformed = false;
-        if (requestAdditionalValues && !complete) {
+        if (!complete) {
             // Keep the external write all-or-nothing. Even when verification itself
             // failed, attempt an exact timestamp rollback in case the insert landed.
             rollbackPerformed = deleteMeasurement(context, authority, userId, timestamp) > 0;
@@ -255,8 +251,8 @@ public final class OpenScaleProvider {
         return new InsertResult(
                 apiVersion,
                 verification.found,
-                requestAdditionalValues,
-                requestAdditionalValues && verification.additionalValuesFound,
+                true,
+                verification.additionalValuesFound,
                 verification.valueCount,
                 verification.missingKeys,
                 rollbackPerformed);
@@ -264,31 +260,14 @@ public final class OpenScaleProvider {
 
     private static Verification verifyMeasurement(ContentResolver resolver,
                                                   Uri uri,
-                                                  long timestamp,
-                                                  int apiVersion) {
-        String[] projection = apiVersion >= 2
-                ? new String[]{"datetime", "values_json"}
-                : new String[]{"datetime", "weight", "fat", "water", "muscle"};
+                                                  long timestamp) {
+        String[] projection = new String[]{"datetime", "values_json"};
         try (Cursor cursor = resolver.query(uri, projection, null, null, null)) {
             if (cursor == null) return new Verification(false, false, 0, new HashSet<>());
             int dateColumn = cursor.getColumnIndex("datetime");
             if (dateColumn < 0) return new Verification(false, false, 0, new HashSet<>());
             while (cursor.moveToNext()) {
                 if (cursor.getLong(dateColumn) != timestamp) continue;
-                if (apiVersion < 2) {
-                    int count = 0;
-                    for (String column : new String[]{"weight", "fat", "water", "muscle"}) {
-                        int index = cursor.getColumnIndex(column);
-                        if (index < 0 || cursor.isNull(index)) continue;
-
-                        float storedValue = cursor.getFloat(index);
-                        if (Float.isFinite(storedValue) && storedValue > 0f) {
-                            count++;
-                        }
-                    }
-                    return new Verification(true, false, count, new HashSet<>());
-                }
-
                 int jsonColumn = cursor.getColumnIndex("values_json");
                 if (jsonColumn < 0 || cursor.isNull(jsonColumn)) {
                     return new Verification(true, false, 0, new HashSet<>(REQUIRED_API2_KEYS));

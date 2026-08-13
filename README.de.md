@@ -18,7 +18,7 @@
 
 > **Kurz erklärt:** ScaleLauncher empfängt die verschlüsselten Bluetooth-Messdaten der Xiaomi S400, entschlüsselt und prüft sie lokal, ordnet die Messung einem openScale-Benutzer zu und speichert die vollständigen Werte in openScale. Für einen ausgewählten Hauptbenutzer können Werte zusätzlich direkt an Health Connect übertragen werden.
 
-> **Stand dieser Anleitung: 8. August 2026**
+> **Stand dieser Anleitung: 13. August 2026**
 
 ---
 
@@ -53,7 +53,7 @@ Die App übernimmt dabei folgende Aufgaben:
 3. Sie akzeptiert eine Messung nur, wenn alle benötigten Pakete vollständig vorliegen.
 4. Sie berechnet und prüft die Körperanalysewerte.
 5. Sie ordnet die Messung anhand des Gewichts einem openScale-Benutzer zu.
-6. Sie schreibt die bestätigten Messwerte in openScale. Mit Provider API 1 werden Gewicht, Körperfett, Körperwasser und Muskelanteil gespeichert; Provider API 2 speichert zusätzlich den vollständigen Wertesatz.
+6. Sie schreibt den vollständigen, bestätigten Wertesatz über openScale Provider API 2 in openScale.
 7. Optional überträgt sie ausgewählte Werte für einen Hauptbenutzer an Health Connect.
 8. Sie informiert über erfolgreiche, fehlgeschlagene oder nicht eindeutig zuordenbare Messungen.
 
@@ -65,7 +65,7 @@ flowchart LR
     D -->|Nein| E[Messung verwerfen und melden]
     D -->|Ja| F[Körperwerte prüfen]
     F --> G[Benutzer automatisch zuordnen]
-    G --> H[openScale Provider API 1 oder 2]
+    G --> H[openScale Provider API 2]
     H --> I[(openScale)]
     H --> J{Health Connect aktiviert?}
     J -->|Ja, Hauptbenutzer| K[(Health Connect)]
@@ -123,7 +123,7 @@ Für die Nutzung werden benötigt:
 |---|---|
 | Xiaomi Body Composition Scale S400 | Andere Waagenmodelle werden derzeit nicht unterstützt. |
 | Android 12 oder neuer | Die App hat eine Mindestversion von Android 12. |
-| openScale | Provider API 1 genügt für die vier Basiswerte. Provider API 2 wird für den vollständigen Wertesatz empfohlen. |
+| openScale | Provider API 2 wird benötigt. Ältere Provider-APIs werden nicht unterstützt. |
 | S400-MAC-Adresse | Format: `AA:BB:CC:DD:EE:FF` |
 | S400-Bind-Key | 32 hexadezimale Zeichen, zum Beispiel `001122...` |
 | Bluetooth | Muss eingeschaltet sein. |

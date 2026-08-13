@@ -40,7 +40,7 @@
     <string name="permissions_openscale_access_denied">✗ openScale: Zugriff verweigert</string>
     <string name="permissions_openscale_query_failed">✗ openScale: Abfrage fehlgeschlagen</string>
     <string name="permissions_api_complete">✔ API %1$d: vollständige Messwerte</string>
-    <string name="permissions_api_incomplete">⚠ API %1$d: eingeschränkte Messwerte</string>
+    <string name="permissions_api_incomplete">✗ API %1$d: nicht unterstützt – API 2 erforderlich</string>
     <string name="permissions_battery_ok">✔ Akkuoptimierung: aus / uneingeschränkt</string>
     <string name="permissions_battery_bad">✗ Akkuoptimierung: noch aktiv</string>
     <string name="permissions_unused_ok">✔ Verwaltung bei Nichtnutzung: deaktiviert</string>
@@ -295,7 +295,6 @@ UUIDs: %1$s</string>
     <string name="notification_measurement_failure_title">Messung fehlgeschlagen, bitte wiederholen</string>
     <string name="notification_transfer_incomplete_title">Übertragung unvollständig</string>
     <string name="service_error_unknown">Unbekannter Fehler</string>
-    <string name="log_provider_api_missing">openScale API 1: Die vier Basiswerte konnten nicht vollständig bestätigt werden</string>
     <string name="log_openscale_measurement_saved">openScale: %1$s – vollständige Messung gespeichert (%2$d Werte)</string>
     <string name="log_provider_api_verified">openScale Provider-API %1$d erfolgreich geprüft</string>
     <string name="service_measurement_saved">Messung für %1$s gespeichert</string>
