@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## 1.2.1
+
+- BLE-Watchdog nach längerem Ruhezustand korrigiert; der Scan startet zuverlässig neu
+- openScale Provider API 2 ist jetzt erforderlich; Unterstützung für Provider API 1 entfernt
+- vollständige Übertragung und Prüfung aller 15 Messwerte über Provider API 2
+- Dokumentation an die neue API-2-Anforderung angepasst
+
 ## 1.2.0
 
 - BLE-Scan-Watchdog startet einen festgefahrenen Scan wieder automatisch neu
