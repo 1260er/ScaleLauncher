@@ -96,6 +96,8 @@
     <string name="action_save_start">Überwachen</string>
     <string name="action_stop_monitoring">Stoppen</string>
     <string name="home_users_loading">Benutzer werden geladen</string>
+    <string name="home_health_connect_active">Health-Connect aktiv</string>
+    <string name="home_health_connect_disabled">Health-Connect deaktiviert</string>
     <string name="home_health_connect_user_title">Health-Connect-Benutzer</string>
     <string name="home_health_connect_user_none">Nicht festgelegt</string>
     <string name="home_users_none">Keine Benutzer geladen</string>

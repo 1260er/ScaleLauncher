@@ -18,7 +18,7 @@
 
 > **In one sentence:** ScaleLauncher receives the encrypted Bluetooth data sent by the Xiaomi S400, decrypts and validates it locally, assigns the measurement to an openScale user, and stores the complete measurement in openScale. Selected values for one primary user can optionally also be written to Health Connect.
 
-> **Documentation last updated: August 13, 2026**
+> **Documentation last updated: August 17, 2026**
 
 ---
 
@@ -110,7 +110,7 @@ ScaleLauncher deliberately follows an **all-or-nothing** approach:
 
 - Persistent foreground service with a status notification
 - Heartbeat to detect an unresponsive service
-- Watchdog that restarts a stalled BLE scan
+- Watchdog for actual BLE scan failures or an inactive scanner; radio silence alone no longer triggers a precautionary scan restart
 - Optional automatic restart after a device reboot or app update
 
 ---
@@ -486,6 +486,8 @@ The status should show information such as:
 - `WAITING`
 - scale reachable
 - time since the last signal from the scale
+- `Health Connect active` or `Health Connect disabled`
+- selected Health Connect user
 
 <p align="center">
   <img src="docs/images/startseite-en.png" alt="ScaleLauncher home screen in English" width="320">

@@ -302,6 +302,7 @@ public final class MainActivity extends Activity {
                     .putBoolean("health_connect_enabled", enabled)
                     .apply();
             refreshHealthConnectStatus();
+            refreshHomeUserSummary();
         });
 
         android.widget.CompoundButton.OnCheckedChangeListener selectionListener =
@@ -646,6 +647,7 @@ public final class MainActivity extends Activity {
     private void refreshHomeUserSummary() {
         TextView usersSummary = findViewById(R.id.homeUsersSummary);
         TextView usersList = findViewById(R.id.homeUsersList);
+        TextView healthConnectState = findViewById(R.id.homeHealthConnectState);
         TextView healthConnectUser = findViewById(R.id.homeHealthConnectUser);
 
         if (users == null || users.isEmpty()) {
@@ -666,6 +668,13 @@ public final class MainActivity extends Activity {
         }
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        boolean healthConnectActive =
+                prefs.getBoolean("health_connect_enabled", false);
+        healthConnectState.setText(
+                healthConnectActive
+                        ? R.string.home_health_connect_active
+                        : R.string.home_health_connect_disabled);
+
         List<UserProfile> storedProfiles = UserProfileStore.load(prefs);
         long healthUserId = prefs.getLong("health_connect_user_id", -1L);
         UserProfile healthProfile =

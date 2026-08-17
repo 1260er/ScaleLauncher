@@ -93,6 +93,8 @@
     <string name="action_save_start">Monitor</string>
     <string name="action_stop_monitoring">Stop</string>
     <string name="home_users_loading">Loading users</string>
+    <string name="home_health_connect_active">Health Connect active</string>
+    <string name="home_health_connect_disabled">Health Connect disabled</string>
     <string name="home_health_connect_user_title">Health Connect user</string>
     <string name="home_health_connect_user_none">Not set</string>
     <string name="home_users_none">No users loaded</string>

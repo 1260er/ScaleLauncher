@@ -2,10 +2,12 @@
 
 ## 1.2.1
 
-- BLE-Watchdog nach längerem Ruhezustand korrigiert; der Scan startet zuverlässig neu
+- BLE-Überwachung stabilisiert: laufende Scans werden bei reiner Funkstille nicht mehr vorsorglich neu gestartet; echte Scanfehler bleiben selbstheilend
+- BLE-Erkennung für schwache Signale mit ALL_MATCHES und aggressivem Match-Modus verbessert
+- Startseite zeigt jetzt direkt, ob Health Connect aktiv oder deaktiviert ist
 - openScale Provider API 2 ist jetzt erforderlich; Unterstützung für Provider API 1 entfernt
 - vollständige Übertragung und Prüfung aller 15 Messwerte über Provider API 2
-- Dokumentation an die neue API-2-Anforderung angepasst
+- Dokumentation an BLE-Verhalten, Health-Connect-Status und API-2-Anforderung angepasst
 
 ## 1.2.0
 

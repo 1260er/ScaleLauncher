@@ -18,7 +18,7 @@
 
 > **Kurz erklärt:** ScaleLauncher empfängt die verschlüsselten Bluetooth-Messdaten der Xiaomi S400, entschlüsselt und prüft sie lokal, ordnet die Messung einem openScale-Benutzer zu und speichert die vollständigen Werte in openScale. Für einen ausgewählten Hauptbenutzer können Werte zusätzlich direkt an Health Connect übertragen werden.
 
-> **Stand dieser Anleitung: 13. August 2026**
+> **Stand dieser Anleitung: 17. August 2026**
 
 ---
 
@@ -110,7 +110,7 @@ ScaleLauncher verwendet ein bewusst strenges **Alles-oder-nichts-Prinzip**:
 
 - Permanenter Vordergrunddienst mit Statusbenachrichtigung
 - Heartbeat zur Erkennung eines nicht mehr reagierenden Dienstes
-- Watchdog für den automatischen Neustart eines festgefahrenen BLE-Scans
+- Watchdog für echte BLE-Scanfehler oder einen inaktiven Scanner; reine Funkstille löst keinen vorsorglichen Scan-Neustart mehr aus
 - Optionaler automatischer Start nach einem Geräte-Neustart oder App-Update
 
 ---
@@ -528,6 +528,8 @@ Der Status sollte anschließend unter anderem anzeigen:
 - `WARTET` / `WAITING`
 - Waage erreichbar
 - Zeitpunkt des letzten empfangenen Waagensignals
+- `Health-Connect aktiv` oder `Health-Connect deaktiviert`
+- ausgewählter Health-Connect-Benutzer
 
 Wenn die Startseite ungefähr so aussieht, ist die Grundkonfiguration meist korrekt:
 
