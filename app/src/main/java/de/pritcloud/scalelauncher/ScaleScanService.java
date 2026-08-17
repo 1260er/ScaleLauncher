@@ -73,7 +73,6 @@ public final class ScaleScanService extends Service {
     private boolean activeLogged;
     private long lastPacketAtMs;
     private long scanStartedAtMs;
-    private long lastWatchdogWarningAtMs;
     private long undecipheredSessionStartedAtMs;
     private long lastUndecipheredFailureAtMs;
     private String monitorText = "";
@@ -254,6 +253,8 @@ public final class ScaleScanService extends Service {
         ScanFilter filter = new ScanFilter.Builder().setDeviceAddress(mac).build();
         ScanSettings settings = new ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
                 .build();
         try {
             scanner.startScan(Collections.singletonList(filter), settings, callback);
@@ -852,14 +853,14 @@ public final class ScaleScanService extends Service {
                 long reference = Math.max(lastPacketAtMs, scanStartedAtMs);
                 if (reference > 0L
                         && now - reference > ServiceState.SCALE_SEEN_RECENT_MS) {
-                    if (now - lastWatchdogWarningAtMs > 5 * 60_000L) {
-                        EventLog.warning(
-                                this,
-                                getString(R.string.log_scale_watchdog_restart));
-                        lastWatchdogWarningAtMs = now;
+                    String searchingText = getString(R.string.service_searching_scale);
+                    if (!searchingText.equals(monitorText)) {
+                        monitorText = searchingText;
+                        ServiceState.heartbeat(this, true, monitorText);
+                        notifyMonitor();
+                    } else {
+                        ServiceState.heartbeat(this, true, monitorText);
                     }
-                    scheduleScanRestart(
-                            getString(R.string.service_scale_unreachable_restart));
                 } else {
                     ServiceState.heartbeat(this, true, monitorText);
                 }
