@@ -296,14 +296,8 @@ public final class MainActivity extends Activity {
         findViewById(R.id.unusedAppSettings).setOnClickListener(
                 v -> PowerSettingsHelper.openUnusedAppSettings(this));
 
-        healthConnectEnabled.setOnCheckedChangeListener((button, enabled) -> {
-            getSharedPreferences("prefs", MODE_PRIVATE)
-                    .edit()
-                    .putBoolean("health_connect_enabled", enabled)
-                    .apply();
-            refreshHealthConnectStatus();
-            refreshHomeUserSummary();
-        });
+        healthConnectEnabled.setOnCheckedChangeListener((button, enabled) ->
+                refreshHealthConnectStatus());
 
         android.widget.CompoundButton.OnCheckedChangeListener selectionListener =
                 (button, checked) -> refreshHealthConnectStatus();
@@ -971,6 +965,7 @@ public final class MainActivity extends Activity {
                         healthConnectEnabled.isChecked());
         selection.save(editor);
         editor.apply();
+        refreshHomeUserSummary();
 
         EventLog.info(this, getString(
                 R.string.log_health_connect_saved,
@@ -1023,7 +1018,6 @@ public final class MainActivity extends Activity {
         int selected = selection.count();
         if (selected == 0) {
             healthConnectStatus.setText(R.string.health_connect_no_values_status);
-            healthConnectEnabled.setChecked(false);
             return;
         }
 
@@ -1046,7 +1040,6 @@ public final class MainActivity extends Activity {
                     granted,
                     required,
                     userText));
-            if (healthConnectEnabled.isChecked()) healthConnectEnabled.setChecked(false);
         }
     }
 

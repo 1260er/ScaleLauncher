@@ -5,6 +5,8 @@
 - BLE-Überwachung stabilisiert: laufende Scans werden bei reiner Funkstille nicht mehr vorsorglich neu gestartet; echte Scanfehler bleiben selbstheilend
 - BLE-Erkennung für schwache Signale mit ALL_MATCHES und aggressivem Match-Modus verbessert
 - Startseite zeigt jetzt direkt, ob Health Connect aktiv oder deaktiviert ist
+- Health-Connect-Schalter bleibt beim Aktivieren gesetzt; der Zustand wird erst nach erfolgreicher Prüfung über „Speichern“ übernommen
+- Health-Connect-Schalter bleibt beim Aktivieren gesetzt; fehlende Werte oder Schreibrechte werden nur noch als Status gemeldet
 - openScale Provider API 2 ist jetzt erforderlich; Unterstützung für Provider API 1 entfernt
 - vollständige Übertragung und Prüfung aller 15 Messwerte über Provider API 2
 - Dokumentation an BLE-Verhalten, Health-Connect-Status und API-2-Anforderung angepasst
