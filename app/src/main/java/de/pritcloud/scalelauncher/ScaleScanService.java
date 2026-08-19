@@ -43,6 +43,8 @@ public final class ScaleScanService extends Service {
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
     private static final long SCAN_RESTART_DELAY_MS = 3_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
+    private static final long BLE_DIAGNOSTIC_SILENCE_MS = 30 * 60_000L;
+    private static final long BLE_DIAGNOSTIC_WINDOW_MS = 8_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final S400Aggregator aggregator = new S400Aggregator();
@@ -61,6 +63,7 @@ public final class ScaleScanService extends Service {
         restartScheduled = false;
         startScan();
     };
+    private final Runnable bleDiagnosticFinishRunnable = this::finishBleDiagnostic;
 
     private BluetoothLeScanner scanner;
     private ScanCallback callback;
@@ -75,6 +78,10 @@ public final class ScaleScanService extends Service {
     private long scanStartedAtMs;
     private long undecipheredSessionStartedAtMs;
     private long lastUndecipheredFailureAtMs;
+    private boolean bleDiagnosticActive;
+    private long bleDiagnosticStartedAtMs;
+    private int bleDiagnosticPacketCount;
+    private int bleDiagnosticActivityCount;
     private String monitorText = "";
 
     @Override public void onCreate() {
@@ -229,14 +236,21 @@ public final class ScaleScanService extends Service {
                 if (result.getDevice() != null
                         && mac.equalsIgnoreCase(result.getDevice().getAddress())) {
                     long previousPacketAt = lastPacketAtMs;
-                    lastPacketAtMs = System.currentTimeMillis();
+                    long receivedAtMs = System.currentTimeMillis();
+                    lastPacketAtMs = receivedAtMs;
                     ServiceState.scaleSeen(ScaleScanService.this);
                     if (!scaleSeenLogged
                             || previousPacketAt <= 0L
                             || lastPacketAtMs - previousPacketAt > ServiceState.SCALE_SEEN_RECENT_MS) {
                         updateMonitor(getString(R.string.service_scale_reachable_waiting));
                     }
-                    analyze(result, mac, bindKey);
+                    analyze(
+                            result,
+                            type,
+                            mac,
+                            bindKey,
+                            previousPacketAt,
+                            receivedAtMs);
                 }
             }
 
@@ -288,8 +302,74 @@ public final class ScaleScanService extends Service {
         }
     }
 
-    private void analyze(ScanResult result, String mac, String bindKey) {
+    private void recordBleDiagnostic(ScanResult result,
+                                     int callbackType,
+                                     BlePacket packet,
+                                     long previousPacketAtMs,
+                                     long receivedAtMs) {
+        long silenceMs = previousPacketAtMs > 0L
+                ? receivedAtMs - previousPacketAtMs
+                : 0L;
+
+        if (silenceMs >= BLE_DIAGNOSTIC_SILENCE_MS) {
+            handler.removeCallbacks(bleDiagnosticFinishRunnable);
+            bleDiagnosticActive = true;
+            bleDiagnosticStartedAtMs = receivedAtMs;
+            bleDiagnosticPacketCount = 0;
+            bleDiagnosticActivityCount = 0;
+
+            EventLog.debug(this,
+                    "BLE-Diagnose gestartet nach "
+                            + (silenceMs / 60_000L)
+                            + " Minuten Funkstille");
+            handler.postDelayed(
+                    bleDiagnosticFinishRunnable,
+                    BLE_DIAGNOSTIC_WINDOW_MS);
+        }
+
+        if (!bleDiagnosticActive) return;
+
+        bleDiagnosticPacketCount++;
+        if (packet.activityPacket) {
+            bleDiagnosticActivityCount++;
+        }
+
+        EventLog.debug(this,
+                "BLE-Diagnose Callback " + bleDiagnosticPacketCount
+                        + " | +" + (receivedAtMs - bleDiagnosticStartedAtMs) + " ms"
+                        + " | Typ=" + callbackType
+                        + " | Muster=" + packet.signature
+                        + " | Aktivität=" + packet.activityPacket
+                        + " | RSSI " + result.getRssi()
+                        + " | Verbindbar " + result.isConnectable());
+    }
+
+    private void finishBleDiagnostic() {
+        if (!bleDiagnosticActive) return;
+
+        bleDiagnosticActive = false;
+        EventLog.debug(this,
+                "BLE-Diagnose beendet | "
+                        + bleDiagnosticPacketCount
+                        + " Callbacks in "
+                        + (BLE_DIAGNOSTIC_WINDOW_MS / 1000L)
+                        + " s | Aktivitätspakete "
+                        + bleDiagnosticActivityCount);
+    }
+
+    private void analyze(ScanResult result,
+                         int callbackType,
+                         String mac,
+                         String bindKey,
+                         long previousPacketAtMs,
+                         long receivedAtMs) {
         BlePacket packet = BlePacket.from(this, result);
+        recordBleDiagnostic(
+                result,
+                callbackType,
+                packet,
+                previousPacketAtMs,
+                receivedAtMs);
         if (!scaleSeenLogged) {
             scaleSeenLogged = true;
             EventLog.info(this, getString(R.string.log_scale_detected));
