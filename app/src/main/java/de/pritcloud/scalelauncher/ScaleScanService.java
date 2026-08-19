@@ -43,7 +43,7 @@ public final class ScaleScanService extends Service {
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
     private static final long SCAN_RESTART_DELAY_MS = 3_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
-    private static final long BLE_DIAGNOSTIC_SILENCE_MS = 30 * 60_000L;
+    private static final long BLE_DIAGNOSTIC_ACTIVITY_IDLE_MS = 30 * 60_000L;
     private static final long BLE_DIAGNOSTIC_WINDOW_MS = 8_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -75,6 +75,7 @@ public final class ScaleScanService extends Service {
     private boolean restartScheduled;
     private boolean activeLogged;
     private long lastPacketAtMs;
+    private long lastActivityPacketAtMs;
     private long scanStartedAtMs;
     private long undecipheredSessionStartedAtMs;
     private long lastUndecipheredFailureAtMs;
@@ -307,11 +308,19 @@ public final class ScaleScanService extends Service {
                                      BlePacket packet,
                                      long previousPacketAtMs,
                                      long receivedAtMs) {
-        long silenceMs = previousPacketAtMs > 0L
-                ? receivedAtMs - previousPacketAtMs
+        long activityReferenceMs = lastActivityPacketAtMs > 0L
+                ? lastActivityPacketAtMs
+                : scanStartedAtMs;
+        long activityIdleMs = activityReferenceMs > 0L
+                ? receivedAtMs - activityReferenceMs
                 : 0L;
 
-        if (silenceMs >= BLE_DIAGNOSTIC_SILENCE_MS) {
+        boolean patternChanged = lastLoggedSignature != null
+                && !packet.signature.equals(lastLoggedSignature);
+
+        if ((packet.activityPacket || patternChanged)
+                && activityIdleMs >= BLE_DIAGNOSTIC_ACTIVITY_IDLE_MS
+                && !bleDiagnosticActive) {
             handler.removeCallbacks(bleDiagnosticFinishRunnable);
             bleDiagnosticActive = true;
             bleDiagnosticStartedAtMs = receivedAtMs;
@@ -320,11 +329,15 @@ public final class ScaleScanService extends Service {
 
             EventLog.debug(this,
                     "BLE-Diagnose gestartet nach "
-                            + (silenceMs / 60_000L)
-                            + " Minuten Funkstille");
+                            + (activityIdleMs / 60_000L)
+                            + " Minuten ohne Aktivitätspaket");
             handler.postDelayed(
                     bleDiagnosticFinishRunnable,
                     BLE_DIAGNOSTIC_WINDOW_MS);
+        }
+
+        if (packet.activityPacket) {
+            lastActivityPacketAtMs = receivedAtMs;
         }
 
         if (!bleDiagnosticActive) return;
@@ -406,6 +419,16 @@ public final class ScaleScanService extends Service {
 
         undecipheredSessionStartedAtMs = 0L;
         handler.removeCallbacks(decryptionFailureRunnable);
+
+        if (bleDiagnosticActive) {
+            String packetType = decoded.isPacketA()
+                    ? "A"
+                    : decoded.isPacketB() ? "B" : "?";
+            EventLog.debug(this,
+                    "BLE-Diagnose entschlüsselt | Paket=" + packetType
+                            + " | Gewicht=" + decoded.weightKg
+                            + " kg");
+        }
 
         long now = System.currentTimeMillis();
         S400Aggregator.Outcome outcome = aggregator.ingest(decoded, now);
