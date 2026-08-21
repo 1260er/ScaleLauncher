@@ -95,5 +95,13 @@
             android:inputType="textNoSuggestions"
             android:maxLength="24"
             android:maxLines="1" />
+
+        <Button
+            android:id="@+id/testGatt"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/action_test_gatt" />
     </LinearLayout>
 </ScrollView>

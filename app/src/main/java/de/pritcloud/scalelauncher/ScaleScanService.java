@@ -7,6 +7,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
@@ -27,6 +28,7 @@ import java.util.Locale;
 
 public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
+    public static final String ACTION_TEST_GATT = "de.pritcloud.scalelauncher.TEST_GATT";
     public static final String ACTION_ASSIGN_PENDING = "de.pritcloud.scalelauncher.ASSIGN_PENDING";
     public static final String ACTION_REFRESH_PENDING = "de.pritcloud.scalelauncher.REFRESH_PENDING";
     public static final String EXTRA_PENDING_ID = "pending_id";
@@ -67,6 +69,8 @@ public final class ScaleScanService extends Service {
 
     private BluetoothLeScanner scanner;
     private ScanCallback callback;
+    private S400GattClient gattClient;
+    private boolean gattTestActive;
     private boolean scanRunning;
     private boolean scaleSeenLogged;
     private String lastLoggedSignature;
@@ -106,6 +110,12 @@ public final class ScaleScanService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (intent != null && ACTION_TEST_GATT.equals(intent.getAction())) {
+            terminalError = false;
+            startGattTest();
+            return START_STICKY;
+        }
+
         if (intent != null && ACTION_ASSIGN_PENDING.equals(intent.getAction())) {
             String pendingId = intent.getStringExtra(EXTRA_PENDING_ID);
             long userId = intent.getLongExtra(EXTRA_USER_ID, -1L);
@@ -117,6 +127,152 @@ public final class ScaleScanService extends Service {
         }
         if (!scanRunning && !terminalError) startScan();
         return START_STICKY;
+    }
+
+    private void startGattTest() {
+        if (gattTestActive) {
+            EventLog.debug(this, getString(R.string.log_gatt_test_already_active));
+            return;
+        }
+
+        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) {
+            EventLog.error(this, getString(R.string.service_error_bluetooth_permission));
+            return;
+        }
+
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        String mac = prefs.getString("mac", "");
+        String token = prefs.getString("login_token", "");
+
+        if (!S400Decryptor.isValidMacAddress(mac)) {
+            EventLog.error(this, getString(R.string.service_error_invalid_mac));
+            return;
+        }
+        if (!S400GattProtocol.isValidLoginToken(token)) {
+            EventLog.error(this, getString(R.string.scale_error_invalid_login_token));
+            return;
+        }
+
+        BluetoothManager manager =
+                (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
+        BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
+
+        if (adapter == null || !adapter.isEnabled()) {
+            EventLog.error(this, getString(R.string.service_error_bluetooth_disabled));
+            return;
+        }
+
+        final BluetoothDevice device;
+        try {
+            device = adapter.getRemoteDevice(mac);
+        } catch (RuntimeException exception) {
+            EventLog.error(this, getString(
+                    R.string.log_gatt_error,
+                    exception.getClass().getSimpleName()));
+            return;
+        }
+
+        stopScan();
+        gattTestActive = true;
+        monitorText = getString(R.string.service_gatt_connecting);
+        ServiceState.running(this, monitorText, true);
+        notifyMonitor();
+        EventLog.info(this, getString(R.string.log_gatt_test_started));
+
+        gattClient = new S400GattClient(
+                this,
+                new S400GattClient.Listener() {
+                    @Override public void onStateChanged(S400GattClient.State state) {
+                        EventLog.debug(
+                                ScaleScanService.this,
+                                getString(R.string.log_gatt_state, state.name()));
+
+                        if (state == S400GattClient.State.DISCONNECTED
+                                && gattTestActive) {
+                            finishGattTest();
+                        }
+                    }
+
+                    @Override public void onAuthenticated() {
+                        EventLog.info(
+                                ScaleScanService.this,
+                                getString(R.string.log_gatt_authenticated));
+                        updateMonitor(getString(R.string.service_gatt_ready));
+                    }
+
+                    @Override public void onMeasurement(
+                            S400GattMeasurement measurement) {
+                        if (measurement == null || measurement.weightKg == null) {
+                            return;
+                        }
+
+                        if (measurement.type == S400GattMeasurement.Type.LIVE) {
+                            EventLog.debug(
+                                    ScaleScanService.this,
+                                    getString(
+                                            R.string.log_gatt_live,
+                                            measurement.weightKg,
+                                            Boolean.toString(measurement.stable)));
+                            return;
+                        }
+
+                        String impedance = measurement.impedance == null
+                                ? "–"
+                                : String.format(
+                                        Locale.GERMANY,
+                                        "%.1f",
+                                        measurement.impedance);
+                        String impedanceLow = measurement.impedanceLow == null
+                                ? "–"
+                                : String.format(
+                                        Locale.GERMANY,
+                                        "%.1f",
+                                        measurement.impedanceLow);
+
+                        EventLog.info(
+                                ScaleScanService.this,
+                                getString(
+                                        R.string.log_gatt_final,
+                                        measurement.weightKg,
+                                        impedance,
+                                        impedanceLow));
+
+                        S400GattClient client = gattClient;
+                        if (client != null) {
+                            client.disconnect();
+                        }
+                    }
+
+                    @Override public void onDisconnected(int status) {
+                        EventLog.warning(
+                                ScaleScanService.this,
+                                getString(R.string.log_gatt_disconnected, status));
+                        finishGattTest();
+                    }
+
+                    @Override public void onError(String message) {
+                        EventLog.error(
+                                ScaleScanService.this,
+                                getString(R.string.log_gatt_error, message));
+                    }
+                });
+
+        gattClient.connect(device, token);
+    }
+
+    private void finishGattTest() {
+        if (!gattTestActive) return;
+
+        gattTestActive = false;
+        gattClient = null;
+
+        if (!explicitStop && !terminalError) {
+            monitorText = getString(R.string.service_gatt_finished);
+            ServiceState.running(this, monitorText, true);
+            notifyMonitor();
+            handler.postDelayed(this::startScan, 1_000L);
+        }
     }
 
     private void synchronizeOpenScaleUsers() {
@@ -950,6 +1106,8 @@ public final class ScaleScanService extends Service {
                         getString(R.string.service_error_bluetooth_disabled));
                 scheduleScanRestart(
                         getString(R.string.service_error_bluetooth_disabled));
+            } else if (gattTestActive) {
+                ServiceState.heartbeat(this, true, monitorText);
             } else if (!scanRunning) {
                 scheduleScanRestart(getString(R.string.service_error_monitor_inactive));
             } else {
@@ -1177,6 +1335,12 @@ public final class ScaleScanService extends Service {
 
     @Override public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        gattTestActive = false;
+        S400GattClient oldGattClient = gattClient;
+        gattClient = null;
+        if (oldGattClient != null) {
+            oldGattClient.disconnect();
+        }
         stopScan();
         aggregator.reset();
         if (explicitStop) {
