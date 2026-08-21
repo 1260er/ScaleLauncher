@@ -77,5 +77,23 @@
             android:inputType="textNoSuggestions"
             android:maxLength="32"
             android:maxLines="1" />
+
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/scale_login_token" />
+
+        <EditText
+            android:id="@+id/loginToken"
+            style="@style/UiInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:hint="@string/scale_login_token_hint"
+            android:inputType="textNoSuggestions"
+            android:maxLength="24"
+            android:maxLines="1" />
     </LinearLayout>
 </ScrollView>

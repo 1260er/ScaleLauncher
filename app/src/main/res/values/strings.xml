@@ -21,6 +21,9 @@
     <string name="action_scan_scale">Waage suchen und auswählen</string>
     <string name="scale_bind_key">S400 Bind-Key (32 Hex-Zeichen)</string>
     <string name="scale_bind_key_hint">00112233445566778899aabbccddeeff</string>
+    <string name="scale_login_token">S400 Login-Token (24 Hex-Zeichen)</string>
+    <string name="scale_login_token_hint">00112233445566778899aabb</string>
+    <string name="scale_error_invalid_login_token">Der Login-Token muss aus genau 24 Hex-Zeichen bestehen.</string>
     <string name="scale_error_invalid_mac">Ungültige Bluetooth-Adresse.</string>
     <string name="scale_error_invalid_bind_key">Der Bind-Key muss aus genau 32 Hex-Zeichen bestehen.</string>
     <string name="scale_settings_saved">Waageneinstellungen gespeichert.</string>
