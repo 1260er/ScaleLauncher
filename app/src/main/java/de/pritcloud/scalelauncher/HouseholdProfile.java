@@ -47,9 +47,15 @@ final class HouseholdProfile {
                         ? profile.ownerDeviceId
                         : localDeviceId;
 
+        if (!UserProfile.isValidHouseholdProfileId(
+                profile.householdProfileId)) {
+            throw new IllegalArgumentException(
+                    "Missing household profile ID");
+        }
+
         HouseholdProfile result =
                 new HouseholdProfile(
-                        profile.ensureHouseholdProfileId(),
+                        profile.householdProfileId,
                         profile.name,
                         owner,
                         profile.referenceWeightKg,

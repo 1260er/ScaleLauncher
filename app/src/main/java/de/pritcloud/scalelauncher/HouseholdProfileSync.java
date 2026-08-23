@@ -41,6 +41,16 @@ final class HouseholdProfileSync {
                     profiles);
         }
 
+        if (!UserProfile.isValidHouseholdProfileId(
+                profile.householdProfileId)) {
+            return false;
+        }
+
+        if (!UserProfile.isValidHouseholdProfileId(
+                profile.householdProfileId)) {
+            return false;
+        }
+
         return publishPrepared(
                 context,
                 profile,
@@ -123,6 +133,11 @@ final class HouseholdProfileSync {
                             now,
                             false);
 
+            if (!UserProfile.isValidHouseholdProfileId(
+                    profile.householdProfileId)) {
+                continue;
+            }
+
             try {
                 HouseholdProfile household =
                         HouseholdProfile.fromUserProfile(
@@ -183,37 +198,15 @@ final class HouseholdProfileSync {
 
         for (UserProfile local :
                 localProfiles) {
-            boolean sameCanonicalId =
-                    incoming.profileId.equals(
-                            local.householdProfileId);
-
-            boolean sameOwnerAndName =
-                    senderIsOwner
-                            && incoming.ownerDeviceId.equals(
-                                    local.ownerDeviceId)
-                            && incoming.name.trim()
-                                    .equalsIgnoreCase(
-                                            local.name.trim());
-
-            if (!sameCanonicalId
-                    && !sameOwnerAndName) {
+            /*
+             * householdProfileId is the ONLY identity.
+             *
+             * Names are display data and may occur more than once.
+             * Never link, merge or replace profiles by name.
+             */
+            if (!incoming.profileId.equals(
+                    local.householdProfileId)) {
                 continue;
-            }
-
-            if (sameOwnerAndName
-                    && !sameCanonicalId) {
-                if (UserProfile.isValidHouseholdProfileId(
-                        local.householdProfileId)) {
-                    HouseholdProfileStore.removeProfile(
-                            context,
-                            local.householdProfileId);
-                }
-
-                local.householdProfileId =
-                        incoming.profileId;
-
-                localChanged =
-                        true;
             }
 
             if (senderIsOwner
@@ -221,24 +214,19 @@ final class HouseholdProfileSync {
                     > local.householdUpdatedAtMs) {
                 local.referenceWeightKg =
                         incoming.referenceWeightKg;
+
                 local.toleranceKg =
                         incoming.toleranceKg;
+
                 local.ownerDeviceId =
                         incoming.ownerDeviceId;
+
                 local.householdUpdatedAtMs =
                         incoming.updatedAtMs;
 
                 localChanged =
                         true;
             }
-        }
-
-        if (senderIsOwner) {
-            HouseholdProfileStore.removeMatchingIdentityExcept(
-                    context,
-                    incoming.name,
-                    incoming.ownerDeviceId,
-                    incoming.profileId);
         }
 
         if (localChanged) {
@@ -340,23 +328,35 @@ final class HouseholdProfileSync {
             boolean bumpTimestamp) {
         boolean changed = false;
 
-        if (!UserProfile.isValidHouseholdProfileId(
-                profile.householdProfileId)) {
-            profile.ensureHouseholdProfileId();
-            changed = true;
-        }
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        context);
 
         if (!PeerTrustStore.isValidDeviceId(
                 profile.ownerDeviceId)) {
             profile.ownerDeviceId =
-                    PeerTrustStore.localDeviceId(
-                            context);
+                    localDeviceId;
 
             changed = true;
         }
 
-        if (bumpTimestamp
-                || profile.householdUpdatedAtMs <= 0L) {
+        /*
+         * Only the owning phone may mint a new household profile ID.
+         * A phone that merely knows about a remote user must wait for
+         * the canonical ID sent by that users owning phone.
+         */
+        if (!UserProfile.isValidHouseholdProfileId(
+                        profile.householdProfileId)
+                && localDeviceId.equals(
+                        profile.ownerDeviceId)) {
+            profile.ensureHouseholdProfileId();
+            changed = true;
+        }
+
+        if (UserProfile.isValidHouseholdProfileId(
+                        profile.householdProfileId)
+                && (bumpTimestamp
+                    || profile.householdUpdatedAtMs <= 0L)) {
             profile.householdUpdatedAtMs =
                     Math.max(
                             1L,

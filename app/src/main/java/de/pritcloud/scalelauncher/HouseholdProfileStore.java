@@ -143,44 +143,6 @@ final class HouseholdProfileStore {
         return removed;
     }
 
-    static int removeMatchingIdentityExcept(
-            Context context,
-            String name,
-            String ownerDeviceId,
-            String keepProfileId) {
-        List<HouseholdProfile> profiles =
-                load(context);
-
-        int before =
-                profiles.size();
-
-        String normalizedName =
-                name == null
-                        ? ""
-                        : name.trim();
-
-        profiles.removeIf(
-                profile ->
-                        !profile.profileId.equals(
-                                keepProfileId)
-                                && profile.ownerDeviceId.equals(
-                                        ownerDeviceId)
-                                && profile.name.trim()
-                                        .equalsIgnoreCase(
-                                                normalizedName));
-
-        int removed =
-                before - profiles.size();
-
-        if (removed > 0) {
-            save(
-                    context,
-                    profiles);
-        }
-
-        return removed;
-    }
-
     static int removeOwner(
             Context context,
             String ownerDeviceId) {
