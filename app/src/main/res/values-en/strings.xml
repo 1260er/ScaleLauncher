@@ -435,11 +435,12 @@ Confirm only when both codes are identical.</string>
     <string name="peer_pair_write_queue_failed">BLE key write could not be started</string>
     <string name="peer_pair_invalid_handshake">Invalid secure key exchange data</string>
     <string name="peer_pair_crypto_failed">Secure key exchange failed: %1$s</string>
+    <string name="peer_pair_store_failed">Pairing could not be stored securely: %1$s</string>
     <string name="peer_pair_timeout">Secure key exchange did not complete within 45 seconds</string>
     <string name="peer_pair_already_trusted">This phone is already stored as trusted</string>
     <string name="peer_pair_code_ready">Security code: %1$s
 
-Both phones must show exactly the same code. This test does not save the pairing yet.</string>
+Both phones must show exactly the same code. If they match, press “Codes match” on both phones.</string>
     <string name="peer_pair_code_log">Secure BLE key exchange successful – security code ready</string>
 
 </resources>

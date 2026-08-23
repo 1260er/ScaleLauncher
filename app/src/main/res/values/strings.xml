@@ -443,11 +443,12 @@ Nur bestätigen, wenn beide Codes identisch sind.</string>
     <string name="peer_pair_write_queue_failed">BLE-Schlüsselschreiben konnte nicht gestartet werden</string>
     <string name="peer_pair_invalid_handshake">Ungültige Daten beim sicheren Schlüsselaustausch</string>
     <string name="peer_pair_crypto_failed">Sicherer Schlüsselaustausch fehlgeschlagen: %1$s</string>
+    <string name="peer_pair_store_failed">Kopplung konnte nicht sicher gespeichert werden: %1$s</string>
     <string name="peer_pair_timeout">Kein vollständiger sicherer Schlüsselaustausch innerhalb von 45 Sekunden</string>
     <string name="peer_pair_already_trusted">Dieses Handy ist bereits als vertrauenswürdig gespeichert</string>
     <string name="peer_pair_code_ready">Sicherheitscode: %1$s
 
-Auf beiden Handys muss exakt derselbe Code stehen. In diesem Test wird die Kopplung noch nicht dauerhaft gespeichert.</string>
+Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf beiden Handys „Codes stimmen überein“ drücken.</string>
     <string name="peer_pair_code_log">Sicherer BLE-Schlüsselaustausch erfolgreich – Sicherheitscode bereit</string>
 
 </resources>

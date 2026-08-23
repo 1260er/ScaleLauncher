@@ -37,6 +37,7 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public final class PeerPairingActivity extends Activity {
@@ -74,6 +75,9 @@ public final class PeerPairingActivity extends Activity {
     private TextView trustedInfo;
     private TextView status;
     private Button startButton;
+
+    private PeerPairingCrypto.Remote pendingRemote;
+    private PeerPairingCrypto.Result pendingResult;
 
     private boolean pairingActive;
     private boolean clientConnecting;
@@ -138,7 +142,7 @@ public final class PeerPairingActivity extends Activity {
                         R.id.startPeerPairing);
 
         startButton.setOnClickListener(
-                view -> ensurePermissionsAndStart());
+                view -> handlePrimaryAction());
 
         refreshSummary();
     }
@@ -157,6 +161,17 @@ public final class PeerPairingActivity extends Activity {
                         R.plurals.peer_trusted_count,
                         trusted,
                         trusted));
+    }
+
+    private void handlePrimaryAction() {
+        if (codeReady
+                && pendingRemote != null
+                && pendingResult != null) {
+            confirmPairing();
+            return;
+        }
+
+        ensurePermissionsAndStart();
     }
 
     private void ensurePermissionsAndStart() {
@@ -230,6 +245,10 @@ public final class PeerPairingActivity extends Activity {
 
     private void startPairing() {
         stopBle();
+        clearPendingPairing();
+
+        startButton.setText(
+                R.string.peer_pairing_start);
 
         if (adapter == null
                 || manager == null
@@ -820,32 +839,14 @@ public final class PeerPairingActivity extends Activity {
             PeerPairingCrypto.Remote remote) {
         if (codeReady) return;
 
-        if (PeerTrustStore.isTrusted(
-                this,
-                remote.deviceId)) {
-            codeReady = true;
-
-            handler.removeCallbacks(
-                    timeoutTask);
-
-            stopRadioOnly();
-
-            runOnUiThread(
-                    () -> {
-                        status.setText(
-                                R.string.peer_pair_already_trusted);
-                        startButton.setEnabled(true);
-                    });
-
-            return;
-        }
-
         try {
             PeerPairingCrypto.Result result =
                     PeerPairingCrypto.derive(
                             cryptoSession,
                             remote);
 
+            pendingRemote = remote;
+            pendingResult = result;
             codeReady = true;
 
             handler.removeCallbacks(
@@ -865,6 +866,8 @@ public final class PeerPairingActivity extends Activity {
                                         R.string.peer_pair_code_ready,
                                         result.securityCode));
 
+                        startButton.setText(
+                                R.string.peer_verify_accept);
                         startButton.setEnabled(true);
                     });
         } catch (RuntimeException exception) {
@@ -874,6 +877,104 @@ public final class PeerPairingActivity extends Activity {
                             exception.getClass()
                                     .getSimpleName()));
         }
+    }
+
+    private void confirmPairing() {
+        PeerPairingCrypto.Remote remote =
+                pendingRemote;
+
+        PeerPairingCrypto.Result result =
+                pendingResult;
+
+        if (!codeReady
+                || remote == null
+                || result == null) {
+            clearPendingPairing();
+
+            status.setText(
+                    R.string.peer_pairing_ready);
+            startButton.setText(
+                    R.string.peer_pairing_start);
+            startButton.setEnabled(true);
+            return;
+        }
+
+        String label =
+                peerLabel(
+                        remote.deviceId);
+
+        try {
+            PeerTrustStore.trust(
+                    this,
+                    remote.deviceId,
+                    label,
+                    result.sharedSecret);
+
+            stopBle();
+            clearPendingPairing();
+            refreshSummary();
+
+            String message =
+                    getString(
+                            R.string.peer_pairing_success,
+                            label);
+
+            status.setText(message);
+            startButton.setText(
+                    R.string.peer_pairing_start);
+            startButton.setEnabled(true);
+
+            EventLog.info(
+                    this,
+                    message);
+        } catch (RuntimeException exception) {
+            fail(
+                    getString(
+                            R.string.peer_pair_store_failed,
+                            exception.getClass()
+                                    .getSimpleName()));
+        }
+    }
+
+    private void clearPendingPairing() {
+        if (pendingResult != null
+                && pendingResult.sharedSecret != null) {
+            Arrays.fill(
+                    pendingResult.sharedSecret,
+                    (byte) 0);
+        }
+
+        pendingRemote = null;
+        pendingResult = null;
+        codeReady = false;
+    }
+
+    private static String peerLabel(
+            String deviceId) {
+        byte[] value =
+                fingerprint(
+                        deviceId);
+
+        StringBuilder builder =
+                new StringBuilder(
+                        "ScaleLauncher ");
+
+        int length =
+                Math.min(
+                        4,
+                        value.length);
+
+        for (int index = 0;
+             index < length;
+             index++) {
+            builder.append(
+                    String.format(
+                            Locale.ROOT,
+                            "%02X",
+                            value[index] & 0xff));
+        }
+
+        return builder.toString();
     }
 
     private final Runnable timeoutTask =
@@ -891,10 +992,13 @@ public final class PeerPairingActivity extends Activity {
     private void fail(
             String message) {
         stopBle();
+        clearPendingPairing();
 
         runOnUiThread(
                 () -> {
                     status.setText(message);
+                    startButton.setText(
+                            R.string.peer_pairing_start);
                     startButton.setEnabled(true);
                 });
 
@@ -1005,6 +1109,7 @@ public final class PeerPairingActivity extends Activity {
     @Override
     protected void onDestroy() {
         stopBle();
+        clearPendingPairing();
         super.onDestroy();
     }
 }
