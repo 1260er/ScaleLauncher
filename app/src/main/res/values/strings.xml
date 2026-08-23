@@ -84,6 +84,10 @@
     <string name="user_reference_weight_hint">Gewicht in kg</string>
     <string name="user_reference_weight_example">50</string>
     <string name="user_weight_tolerance_hint">Zulässige Abweichung</string>
+    <string name="user_owner_device">Messungen speichern auf</string>
+    <string name="user_owner_device_local">Dieses Handy</string>
+    <string name="user_owner_device_peer">Gekoppeltes ScaleLauncher-Handy</string>
+    <string name="user_owner_device_unavailable">Zugeordnetes Handy nicht verfügbar</string>
     <string name="user_health_connect">Health Connect nur für diesen Benutzer verwenden</string>
     <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
     <string name="page_health_connect_title">Health Connect</string>

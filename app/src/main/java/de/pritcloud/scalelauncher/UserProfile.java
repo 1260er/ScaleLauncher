@@ -16,6 +16,7 @@ final class UserProfile {
     boolean male;
     float referenceWeightKg;
     float toleranceKg;
+    String ownerDeviceId;
 
     UserProfile(long userId, String name) {
         this.userId = userId;
@@ -24,6 +25,7 @@ final class UserProfile {
                 : name;
         this.birthDateIso = "";
         this.toleranceKg = DEFAULT_TOLERANCE_KG;
+        this.ownerDeviceId = "";
     }
 
     boolean hasValidBodyData(long timestampMs) {
@@ -54,6 +56,7 @@ final class UserProfile {
         object.put("male", male);
         object.put("referenceWeightKg", referenceWeightKg);
         object.put("toleranceKg", toleranceKg);
+        object.put("ownerDeviceId", ownerDeviceId == null ? "" : ownerDeviceId);
         return object;
     }
 
@@ -66,6 +69,7 @@ final class UserProfile {
         profile.male = object.optBoolean("male", false);
         profile.referenceWeightKg = (float) object.optDouble("referenceWeightKg", 0.0d);
         profile.toleranceKg = (float) object.optDouble("toleranceKg", DEFAULT_TOLERANCE_KG);
+        profile.ownerDeviceId = object.optString("ownerDeviceId", "");
         return profile;
     }
 

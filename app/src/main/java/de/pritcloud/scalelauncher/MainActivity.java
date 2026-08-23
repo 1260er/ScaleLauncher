@@ -68,6 +68,7 @@ public final class MainActivity extends Activity {
     private RadioButton sexMale;
     private Spinner userSpinner;
     private Spinner pendingUserSpinner;
+    private Spinner ownerDeviceSpinner;
     private TextView status;
     private android.widget.ImageView scaleStatusImage;
     private TextView log;
@@ -83,6 +84,7 @@ public final class MainActivity extends Activity {
     private List<UserProfile> profiles = new ArrayList<>();
     private List<UserProfile> pendingProfiles = new ArrayList<>();
     private List<PendingMeasurementStore.Item> pendingMeasurements = new ArrayList<>();
+    private List<OwnerDeviceOption> ownerDeviceOptions = new ArrayList<>();
     private LocalDate selectedBirthDate;
     private boolean loadingProfile;
     private String pendingProfileSignature = "";
@@ -214,6 +216,7 @@ public final class MainActivity extends Activity {
         sexMale = findViewById(R.id.sexMale);
         userSpinner = findViewById(R.id.openScaleUser);
         pendingUserSpinner = findViewById(R.id.pendingUser);
+        ownerDeviceSpinner = findViewById(R.id.ownerDevice);
         status = findViewById(R.id.status);
         scaleStatusImage = findViewById(R.id.scaleStatusImage);
         log = findViewById(R.id.log);
@@ -550,6 +553,7 @@ public final class MainActivity extends Activity {
         long healthUserId = getSharedPreferences("prefs", MODE_PRIVATE)
                 .getLong("health_connect_user_id", -1L);
         healthConnectProfile.setChecked(healthUserId == profile.userId);
+        updateOwnerDeviceSpinner(profile.ownerDeviceId);
         getSharedPreferences("prefs", MODE_PRIVATE).edit()
                 .putLong("profile_editor_user_id", profile.userId)
                 .apply();
@@ -561,6 +565,7 @@ public final class MainActivity extends Activity {
         loadingProfile = true;
         profileEnabled.setChecked(false);
         healthConnectProfile.setChecked(false);
+        updateOwnerDeviceSpinner("");
         selectedBirthDate = null;
         updateBirthDateText();
         heightCm.setText("");
@@ -627,6 +632,12 @@ public final class MainActivity extends Activity {
         profile.toleranceKg = parsedTolerance == null
                 ? UserProfile.DEFAULT_TOLERANCE_KG
                 : parsedTolerance;
+
+        String ownerDeviceId = selectedOwnerDeviceId();
+        profile.ownerDeviceId =
+                ownerDeviceId == null
+                        ? PeerTrustStore.localDeviceId(this)
+                        : ownerDeviceId;
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
@@ -706,6 +717,115 @@ public final class MainActivity extends Activity {
                 R.string.profile_status_summary,
                 enabledCount,
                 healthName));
+    }
+
+    private void updateOwnerDeviceSpinner(
+            String selectedDeviceId) {
+        ownerDeviceOptions =
+                new ArrayList<>();
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(this);
+
+        ownerDeviceOptions.add(
+                new OwnerDeviceOption(
+                        localDeviceId,
+                        getString(
+                                R.string.user_owner_device_local)));
+
+        for (PeerTrustStore.Peer peer :
+                PeerTrustStore.load(this)) {
+            ownerDeviceOptions.add(
+                    new OwnerDeviceOption(
+                            peer.deviceId,
+                            peer.label == null
+                                    || peer.label.isBlank()
+                                    ? getString(
+                                            R.string.user_owner_device_peer)
+                                    : peer.label));
+        }
+
+        String wanted =
+                selectedDeviceId == null
+                        || selectedDeviceId.isBlank()
+                        ? localDeviceId
+                        : selectedDeviceId;
+
+        int selectedPosition = 0;
+        boolean found = false;
+
+        for (int index = 0;
+             index < ownerDeviceOptions.size();
+             index++) {
+            if (ownerDeviceOptions
+                    .get(index)
+                    .deviceId
+                    .equals(wanted)) {
+                selectedPosition = index;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found
+                && PeerTrustStore
+                        .isValidDeviceId(wanted)) {
+            ownerDeviceOptions.add(
+                    new OwnerDeviceOption(
+                            wanted,
+                            getString(
+                                    R.string.user_owner_device_unavailable)));
+
+            selectedPosition =
+                    ownerDeviceOptions.size() - 1;
+        }
+
+        ArrayAdapter<OwnerDeviceOption> adapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_spinner_item,
+                        ownerDeviceOptions);
+
+        adapter.setDropDownViewResource(
+                android.R.layout.simple_spinner_dropdown_item);
+
+        ownerDeviceSpinner.setAdapter(
+                adapter);
+
+        ownerDeviceSpinner.setSelection(
+                selectedPosition);
+    }
+
+    private String selectedOwnerDeviceId() {
+        int position =
+                ownerDeviceSpinner
+                        .getSelectedItemPosition();
+
+        if (position < 0
+                || position >= ownerDeviceOptions.size()) {
+            return null;
+        }
+
+        return ownerDeviceOptions
+                .get(position)
+                .deviceId;
+    }
+
+    private static final class OwnerDeviceOption {
+        final String deviceId;
+        final String label;
+
+        OwnerDeviceOption(
+                String deviceId,
+                String label) {
+            this.deviceId = deviceId;
+            this.label = label;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 
     private void applyHealthConnectSelection(HealthConnectSelection selection) {
