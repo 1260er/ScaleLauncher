@@ -29,6 +29,9 @@
     <string name="log_gatt_authenticated">GATT authentifiziert – Collector-Rolle übernommen</string>
     <string name="log_gatt_live">GATT LIVE: %1$.1f kg | stabil=%2$s</string>
     <string name="log_gatt_final">GATT FINAL: %1$.1f kg | Impedanz %2$s / %3$s Ohm</string>
+    <string name="log_peer_measurement_sent">Peer-Messung an %1$s gesendet: %2$.1f kg</string>
+    <string name="log_peer_measurement_received">Peer-Messung von %1$s empfangen und geprüft: %2$.1f kg</string>
+    <string name="log_peer_transport_error">Peer-Transport: %1$s</string>
     <string name="log_gatt_final_incomplete">GATT FINAL unvollständig: %1$.1f kg | Impedanz %2$s / %3$s Ohm</string>
     <string name="service_error_gatt_final_incomplete">GATT-FINAL unvollständig – Dual-Impedanz fehlt</string>
     <string name="log_gatt_disconnected">GATT-Verbindung getrennt | Status %1$d</string>

@@ -53,6 +53,7 @@ public final class ScaleScanService extends Service {
     };
 
     private S400GattClient gattClient;
+    private PeerMeasurementTransport peerTransport;
     private boolean gattMonitoringActive;
     private boolean gattCollectorOwned;
     private boolean gattReconnectScheduled;
@@ -65,6 +66,48 @@ public final class ScaleScanService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         createChannels();
+
+        peerTransport =
+                new PeerMeasurementTransport(
+                        this,
+                        new PeerMeasurementTransport.Listener() {
+                            @Override
+                            public void onMeasurementReceived(
+                                    PeerTrustStore.Peer peer,
+                                    PeerMeasurementPayload payload) {
+                                EventLog.info(
+                                        ScaleScanService.this,
+                                        getString(
+                                                R.string.log_peer_measurement_received,
+                                                peer.label,
+                                                payload.weightKg));
+                            }
+
+                            @Override
+                            public void onMeasurementSent(
+                                    PeerTrustStore.Peer peer,
+                                    PeerMeasurementPayload payload) {
+                                EventLog.info(
+                                        ScaleScanService.this,
+                                        getString(
+                                                R.string.log_peer_measurement_sent,
+                                                peer.label,
+                                                payload.weightKg));
+                            }
+
+                            @Override
+                            public void onError(
+                                    String message) {
+                                EventLog.warning(
+                                        ScaleScanService.this,
+                                        getString(
+                                                R.string.log_peer_transport_error,
+                                                message));
+                            }
+                        });
+
+        peerTransport.start();
+
         monitorText = getString(R.string.service_gatt_connecting);
         ServiceState.starting(
                 this,
@@ -451,7 +494,58 @@ public final class ScaleScanService extends Service {
                         finalized.impedanceHigh,
                         finalized.impedanceLow));
 
+        sendPeerMeasurementTransportTest(
+                finalized);
+
         routeMeasurement(finalized);
+    }
+
+    private void sendPeerMeasurementTransportTest(
+            S400FinalMeasurement measurement) {
+        if (!gattCollectorOwned
+                || peerTransport == null
+                || measurement == null
+                || !measurement.isComplete()) {
+            return;
+        }
+
+        List<PeerTrustStore.Peer> peers =
+                PeerTrustStore.load(this);
+
+        if (peers.size() != 1) {
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        String mac =
+                prefs.getString(
+                        "mac",
+                        "");
+
+        if (!S400GattProtocol.isValidMacAddress(mac)) {
+            return;
+        }
+
+        try {
+            PeerMeasurementPayload payload =
+                    PeerMeasurementPayload.fromMeasurement(
+                            mac,
+                            measurement);
+
+            peerTransport.send(
+                    peers.get(0),
+                    payload);
+        } catch (RuntimeException exception) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_peer_transport_error,
+                            exception.getClass().getSimpleName()));
+        }
     }
 
     private void scheduleGattReconnect(String reason) {
@@ -1211,6 +1305,11 @@ public final class ScaleScanService extends Service {
     }
 
     @Override public void onDestroy() {
+        if (peerTransport != null) {
+            peerTransport.stop();
+            peerTransport = null;
+        }
+
         handler.removeCallbacksAndMessages(null);
         stopGattCollector();
         if (explicitStop) {
