@@ -260,6 +260,12 @@ public final class MainActivity extends Activity {
                 requestNeededPermissions();
             }
         });
+        findViewById(R.id.pairPhone).setOnClickListener(
+                v -> startActivity(
+                        new Intent(
+                                this,
+                                PeerPairingActivity.class)));
+
         findViewById(R.id.loadOpenScaleUsers).setOnClickListener(v -> prepareOpenScaleAccess());
         findViewById(R.id.saveProfile).setOnClickListener(view -> {
             if (!saveCurrentProfile(true)) return;

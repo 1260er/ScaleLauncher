@@ -374,4 +374,37 @@ UUIDs: %1$s</string>
     <string name="support_link_error">Der Unterstützungslink konnte nicht geöffnet werden.</string>
     <string name="help_url" translatable="false">https://github.com/1260er/ScaleLauncher</string>
     <string name="support_url" translatable="false">https://ko-fi.com/1260er</string>
+
+    <string name="peer_section_title">Handy-Verbindung</string>
+    <string name="peer_pair_phone">Handys koppeln</string>
+    <string name="peer_pairing_title">Handys koppeln</string>
+    <string name="peer_pairing_intro">Öffne diese Seite einmalig auf beiden Handys und starte auf beiden die Kopplung. Bestätige nur, wenn derselbe vierstellige Sicherheitscode angezeigt wird.</string>
+    <string name="peer_local_device">Dieses Handy: %1$s</string>
+    <plurals name="peer_trusted_count">
+        <item quantity="one">%1$d gekoppeltes Handy</item>
+        <item quantity="other">%1$d gekoppelte Handys</item>
+    </plurals>
+    <string name="peer_pairing_ready">Bereit zur Kopplung</string>
+    <string name="peer_pairing_start">Kopplung starten</string>
+    <string name="peer_searching">Suche nach ScaleLauncher-Handys …</string>
+    <string name="peer_found">Handy gefunden: %1$s</string>
+    <string name="peer_request_sent">Verbindungsanfrage an %1$s gesendet</string>
+    <string name="peer_already_trusted">%1$s ist bereits gekoppelt</string>
+    <string name="peer_verify_title">Sicherheitscode vergleichen</string>
+    <string name="peer_verify_message">Gerät: %1$s
+
+Code auf beiden Handys:
+%2$s
+
+Nur bestätigen, wenn beide Codes identisch sind.</string>
+    <string name="peer_verify_accept">Codes stimmen überein</string>
+    <string name="peer_verify_reject">Abbrechen</string>
+    <string name="peer_pairing_success">Kopplung erfolgreich: %1$s</string>
+    <string name="peer_pairing_failed">Kopplung wurde nicht abgeschlossen</string>
+    <string name="peer_authentication_failed">Sichere Nearby-Authentifizierung nicht verfügbar</string>
+    <string name="peer_permission_missing">Nearby-Berechtigungen wurden nicht vollständig erteilt</string>
+    <string name="peer_nearby_failed">Nearby-Fehler: %1$s</string>
+    <string name="peer_unknown_device">Unbekanntes Handy</string>
+    <string name="peer_unknown_error">Unbekannter Fehler</string>
+
 </resources>

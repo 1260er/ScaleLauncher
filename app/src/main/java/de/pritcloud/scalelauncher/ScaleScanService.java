@@ -435,7 +435,8 @@ public final class ScaleScanService extends Service {
                         measurement.weightKg,
                         measurement.impedance,
                         measurement.impedanceLow,
-                        timestampMs);
+                        timestampMs,
+                        measurement.profileId);
 
         EventLog.info(
                 this,

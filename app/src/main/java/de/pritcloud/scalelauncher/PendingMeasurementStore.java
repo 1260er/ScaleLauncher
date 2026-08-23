@@ -8,7 +8,6 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 final class PendingMeasurementStore {
     private static final String KEY = "pending_measurements_json";
@@ -19,6 +18,7 @@ final class PendingMeasurementStore {
         final float weightKg;
         final float impedanceHigh;
         final Float impedanceLow;
+        final Integer scaleProfileId;
         final boolean timedOut;
         final long timestampMs;
         final String reason;
@@ -27,6 +27,7 @@ final class PendingMeasurementStore {
              float weightKg,
              float impedanceHigh,
              Float impedanceLow,
+             Integer scaleProfileId,
              boolean timedOut,
              long timestampMs,
              String reason) {
@@ -34,6 +35,7 @@ final class PendingMeasurementStore {
             this.weightKg = weightKg;
             this.impedanceHigh = impedanceHigh;
             this.impedanceLow = impedanceLow;
+            this.scaleProfileId = scaleProfileId;
             this.timedOut = timedOut;
             this.timestampMs = timestampMs;
             this.reason = reason;
@@ -41,10 +43,12 @@ final class PendingMeasurementStore {
 
         S400FinalMeasurement toMeasurement() {
             return new S400FinalMeasurement(
+                    id,
                     weightKg,
                     impedanceHigh,
                     impedanceLow,
-                    timestampMs);
+                    timestampMs,
+                    scaleProfileId);
         }
 
         JSONObject toJson() throws JSONException {
@@ -53,6 +57,9 @@ final class PendingMeasurementStore {
             object.put("weightKg", weightKg);
             object.put("impedanceHigh", impedanceHigh);
             if (impedanceLow != null) object.put("impedanceLow", impedanceLow);
+            if (scaleProfileId != null) {
+                object.put("scaleProfileId", scaleProfileId);
+            }
             object.put("timedOut", timedOut);
             object.put("timestampMs", timestampMs);
             object.put("reason", reason);
@@ -63,11 +70,17 @@ final class PendingMeasurementStore {
             Float low = object.has("impedanceLow")
                     ? (float) object.optDouble("impedanceLow", 0.0d)
                     : null;
+            Integer scaleProfileId =
+                    object.has("scaleProfileId")
+                            && !object.isNull("scaleProfileId")
+                            ? object.optInt("scaleProfileId")
+                            : null;
             return new Item(
                     object.optString("id", ""),
                     (float) object.optDouble("weightKg", 0.0d),
                     (float) object.optDouble("impedanceHigh", 0.0d),
                     low,
+                    scaleProfileId,
                     object.optBoolean("timedOut", false),
                     object.optLong("timestampMs", System.currentTimeMillis()),
                     object.optString("reason", ""));
@@ -98,10 +111,11 @@ final class PendingMeasurementStore {
                     String reason) {
         List<Item> items = load(prefs);
         Item item = new Item(
-                UUID.randomUUID().toString(),
+                measurement.measurementId,
                 measurement.weightKg,
                 measurement.impedanceHigh,
                 measurement.impedanceLow,
+                measurement.scaleProfileId,
                 false,
                 measurement.timestampMs,
                 reason);

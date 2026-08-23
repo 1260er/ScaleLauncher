@@ -78,5 +78,20 @@
             android:maxLength="24"
             android:maxLines="1" />
 
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/peer_section_title" />
+
+        <Button
+            android:id="@+id/pairPhone"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:text="@string/peer_pair_phone" />
+
     </LinearLayout>
 </ScrollView>
