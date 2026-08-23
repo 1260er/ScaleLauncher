@@ -271,10 +271,6 @@ public final class MainActivity extends Activity {
                 v -> saveHealthConnectSettings());
         findViewById(R.id.saveStart).setOnClickListener(v -> saveAndStart());
         findViewById(R.id.saveScale).setOnClickListener(v -> saveScaleSettings());
-        findViewById(R.id.testGatt).setOnClickListener(v ->
-                startForegroundService(
-                        new Intent(this, ScaleScanService.class)
-                                .setAction(ScaleScanService.ACTION_TEST_GATT)));
         findViewById(R.id.savePermissions).setOnClickListener(
                 v -> savePermissionSettings());
         findViewById(R.id.stop).setOnClickListener(v -> {

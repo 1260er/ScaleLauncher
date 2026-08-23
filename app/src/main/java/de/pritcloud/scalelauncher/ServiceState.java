@@ -86,12 +86,29 @@ final class ServiceState {
         writeMode(context, Mode.STOPPED, message, false);
     }
 
-    static void heartbeat(Context context, boolean scanRunning, String message) {
-        SharedPreferences.Editor editor = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit()
-                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
-                .putBoolean(KEY_SCAN_RUNNING, scanRunning);
-        if (message != null && !message.isBlank()) editor.putString(KEY_MESSAGE, message);
+    static void heartbeat(Context context,
+                          boolean scanRunning,
+                          String message) {
+        heartbeat(context, scanRunning, message, false);
+    }
+
+    static void heartbeat(Context context,
+                          boolean scanRunning,
+                          String message,
+                          boolean scaleConnected) {
+        long now = System.currentTimeMillis();
+        SharedPreferences.Editor editor =
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                        .edit()
+                        .putLong(KEY_HEARTBEAT, now)
+                        .putBoolean(KEY_SCAN_RUNNING, scanRunning);
+
+        if (scaleConnected) {
+            editor.putLong(KEY_LAST_SCALE_SEEN, now);
+        }
+        if (message != null && !message.isBlank()) {
+            editor.putString(KEY_MESSAGE, message);
+        }
         editor.commit();
     }
 

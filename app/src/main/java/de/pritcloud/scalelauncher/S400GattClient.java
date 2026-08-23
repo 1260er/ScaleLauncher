@@ -152,11 +152,21 @@ public final class S400GattClient {
 
     @SuppressLint("MissingPermission")
     public void connect(BluetoothDevice device, String loginTokenHex) {
-        handler.post(() -> connectInternal(device, loginTokenHex));
+        connect(device, loginTokenHex, false);
     }
 
     @SuppressLint("MissingPermission")
-    private void connectInternal(BluetoothDevice device, String loginTokenHex) {
+    public void connect(BluetoothDevice device,
+                        String loginTokenHex,
+                        boolean autoConnect) {
+        handler.post(() ->
+                connectInternal(device, loginTokenHex, autoConnect));
+    }
+
+    @SuppressLint("MissingPermission")
+    private void connectInternal(BluetoothDevice device,
+                                 String loginTokenHex,
+                                 boolean autoConnect) {
         if (device == null) {
             fail("Kein Bluetooth-Gerät für GATT angegeben");
             return;
@@ -178,7 +188,7 @@ public final class S400GattClient {
         try {
             gatt = device.connectGatt(
                     context,
-                    false,
+                    autoConnect,
                     bluetoothGattCallback,
                     BluetoothDevice.TRANSPORT_LE);
 
@@ -188,7 +198,11 @@ public final class S400GattClient {
             }
 
             handler.removeCallbacks(connectTimeoutRunnable);
-            handler.postDelayed(connectTimeoutRunnable, CONNECT_TIMEOUT_MS);
+            if (!autoConnect) {
+                handler.postDelayed(
+                        connectTimeoutRunnable,
+                        CONNECT_TIMEOUT_MS);
+            }
         } catch (RuntimeException exception) {
             fail("GATT-Verbindung fehlgeschlagen: "
                     + exception.getClass().getSimpleName());
@@ -272,6 +286,11 @@ public final class S400GattClient {
 
         if (status == BluetoothGatt.GATT_SUCCESS
                 && newState == BluetoothProfile.STATE_CONNECTED) {
+            handler.removeCallbacks(connectTimeoutRunnable);
+            handler.postDelayed(
+                    connectTimeoutRunnable,
+                    CONNECT_TIMEOUT_MS);
+
             setState(State.DISCOVERING);
 
             try {

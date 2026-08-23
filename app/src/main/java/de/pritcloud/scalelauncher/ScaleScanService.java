@@ -28,7 +28,6 @@ import java.util.Locale;
 
 public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
-    public static final String ACTION_TEST_GATT = "de.pritcloud.scalelauncher.TEST_GATT";
     public static final String ACTION_ASSIGN_PENDING = "de.pritcloud.scalelauncher.ASSIGN_PENDING";
     public static final String ACTION_REFRESH_PENDING = "de.pritcloud.scalelauncher.REFRESH_PENDING";
     public static final String EXTRA_PENDING_ID = "pending_id";
@@ -43,6 +42,8 @@ public final class ScaleScanService extends Service {
     private static final int NOTIFICATION_RESULT = 12;
     private static final int LEGACY_NOTIFICATION_TRANSFER_FAILURE = 13;
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
+    private static final long GATT_RECONNECT_BASE_MS = 5_000L;
+    private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long SCAN_RESTART_DELAY_MS = 3_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
     private static final long BLE_DIAGNOSTIC_ACTIVITY_IDLE_MS = 30 * 60_000L;
@@ -53,6 +54,7 @@ public final class ScaleScanService extends Service {
     private final Runnable timeoutRunnable = this::finalizeTimedOutSession;
     private final Runnable decryptionFailureRunnable = this::finalizeUndecryptableSession;
     private final Runnable watchdogRunnable = this::runWatchdog;
+    private final Runnable gattReconnectRunnable = this::runGattReconnect;
     private final Runnable userSyncRunnable = new Runnable() {
         @Override public void run() {
             synchronizeOpenScaleUsers();
@@ -70,7 +72,10 @@ public final class ScaleScanService extends Service {
     private BluetoothLeScanner scanner;
     private ScanCallback callback;
     private S400GattClient gattClient;
-    private boolean gattTestActive;
+    private boolean gattCollectorActive;
+    private boolean gattReconnectScheduled;
+    private int gattReconnectAttempt;
+    private long lastGattFinalTimestampSeconds;
     private boolean scanRunning;
     private boolean scaleSeenLogged;
     private String lastLoggedSignature;
@@ -110,12 +115,6 @@ public final class ScaleScanService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (intent != null && ACTION_TEST_GATT.equals(intent.getAction())) {
-            terminalError = false;
-            startGattTest();
-            return START_STICKY;
-        }
-
         if (intent != null && ACTION_ASSIGN_PENDING.equals(intent.getAction())) {
             String pendingId = intent.getStringExtra(EXTRA_PENDING_ID);
             long userId = intent.getLongExtra(EXTRA_USER_ID, -1L);
@@ -125,41 +124,157 @@ public final class ScaleScanService extends Service {
         } else {
             terminalError = false;
         }
-        if (!scanRunning && !terminalError) startScan();
+        if (!terminalError) startGattCollector();
         return START_STICKY;
     }
 
-    private void startGattTest() {
-        if (gattTestActive) {
-            EventLog.debug(this, getString(R.string.log_gatt_test_already_active));
+    private void runGattReconnect() {
+        gattReconnectScheduled = false;
+        if (gattCollectorActive && !explicitStop && !terminalError) {
+            connectGattCollector();
+        }
+    }
+
+    private void startGattCollector() {
+        if (gattCollectorActive) {
+            if (gattClient == null && !gattReconnectScheduled) {
+                connectGattCollector();
+            }
+            return;
+        }
+
+        if (!PowerSettingsHelper.isBatteryOptimizationDisabled(this)) {
+            enterTerminalError(
+                    getString(R.string.service_error_battery_optimization));
+            return;
+        }
+        if (!PowerSettingsHelper.isUnusedAppManagementDisabled(this)) {
+            enterTerminalError(
+                    getString(R.string.service_error_unused_app_management));
+            return;
+        }
+        if (!PowerSettingsHelper.areNotificationsUsable(this)) {
+            enterTerminalError(
+                    getString(R.string.service_error_notifications));
             return;
         }
 
         if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 != PackageManager.PERMISSION_GRANTED) {
-            EventLog.error(this, getString(R.string.service_error_bluetooth_permission));
+            enterTerminalError(
+                    getString(R.string.service_error_bluetooth_permission));
             return;
         }
 
-        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        SharedPreferences prefs =
+                getSharedPreferences("prefs", MODE_PRIVATE);
         String mac = prefs.getString("mac", "");
         String token = prefs.getString("login_token", "");
+        String authority =
+                prefs.getString("openscale_authority", "");
+        List<UserProfile> profiles =
+                UserProfileStore.enabled(UserProfileStore.load(prefs));
 
         if (!S400Decryptor.isValidMacAddress(mac)) {
-            EventLog.error(this, getString(R.string.service_error_invalid_mac));
+            enterTerminalError(
+                    getString(R.string.service_error_invalid_mac));
             return;
         }
         if (!S400GattProtocol.isValidLoginToken(token)) {
-            EventLog.error(this, getString(R.string.scale_error_invalid_login_token));
+            enterTerminalError(
+                    getString(R.string.scale_error_invalid_login_token));
+            return;
+        }
+        if (authority == null || authority.isBlank()) {
+            enterTerminalError(
+                    getString(R.string.service_error_no_openscale_connection));
+            return;
+        }
+
+        OpenScaleProvider.Meta providerMeta;
+        try {
+            providerMeta =
+                    OpenScaleProvider.readMeta(this, authority);
+        } catch (SecurityException exception) {
+            enterTerminalError(
+                    getString(R.string.service_error_openscale_permission));
+            return;
+        } catch (RuntimeException exception) {
+            enterTerminalError(
+                    getString(R.string.service_error_openscale_unreachable));
+            return;
+        }
+
+        if (!providerMeta.supportsGenericValues()) {
+            enterTerminalError(
+                    getString(R.string.service_error_provider_api));
+            return;
+        }
+        if (profiles.isEmpty()) {
+            enterTerminalError(
+                    getString(R.string.service_error_no_active_profile));
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        for (UserProfile profile : profiles) {
+            if (!profile.hasValidBodyData(now)
+                    || !profile.hasValidMatchingData()) {
+                enterTerminalError(getString(
+                        R.string.service_error_incomplete_profile,
+                        profile.name));
+                return;
+            }
+        }
+
+        gattCollectorActive = true;
+        gattReconnectAttempt = 0;
+        stopScan();
+
+        EventLog.info(
+                this,
+                getString(R.string.log_gatt_collector_started));
+
+        connectGattCollector();
+    }
+
+    private void connectGattCollector() {
+        if (!gattCollectorActive
+                || explicitStop
+                || terminalError
+                || gattClient != null) {
+            return;
+        }
+
+        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) {
+            enterTerminalError(
+                    getString(R.string.service_error_bluetooth_permission));
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences("prefs", MODE_PRIVATE);
+        String mac = prefs.getString("mac", "");
+        String token = prefs.getString("login_token", "");
+
+        if (!S400Decryptor.isValidMacAddress(mac)
+                || !S400GattProtocol.isValidLoginToken(token)) {
+            enterTerminalError(
+                    getString(R.string.service_error_invalid_mac));
             return;
         }
 
         BluetoothManager manager =
                 (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
-        BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
+        BluetoothAdapter adapter =
+                manager == null ? null : manager.getAdapter();
 
         if (adapter == null || !adapter.isEnabled()) {
-            EventLog.error(this, getString(R.string.service_error_bluetooth_disabled));
+            enterRecoverableError(
+                    getString(R.string.service_error_bluetooth_disabled));
+            scheduleGattReconnect(
+                    getString(R.string.service_error_bluetooth_disabled));
             return;
         }
 
@@ -167,111 +282,222 @@ public final class ScaleScanService extends Service {
         try {
             device = adapter.getRemoteDevice(mac);
         } catch (RuntimeException exception) {
-            EventLog.error(this, getString(
-                    R.string.log_gatt_error,
-                    exception.getClass().getSimpleName()));
+            scheduleGattReconnect(
+                    exception.getClass().getSimpleName());
             return;
         }
 
-        stopScan();
-        gattTestActive = true;
         monitorText = getString(R.string.service_gatt_connecting);
         ServiceState.running(this, monitorText, true);
         notifyMonitor();
-        EventLog.info(this, getString(R.string.log_gatt_test_started));
 
         gattClient = new S400GattClient(
                 this,
                 new S400GattClient.Listener() {
-                    @Override public void onStateChanged(S400GattClient.State state) {
+                    @Override public void onStateChanged(
+                            S400GattClient.State state) {
                         EventLog.debug(
                                 ScaleScanService.this,
-                                getString(R.string.log_gatt_state, state.name()));
+                                getString(
+                                        R.string.log_gatt_state,
+                                        state.name()));
 
                         if (state == S400GattClient.State.DISCONNECTED
-                                && gattTestActive) {
-                            finishGattTest();
+                                && gattCollectorActive) {
+                            gattClient = null;
+                            scheduleGattReconnect(
+                                    getString(
+                                            R.string.service_error_monitor_inactive));
                         }
                     }
 
                     @Override public void onAuthenticated() {
-                        EventLog.info(
-                                ScaleScanService.this,
-                                getString(R.string.log_gatt_authenticated));
-                        updateMonitor(getString(R.string.service_gatt_ready));
-                    }
-
-                    @Override public void onMeasurement(
-                            S400GattMeasurement measurement) {
-                        if (measurement == null || measurement.weightKg == null) {
-                            return;
-                        }
-
-                        if (measurement.type == S400GattMeasurement.Type.LIVE) {
-                            EventLog.debug(
-                                    ScaleScanService.this,
-                                    getString(
-                                            R.string.log_gatt_live,
-                                            measurement.weightKg,
-                                            Boolean.toString(measurement.stable)));
-                            return;
-                        }
-
-                        String impedance = measurement.impedance == null
-                                ? "–"
-                                : String.format(
-                                        Locale.GERMANY,
-                                        "%.1f",
-                                        measurement.impedance);
-                        String impedanceLow = measurement.impedanceLow == null
-                                ? "–"
-                                : String.format(
-                                        Locale.GERMANY,
-                                        "%.1f",
-                                        measurement.impedanceLow);
+                        gattReconnectAttempt = 0;
+                        ServiceState.scaleSeen(ScaleScanService.this);
 
                         EventLog.info(
                                 ScaleScanService.this,
                                 getString(
-                                        R.string.log_gatt_final,
-                                        measurement.weightKg,
-                                        impedance,
-                                        impedanceLow));
+                                        R.string.log_gatt_authenticated));
 
-                        S400GattClient client = gattClient;
-                        if (client != null) {
-                            client.disconnect();
-                        }
+                        updateMonitor(
+                                getString(R.string.service_gatt_ready));
+                    }
+
+                    @Override public void onMeasurement(
+                            S400GattMeasurement measurement) {
+                        handleGattMeasurement(measurement);
                     }
 
                     @Override public void onDisconnected(int status) {
                         EventLog.warning(
                                 ScaleScanService.this,
-                                getString(R.string.log_gatt_disconnected, status));
-                        finishGattTest();
+                                getString(
+                                        R.string.log_gatt_disconnected,
+                                        status));
                     }
 
                     @Override public void onError(String message) {
                         EventLog.error(
                                 ScaleScanService.this,
-                                getString(R.string.log_gatt_error, message));
+                                getString(
+                                        R.string.log_gatt_error,
+                                        message));
                     }
                 });
 
-        gattClient.connect(device, token);
+        gattClient.connect(device, token, true);
     }
 
-    private void finishGattTest() {
-        if (!gattTestActive) return;
+    private void handleGattMeasurement(
+            S400GattMeasurement measurement) {
+        if (measurement == null || measurement.weightKg == null) {
+            return;
+        }
 
-        gattTestActive = false;
+        ServiceState.scaleSeen(this);
+
+        if (measurement.type == S400GattMeasurement.Type.LIVE) {
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_gatt_live,
+                            measurement.weightKg,
+                            Boolean.toString(measurement.stable)));
+            return;
+        }
+
+        if (measurement.impedance == null
+                || measurement.impedanceLow == null
+                || !Float.isFinite(measurement.weightKg)
+                || !Float.isFinite(measurement.impedance)
+                || !Float.isFinite(measurement.impedanceLow)
+                || measurement.weightKg <= 0f
+                || measurement.impedance <= 0f
+                || measurement.impedanceLow <= 0f) {
+            rejectMeasurement(
+                    getString(R.string.service_error_incomplete_packets));
+            return;
+        }
+
+        long deviceTimestamp =
+                measurement.timestampSeconds == null
+                        ? 0L
+                        : measurement.timestampSeconds;
+
+        if (deviceTimestamp > 0L
+                && deviceTimestamp
+                == lastGattFinalTimestampSeconds) {
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_duplicate_measurement_packet));
+            return;
+        }
+
+        if (deviceTimestamp > 0L) {
+            lastGattFinalTimestampSeconds = deviceTimestamp;
+        }
+
+        String impedance = String.format(
+                Locale.GERMANY,
+                "%.1f",
+                measurement.impedance);
+        String impedanceLow = String.format(
+                Locale.GERMANY,
+                "%.1f",
+                measurement.impedanceLow);
+
+        EventLog.info(
+                this,
+                getString(
+                        R.string.log_gatt_final,
+                        measurement.weightKg,
+                        impedance,
+                        impedanceLow));
+
+        long timestampMs = deviceTimestamp > 0L
+                ? deviceTimestamp * 1000L
+                : System.currentTimeMillis();
+
+        S400Aggregator.Finalized finalized =
+                new S400Aggregator.Finalized(
+                        measurement.weightKg,
+                        measurement.impedance,
+                        measurement.impedanceLow,
+                        false,
+                        timestampMs);
+
+        EventLog.info(
+                this,
+                getString(
+                        R.string.log_complete_measurement,
+                        finalized.weightKg));
+        EventLog.debug(
+                this,
+                getString(
+                        R.string.log_s400_decrypted,
+                        finalized.weightKg,
+                        finalized.impedanceHigh,
+                        finalized.impedanceLow));
+
+        routeMeasurement(finalized);
+    }
+
+    private void scheduleGattReconnect(String reason) {
+        if (!gattCollectorActive
+                || explicitStop
+                || terminalError
+                || gattReconnectScheduled) {
+            return;
+        }
+
+        long shift = Math.min(gattReconnectAttempt, 4);
+        long delayMs = Math.min(
+                GATT_RECONNECT_MAX_MS,
+                GATT_RECONNECT_BASE_MS << shift);
+
+        gattReconnectAttempt++;
+        gattReconnectScheduled = true;
+
+        S400GattClient oldClient = gattClient;
         gattClient = null;
 
-        if (!explicitStop && !terminalError) {
-            monitorText = getString(R.string.service_gatt_finished);
-            ServiceState.running(this, monitorText, true);
-            notifyMonitor();
-            handler.postDelayed(this::startScan, 1_000L);
+        monitorText = getString(
+                R.string.service_gatt_reconnecting,
+                delayMs / 1000L);
+        ServiceState.running(this, monitorText, true);
+        notifyMonitor();
+
+        EventLog.debug(
+                this,
+                getString(
+                        R.string.log_gatt_reconnect,
+                        reason,
+                        delayMs / 1000L));
+
+        handler.postDelayed(
+                gattReconnectRunnable,
+                delayMs);
+
+        if (oldClient != null
+                && oldClient.getState()
+                != S400GattClient.State.DISCONNECTED) {
+            oldClient.disconnect();
+        }
+    }
+
+    private void stopGattCollector() {
+        gattCollectorActive = false;
+        gattReconnectScheduled = false;
+        gattReconnectAttempt = 0;
+        handler.removeCallbacks(gattReconnectRunnable);
+
+        S400GattClient oldClient = gattClient;
+        gattClient = null;
+
+        if (oldClient != null) {
+            oldClient.disconnect();
         }
     }
 
@@ -1082,54 +1308,66 @@ public final class ScaleScanService extends Service {
         if (terminalError) {
             ServiceState.heartbeat(this, false, monitorText);
             handler.removeCallbacks(watchdogRunnable);
-            handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS);
+            handler.postDelayed(
+                    watchdogRunnable,
+                    WATCHDOG_INTERVAL_MS);
             return;
         }
 
-        long now = System.currentTimeMillis();
         if (!PowerSettingsHelper.isBatteryOptimizationDisabled(this)) {
-            enterTerminalError(getString(R.string.service_error_battery_optimization_returned));
+            enterTerminalError(
+                    getString(
+                            R.string.service_error_battery_optimization_returned));
         } else if (!PowerSettingsHelper.isUnusedAppManagementDisabled(this)) {
-            enterTerminalError(getString(R.string.service_error_unused_app_management_returned));
+            enterTerminalError(
+                    getString(
+                            R.string.service_error_unused_app_management_returned));
         } else if (!PowerSettingsHelper.areNotificationsUsable(this)) {
-            enterTerminalError(getString(R.string.service_error_notifications_disabled));
-        } else if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
-                != PackageManager.PERMISSION_GRANTED
-                || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
+            enterTerminalError(
+                    getString(
+                            R.string.service_error_notifications_disabled));
+        } else if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 != PackageManager.PERMISSION_GRANTED) {
-            enterTerminalError(getString(R.string.service_error_bluetooth_permission_revoked));
+            enterTerminalError(
+                    getString(
+                            R.string.service_error_bluetooth_permission_revoked));
         } else {
-            BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
-            BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
+            BluetoothManager manager =
+                    (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
+            BluetoothAdapter adapter =
+                    manager == null ? null : manager.getAdapter();
+
             if (adapter == null || !adapter.isEnabled()) {
                 enterRecoverableError(
-                        getString(R.string.service_error_bluetooth_disabled));
-                scheduleScanRestart(
-                        getString(R.string.service_error_bluetooth_disabled));
-            } else if (gattTestActive) {
-                ServiceState.heartbeat(this, true, monitorText);
-            } else if (!scanRunning) {
-                scheduleScanRestart(getString(R.string.service_error_monitor_inactive));
-            } else {
-                long reference = Math.max(lastPacketAtMs, scanStartedAtMs);
-                if (reference > 0L
-                        && now - reference > ServiceState.SCALE_SEEN_RECENT_MS) {
-                    String searchingText = getString(R.string.service_searching_scale);
-                    if (!searchingText.equals(monitorText)) {
-                        monitorText = searchingText;
-                        ServiceState.heartbeat(this, true, monitorText);
-                        notifyMonitor();
-                    } else {
-                        ServiceState.heartbeat(this, true, monitorText);
-                    }
-                } else {
-                    ServiceState.heartbeat(this, true, monitorText);
+                        getString(
+                                R.string.service_error_bluetooth_disabled));
+
+                if (gattCollectorActive
+                        && !gattReconnectScheduled) {
+                    scheduleGattReconnect(
+                            getString(
+                                    R.string.service_error_bluetooth_disabled));
                 }
+            } else if (!gattCollectorActive) {
+                startGattCollector();
+            } else if (gattClient == null) {
+                if (!gattReconnectScheduled) {
+                    connectGattCollector();
+                }
+            } else {
+                boolean ready = gattClient.isReady();
+                ServiceState.heartbeat(
+                        this,
+                        ready,
+                        monitorText,
+                        ready);
             }
         }
 
         handler.removeCallbacks(watchdogRunnable);
-        handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS);
+        handler.postDelayed(
+                watchdogRunnable,
+                WATCHDOG_INTERVAL_MS);
     }
 
     private void scheduleScanRestart(String reason) {
@@ -1146,6 +1384,7 @@ public final class ScaleScanService extends Service {
         terminalError = true;
         handler.removeCallbacks(restartScanRunnable);
         restartScheduled = false;
+        stopGattCollector();
         stopScan();
         monitorText = reason;
         ServiceState.error(this, reason);
@@ -1276,7 +1515,7 @@ public final class ScaleScanService extends Service {
         monitorText = text == null || text.isBlank()
                 ? getString(R.string.service_waiting_for_measurement)
                 : text;
-        if (scanRunning && !terminalError) {
+        if (gattCollectorActive && !terminalError) {
             ServiceState.running(this, monitorText, true);
         } else {
             ServiceState.heartbeat(this, false, monitorText);
@@ -1335,12 +1574,7 @@ public final class ScaleScanService extends Service {
 
     @Override public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
-        gattTestActive = false;
-        S400GattClient oldGattClient = gattClient;
-        gattClient = null;
-        if (oldGattClient != null) {
-            oldGattClient.disconnect();
-        }
+        stopGattCollector();
         stopScan();
         aggregator.reset();
         if (explicitStop) {
