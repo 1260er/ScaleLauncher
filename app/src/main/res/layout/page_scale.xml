@@ -65,24 +65,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xl"
-            android:text="@string/scale_bind_key" />
-
-        <EditText
-            android:id="@+id/bindKey"
-            style="@style/UiInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_sm"
-            android:hint="@string/scale_bind_key_hint"
-            android:inputType="textNoSuggestions"
-            android:maxLength="32"
-            android:maxLines="1" />
-
-        <TextView
-            style="@style/UiBodyText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
             android:text="@string/scale_login_token" />
 
         <EditText

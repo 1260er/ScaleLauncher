@@ -39,12 +39,11 @@ final class PendingMeasurementStore {
             this.reason = reason;
         }
 
-        S400Aggregator.Finalized toMeasurement() {
-            return new S400Aggregator.Finalized(
+        S400FinalMeasurement toMeasurement() {
+            return new S400FinalMeasurement(
                     weightKg,
                     impedanceHigh,
                     impedanceLow,
-                    timedOut,
                     timestampMs);
         }
 
@@ -95,7 +94,7 @@ final class PendingMeasurementStore {
     }
 
     static Item add(SharedPreferences prefs,
-                    S400Aggregator.Finalized measurement,
+                    S400FinalMeasurement measurement,
                     String reason) {
         List<Item> items = load(prefs);
         Item item = new Item(
@@ -103,7 +102,7 @@ final class PendingMeasurementStore {
                 measurement.weightKg,
                 measurement.impedanceHigh,
                 measurement.impedanceLow,
-                measurement.timedOut,
+                false,
                 measurement.timestampMs,
                 reason);
         items.add(item);

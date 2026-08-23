@@ -9,11 +9,6 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
-import android.bluetooth.le.BluetoothLeScanner;
-import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanFilter;
-import android.bluetooth.le.ScanResult;
-import android.bluetooth.le.ScanSettings;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -22,7 +17,6 @@ import android.os.IBinder;
 import android.os.Looper;
 
 import java.time.LocalDate;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -44,15 +38,9 @@ public final class ScaleScanService extends Service {
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
     private static final long GATT_RECONNECT_BASE_MS = 5_000L;
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
-    private static final long SCAN_RESTART_DELAY_MS = 3_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
-    private static final long BLE_DIAGNOSTIC_ACTIVITY_IDLE_MS = 30 * 60_000L;
-    private static final long BLE_DIAGNOSTIC_WINDOW_MS = 8_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final S400Aggregator aggregator = new S400Aggregator();
-    private final Runnable timeoutRunnable = this::finalizeTimedOutSession;
-    private final Runnable decryptionFailureRunnable = this::finalizeUndecryptableSession;
     private final Runnable watchdogRunnable = this::runWatchdog;
     private final Runnable gattReconnectRunnable = this::runGattReconnect;
     private final Runnable userSyncRunnable = new Runnable() {
@@ -63,44 +51,23 @@ public final class ScaleScanService extends Service {
             }
         }
     };
-    private final Runnable restartScanRunnable = () -> {
-        restartScheduled = false;
-        startScan();
-    };
-    private final Runnable bleDiagnosticFinishRunnable = this::finishBleDiagnostic;
 
-    private BluetoothLeScanner scanner;
-    private ScanCallback callback;
     private S400GattClient gattClient;
     private boolean gattCollectorActive;
     private boolean gattReconnectScheduled;
     private int gattReconnectAttempt;
     private long lastGattFinalTimestampSeconds;
-    private boolean scanRunning;
-    private boolean scaleSeenLogged;
-    private String lastLoggedSignature;
     private boolean explicitStop;
     private boolean terminalError;
-    private boolean restartScheduled;
-    private boolean activeLogged;
-    private long lastPacketAtMs;
-    private long lastActivityPacketAtMs;
-    private long scanStartedAtMs;
-    private long undecipheredSessionStartedAtMs;
-    private long lastUndecipheredFailureAtMs;
-    private boolean bleDiagnosticActive;
-    private long bleDiagnosticStartedAtMs;
-    private int bleDiagnosticPacketCount;
-    private int bleDiagnosticActivityCount;
     private String monitorText = "";
 
     @Override public void onCreate() {
         super.onCreate();
         createChannels();
-        monitorText = getString(R.string.service_ble_monitor_starting_progress);
+        monitorText = getString(R.string.service_gatt_connecting);
         ServiceState.starting(
                 this,
-                getString(R.string.service_ble_monitor_starting));
+                getString(R.string.service_gatt_connecting));
         startForeground(NOTIFICATION_MONITOR, monitorNotification(monitorText));
         EventLog.info(this, getString(R.string.log_service_started));
         updateAssignmentNotification();
@@ -175,7 +142,7 @@ public final class ScaleScanService extends Service {
         List<UserProfile> profiles =
                 UserProfileStore.enabled(UserProfileStore.load(prefs));
 
-        if (!S400Decryptor.isValidMacAddress(mac)) {
+        if (!S400GattProtocol.isValidMacAddress(mac)) {
             enterTerminalError(
                     getString(R.string.service_error_invalid_mac));
             return;
@@ -229,7 +196,6 @@ public final class ScaleScanService extends Service {
 
         gattCollectorActive = true;
         gattReconnectAttempt = 0;
-        stopScan();
 
         EventLog.info(
                 this,
@@ -258,10 +224,14 @@ public final class ScaleScanService extends Service {
         String mac = prefs.getString("mac", "");
         String token = prefs.getString("login_token", "");
 
-        if (!S400Decryptor.isValidMacAddress(mac)
-                || !S400GattProtocol.isValidLoginToken(token)) {
+        if (!S400GattProtocol.isValidMacAddress(mac)) {
             enterTerminalError(
                     getString(R.string.service_error_invalid_mac));
+            return;
+        }
+        if (!S400GattProtocol.isValidLoginToken(token)) {
+            enterTerminalError(
+                    getString(R.string.scale_error_invalid_login_token));
             return;
         }
 
@@ -367,6 +337,19 @@ public final class ScaleScanService extends Service {
             return;
         }
 
+        String impedance = measurement.impedance == null
+                ? "–"
+                : String.format(
+                        Locale.GERMANY,
+                        "%.1f",
+                        measurement.impedance);
+        String impedanceLow = measurement.impedanceLow == null
+                ? "–"
+                : String.format(
+                        Locale.GERMANY,
+                        "%.1f",
+                        measurement.impedanceLow);
+
         if (measurement.impedance == null
                 || measurement.impedanceLow == null
                 || !Float.isFinite(measurement.weightKg)
@@ -375,8 +358,16 @@ public final class ScaleScanService extends Service {
                 || measurement.weightKg <= 0f
                 || measurement.impedance <= 0f
                 || measurement.impedanceLow <= 0f) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_gatt_final_incomplete,
+                            measurement.weightKg,
+                            impedance,
+                            impedanceLow));
             rejectMeasurement(
-                    getString(R.string.service_error_incomplete_packets));
+                    getString(
+                            R.string.service_error_gatt_final_incomplete));
             return;
         }
 
@@ -399,15 +390,6 @@ public final class ScaleScanService extends Service {
             lastGattFinalTimestampSeconds = deviceTimestamp;
         }
 
-        String impedance = String.format(
-                Locale.GERMANY,
-                "%.1f",
-                measurement.impedance);
-        String impedanceLow = String.format(
-                Locale.GERMANY,
-                "%.1f",
-                measurement.impedanceLow);
-
         EventLog.info(
                 this,
                 getString(
@@ -420,12 +402,11 @@ public final class ScaleScanService extends Service {
                 ? deviceTimestamp * 1000L
                 : System.currentTimeMillis();
 
-        S400Aggregator.Finalized finalized =
-                new S400Aggregator.Finalized(
+        S400FinalMeasurement finalized =
+                new S400FinalMeasurement(
                         measurement.weightKg,
                         measurement.impedance,
                         measurement.impedanceLow,
-                        false,
                         timestampMs);
 
         EventLog.info(
@@ -436,7 +417,7 @@ public final class ScaleScanService extends Service {
         EventLog.debug(
                 this,
                 getString(
-                        R.string.log_s400_decrypted,
+                        R.string.log_s400_measurement_received,
                         finalized.weightKg,
                         finalized.impedanceHigh,
                         finalized.impedanceLow));
@@ -529,350 +510,7 @@ public final class ScaleScanService extends Service {
         }
     }
 
-    private void startScan() {
-        if (scanRunning) return;
-        handler.removeCallbacks(restartScanRunnable);
-        restartScheduled = false;
-
-        if (!PowerSettingsHelper.isBatteryOptimizationDisabled(this)) {
-            enterTerminalError(getString(R.string.service_error_battery_optimization));
-            return;
-        }
-        if (!PowerSettingsHelper.isUnusedAppManagementDisabled(this)) {
-            enterTerminalError(getString(R.string.service_error_unused_app_management));
-            return;
-        }
-        if (!PowerSettingsHelper.areNotificationsUsable(this)) {
-            enterTerminalError(getString(R.string.service_error_notifications));
-            return;
-        }
-
-        if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
-                != PackageManager.PERMISSION_GRANTED
-                || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
-                != PackageManager.PERMISSION_GRANTED) {
-            enterTerminalError(getString(R.string.service_error_bluetooth_permission));
-            return;
-        }
-
-        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        String mac = prefs.getString("mac", "");
-        String bindKey = prefs.getString("bind_key", "");
-        String authority = prefs.getString("openscale_authority", "");
-        List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
-
-        if (!S400Decryptor.isValidMacAddress(mac)) {
-            enterTerminalError(getString(R.string.service_error_invalid_mac));
-            return;
-        }
-        if (!S400Decryptor.isValidBindKey(bindKey)) {
-            enterTerminalError(getString(R.string.service_error_invalid_bind_key));
-            return;
-        }
-        if (authority == null || authority.isBlank()) {
-            enterTerminalError(getString(R.string.service_error_no_openscale_connection));
-            return;
-        }
-        OpenScaleProvider.Meta providerMeta;
-        try {
-            providerMeta = OpenScaleProvider.readMeta(this, authority);
-        } catch (SecurityException e) {
-            enterTerminalError(getString(R.string.service_error_openscale_permission));
-            return;
-        } catch (RuntimeException e) {
-            enterTerminalError(getString(R.string.service_error_openscale_unreachable));
-            return;
-        }
-        if (!providerMeta.supportsGenericValues()) {
-            enterTerminalError(getString(R.string.service_error_provider_api));
-            return;
-        }
-        if (profiles.isEmpty()) {
-            enterTerminalError(getString(R.string.service_error_no_active_profile));
-            return;
-        }
-        long now = System.currentTimeMillis();
-        for (UserProfile profile : profiles) {
-            if (!profile.hasValidBodyData(now) || !profile.hasValidMatchingData()) {
-                enterTerminalError(getString(
-                        R.string.service_error_incomplete_profile,
-                        profile.name));
-                return;
-            }
-        }
-
-        BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
-        BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
-        if (adapter == null || !adapter.isEnabled()) {
-            enterRecoverableError(getString(R.string.service_error_bluetooth_disabled));
-            return;
-        }
-        scanner = adapter.getBluetoothLeScanner();
-        if (scanner == null) {
-            enterRecoverableError(getString(R.string.service_error_bluetooth_scanner));
-            scheduleScanRestart(getString(R.string.service_error_bluetooth_scanner));
-            return;
-        }
-
-        callback = new ScanCallback() {
-            @Override public void onScanResult(int type, ScanResult result) {
-                if (result.getDevice() != null
-                        && mac.equalsIgnoreCase(result.getDevice().getAddress())) {
-                    long previousPacketAt = lastPacketAtMs;
-                    long receivedAtMs = System.currentTimeMillis();
-                    lastPacketAtMs = receivedAtMs;
-                    ServiceState.scaleSeen(ScaleScanService.this);
-                    if (!scaleSeenLogged
-                            || previousPacketAt <= 0L
-                            || lastPacketAtMs - previousPacketAt > ServiceState.SCALE_SEEN_RECENT_MS) {
-                        updateMonitor(getString(R.string.service_scale_reachable_waiting));
-                    }
-                    analyze(
-                            result,
-                            type,
-                            mac,
-                            bindKey,
-                            previousPacketAt,
-                            receivedAtMs);
-                }
-            }
-
-            @Override public void onScanFailed(int code) {
-                scanRunning = false;
-                EventLog.warning(
-                        ScaleScanService.this,
-                        getString(R.string.log_ble_scan_interrupted, code));
-                enterRecoverableError(getString(R.string.service_ble_scan_restarting));
-                scheduleScanRestart(getString(R.string.log_ble_scan_error_reason, code));
-            }
-        };
-
-        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress(mac).build();
-        ScanSettings settings = new ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-                .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
-                .build();
-        try {
-            scanner.startScan(Collections.singletonList(filter), settings, callback);
-            scanRunning = true;
-            terminalError = false;
-            scanStartedAtMs = System.currentTimeMillis();
-            long statusNow = System.currentTimeMillis();
-            boolean scaleRecentlySeen = lastPacketAtMs > 0L
-                    && statusNow - lastPacketAtMs <= ServiceState.SCALE_SEEN_RECENT_MS;
-            monitorText = getString(scaleRecentlySeen
-                    ? R.string.service_scale_reachable_waiting
-                    : R.string.service_searching_scale);
-            ServiceState.running(this, monitorText, true);
-            if (!activeLogged) {
-                activeLogged = true;
-                EventLog.info(this, getString(
-                        R.string.log_monitor_active_profiles,
-                        profiles.size()));
-            } else {
-                EventLog.debug(this, getString(R.string.log_ble_monitor_restarted));
-            }
-            EventLog.debug(this, getString(R.string.log_ble_scan_active_for, mac));
-            notifyMonitor();
-        } catch (RuntimeException e) {
-            scanRunning = false;
-            EventLog.warning(this, getString(
-                    R.string.log_scan_start_failed,
-                    e.getClass().getSimpleName()));
-            enterRecoverableError(getString(R.string.service_ble_scan_restarting));
-            scheduleScanRestart(getString(R.string.service_scan_start_failed));
-        }
-    }
-
-    private void recordBleDiagnostic(ScanResult result,
-                                     int callbackType,
-                                     BlePacket packet,
-                                     long previousPacketAtMs,
-                                     long receivedAtMs) {
-        long activityReferenceMs = lastActivityPacketAtMs > 0L
-                ? lastActivityPacketAtMs
-                : scanStartedAtMs;
-        long activityIdleMs = activityReferenceMs > 0L
-                ? receivedAtMs - activityReferenceMs
-                : 0L;
-
-        boolean patternChanged = lastLoggedSignature != null
-                && !packet.signature.equals(lastLoggedSignature);
-
-        if ((packet.activityPacket || patternChanged)
-                && activityIdleMs >= BLE_DIAGNOSTIC_ACTIVITY_IDLE_MS
-                && !bleDiagnosticActive) {
-            handler.removeCallbacks(bleDiagnosticFinishRunnable);
-            bleDiagnosticActive = true;
-            bleDiagnosticStartedAtMs = receivedAtMs;
-            bleDiagnosticPacketCount = 0;
-            bleDiagnosticActivityCount = 0;
-
-            EventLog.debug(this,
-                    "BLE-Diagnose gestartet nach "
-                            + (activityIdleMs / 60_000L)
-                            + " Minuten ohne Aktivitätspaket");
-            handler.postDelayed(
-                    bleDiagnosticFinishRunnable,
-                    BLE_DIAGNOSTIC_WINDOW_MS);
-        }
-
-        if (packet.activityPacket) {
-            lastActivityPacketAtMs = receivedAtMs;
-        }
-
-        if (!bleDiagnosticActive) return;
-
-        bleDiagnosticPacketCount++;
-        if (packet.activityPacket) {
-            bleDiagnosticActivityCount++;
-        }
-
-        EventLog.debug(this,
-                "BLE-Diagnose Callback " + bleDiagnosticPacketCount
-                        + " | +" + (receivedAtMs - bleDiagnosticStartedAtMs) + " ms"
-                        + " | Typ=" + callbackType
-                        + " | Muster=" + packet.signature
-                        + " | Aktivität=" + packet.activityPacket
-                        + " | RSSI " + result.getRssi()
-                        + " | Verbindbar " + result.isConnectable());
-    }
-
-    private void finishBleDiagnostic() {
-        if (!bleDiagnosticActive) return;
-
-        bleDiagnosticActive = false;
-        EventLog.debug(this,
-                "BLE-Diagnose beendet | "
-                        + bleDiagnosticPacketCount
-                        + " Callbacks in "
-                        + (BLE_DIAGNOSTIC_WINDOW_MS / 1000L)
-                        + " s | Aktivitätspakete "
-                        + bleDiagnosticActivityCount);
-    }
-
-    private void analyze(ScanResult result,
-                         int callbackType,
-                         String mac,
-                         String bindKey,
-                         long previousPacketAtMs,
-                         long receivedAtMs) {
-        BlePacket packet = BlePacket.from(this, result);
-        recordBleDiagnostic(
-                result,
-                callbackType,
-                packet,
-                previousPacketAtMs,
-                receivedAtMs);
-        if (!scaleSeenLogged) {
-            scaleSeenLogged = true;
-            EventLog.info(this, getString(R.string.log_scale_detected));
-        }
-        if (lastLoggedSignature == null) {
-            lastLoggedSignature = packet.signature;
-            EventLog.debug(this, getString(R.string.log_first_ble_pattern, packet.signature));
-            EventLog.debug(this, "BLE-Details | Aktivität=" + packet.activityPacket
-                    + " | " + packet.details);
-        } else if (!packet.signature.equals(lastLoggedSignature)) {
-            lastLoggedSignature = packet.signature;
-            EventLog.debug(this, "BLE-Muster geändert " + packet.signature
-                    + " | Aktivität=" + packet.activityPacket + " | " + packet.details);
-        }
-        if (!packet.activityPacket || packet.activityData == null) return;
-
-        S400Decryptor.Measurement decoded = S400Decryptor.decrypt(
-                packet.activityData,
-                mac,
-                bindKey);
-        if (decoded == null) {
-            EventLog.debug(this, getString(R.string.log_s400_activity_decrypt_failed));
-            long now = System.currentTimeMillis();
-            if (now - lastUndecipheredFailureAtMs >= S400Aggregator.SESSION_TIMEOUT_MS
-                    && undecipheredSessionStartedAtMs == 0L) {
-                undecipheredSessionStartedAtMs = now;
-                handler.removeCallbacks(decryptionFailureRunnable);
-                handler.postDelayed(
-                        decryptionFailureRunnable,
-                        S400Aggregator.SESSION_TIMEOUT_MS);
-            }
-            return;
-        }
-
-        undecipheredSessionStartedAtMs = 0L;
-        handler.removeCallbacks(decryptionFailureRunnable);
-
-        if (bleDiagnosticActive) {
-            String packetType = decoded.isPacketA()
-                    ? "A"
-                    : decoded.isPacketB() ? "B" : "?";
-            EventLog.debug(this,
-                    "BLE-Diagnose entschlüsselt | Paket=" + packetType
-                            + " | Gewicht=" + decoded.weightKg
-                            + " kg");
-        }
-
-        long now = System.currentTimeMillis();
-        S400Aggregator.Outcome outcome = aggregator.ingest(decoded, now);
-        handleOutcome(outcome);
-        if (outcome.status == S400Aggregator.Status.PENDING) {
-            handler.removeCallbacks(timeoutRunnable);
-            handler.postDelayed(timeoutRunnable, aggregator.remainingTimeoutMs(now));
-        }
-    }
-
-    private void finalizeTimedOutSession() {
-        S400Aggregator.Outcome outcome = aggregator.finalizeTimedOut(System.currentTimeMillis());
-        handleOutcome(outcome);
-    }
-
-    private void finalizeUndecryptableSession() {
-        if (undecipheredSessionStartedAtMs == 0L) return;
-        undecipheredSessionStartedAtMs = 0L;
-        lastUndecipheredFailureAtMs = System.currentTimeMillis();
-        handler.removeCallbacks(timeoutRunnable);
-        aggregator.reset();
-        rejectMeasurement(getString(R.string.service_error_s400_decryption));
-    }
-
-    private void handleOutcome(S400Aggregator.Outcome outcome) {
-        if (outcome.status == S400Aggregator.Status.PENDING) return;
-        if (outcome.status == S400Aggregator.Status.DUPLICATE) {
-            EventLog.debug(this, getString(R.string.log_duplicate_measurement_packet));
-            if (aggregator.hasPendingSession()) {
-                handler.removeCallbacks(timeoutRunnable);
-                handler.postDelayed(
-                        timeoutRunnable,
-                        aggregator.remainingTimeoutMs(System.currentTimeMillis()));
-            } else {
-                handler.removeCallbacks(timeoutRunnable);
-            }
-            updateMonitor(getString(R.string.service_waiting_next_measurement));
-            return;
-        }
-        handler.removeCallbacks(timeoutRunnable);
-        if (outcome.status == S400Aggregator.Status.INCOMPLETE) {
-            rejectMeasurement(getString(outcome.reasonResId));
-            return;
-        }
-        if (outcome.finalized == null || !outcome.finalized.isComplete()) {
-            rejectMeasurement(getString(R.string.service_error_incomplete_packets));
-            return;
-        }
-
-        S400Aggregator.Finalized value = outcome.finalized;
-        EventLog.info(this, getString(
-                R.string.log_complete_measurement,
-                value.weightKg));
-        EventLog.debug(this, getString(
-                R.string.log_s400_decrypted,
-                value.weightKg,
-                value.impedanceHigh,
-                value.impedanceLow));
-        routeMeasurement(value);
-    }
-
-    private void routeMeasurement(S400Aggregator.Finalized measurement) {
+    private void routeMeasurement(S400FinalMeasurement measurement) {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
         UserMatcher.Result match = UserMatcher.match(profiles, measurement.weightKg);
@@ -934,7 +572,7 @@ public final class ScaleScanService extends Service {
         }
     }
 
-    private boolean processMeasurement(S400Aggregator.Finalized measurement,
+    private boolean processMeasurement(S400FinalMeasurement measurement,
                                        UserProfile profile) {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         String authority = prefs.getString("openscale_authority", "");
@@ -952,7 +590,7 @@ public final class ScaleScanService extends Service {
         }
 
         if (!measurement.isComplete() || measurement.impedanceLow == null) {
-            rejectMeasurement(getString(R.string.service_error_incomplete_packets));
+            rejectMeasurement(getString(R.string.service_error_measurement_incomplete));
             return false;
         }
         S400BodyComposition.Result composition = S400BodyComposition.compute(
@@ -1033,7 +671,7 @@ public final class ScaleScanService extends Service {
     private boolean writeToHealthConnect(SharedPreferences prefs,
                                       UserProfile profile,
                                       long timestamp,
-                                      S400Aggregator.Finalized measurement,
+                                      S400FinalMeasurement measurement,
                                       S400BodyComposition.Result composition) {
         if (!prefs.getBoolean("health_connect_enabled", false)) return false;
         long healthUserId = prefs.getLong("health_connect_user_id", -1L);
@@ -1095,9 +733,6 @@ public final class ScaleScanService extends Service {
     }
 
     private void rejectMeasurement(String reason) {
-        handler.removeCallbacks(timeoutRunnable);
-        handler.removeCallbacks(decryptionFailureRunnable);
-        undecipheredSessionStartedAtMs = 0L;
         String detail = reason == null || reason.isBlank()
                 ? getString(R.string.service_error_measurement_incomplete)
                 : reason;
@@ -1240,7 +875,7 @@ public final class ScaleScanService extends Service {
 
     private String buildCalculationLog(String userName,
                                        int age,
-                                       S400Aggregator.Finalized measurement,
+                                       S400FinalMeasurement measurement,
                                        S400BodyComposition.Result composition) {
         StringBuilder text = new StringBuilder(getString(
                 R.string.log_s400_evaluated,
@@ -1370,22 +1005,9 @@ public final class ScaleScanService extends Service {
                 WATCHDOG_INTERVAL_MS);
     }
 
-    private void scheduleScanRestart(String reason) {
-        if (explicitStop || terminalError || restartScheduled) return;
-        stopScan();
-        restartScheduled = true;
-        monitorText = getString(R.string.service_restart_delay, reason);
-        ServiceState.error(this, monitorText);
-        notifyMonitor();
-        handler.postDelayed(restartScanRunnable, SCAN_RESTART_DELAY_MS);
-    }
-
     private void enterTerminalError(String reason) {
         terminalError = true;
-        handler.removeCallbacks(restartScanRunnable);
-        restartScheduled = false;
         stopGattCollector();
-        stopScan();
         monitorText = reason;
         ServiceState.error(this, reason);
         EventLog.error(this, getString(R.string.log_monitor_stopped, reason));
@@ -1553,30 +1175,9 @@ public final class ScaleScanService extends Service {
         manager.createNotificationChannel(result);
     }
 
-    private void stopScan() {
-        BluetoothLeScanner oldScanner = scanner;
-        ScanCallback oldCallback = callback;
-        boolean wasRunning = scanRunning;
-        scanRunning = false;
-        scanner = null;
-        callback = null;
-        if (oldScanner != null
-                && oldCallback != null
-                && wasRunning
-                && checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
-                == PackageManager.PERMISSION_GRANTED) {
-            try {
-                oldScanner.stopScan(oldCallback);
-            } catch (RuntimeException ignored) {
-            }
-        }
-    }
-
     @Override public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         stopGattCollector();
-        stopScan();
-        aggregator.reset();
         if (explicitStop) {
             ServiceState.stopped(
                     this,

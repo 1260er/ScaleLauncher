@@ -54,7 +54,7 @@ final class HealthConnectWriter {
                       long timestampMs,
                       String scaleMac,
                       float heightCm,
-                      S400Aggregator.Finalized measurement,
+                      S400FinalMeasurement measurement,
                       S400BodyComposition.Result composition,
                       HealthConnectSelection selection,
                       Callback callback) {
@@ -158,7 +158,7 @@ final class HealthConnectWriter {
                                               long timestampMs,
                                               String scaleMac,
                                               float heightCm,
-                                              S400Aggregator.Finalized measurement,
+                                              S400FinalMeasurement measurement,
                                               S400BodyComposition.Result composition,
                                               HealthConnectSelection selection) {
         Instant time = Instant.ofEpochMilli(timestampMs);

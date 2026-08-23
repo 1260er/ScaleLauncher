@@ -219,7 +219,7 @@ public final class OpenScaleProvider {
                                                  long userId,
                                                  long timestamp,
                                                  int apiVersion,
-                                                 S400Aggregator.Finalized measurement,
+                                                 S400FinalMeasurement measurement,
                                                  S400BodyComposition.Result composition) {
         ContentValues values = new ContentValues();
         values.put("datetime", timestamp);
@@ -343,7 +343,7 @@ public final class OpenScaleProvider {
     }
 
     private static String buildValuesJson(Context context,
-                                          S400Aggregator.Finalized measurement,
+                                          S400FinalMeasurement measurement,
                                           S400BodyComposition.Result composition) {
         JSONArray values = new JSONArray();
         try {

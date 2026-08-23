@@ -41,6 +41,11 @@ public final class S400GattProtocol {
     public static final byte[] CFM_LOGIN_OK =
             hex("21000000");
 
+    public static boolean isValidMacAddress(String mac) {
+        return mac != null
+                && mac.matches("(?i)^([0-9a-f]{2}:){5}[0-9a-f]{2}$");
+    }
+
     public static boolean isValidLoginToken(String token) {
         return token != null && token.matches("(?i)^[0-9a-f]{24}$");
     }

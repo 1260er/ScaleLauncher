@@ -34,7 +34,6 @@ public final class MainActivity extends Activity {
     private static final int REQ_OPENSCALE_PERMISSION = 102;
     private static final int REQ_HEALTH_CONNECT = 103;
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-F]{2}:){5}[0-9A-F]{2}$");
-    private static final Pattern KEY_PATTERN = Pattern.compile("^[0-9a-fA-F]{32}$");
     private static final Pattern TOKEN_PATTERN = Pattern.compile("^[0-9a-fA-F]{24}$");
 
     private final Handler refreshHandler = new Handler(Looper.getMainLooper());
@@ -49,7 +48,6 @@ public final class MainActivity extends Activity {
     };
 
     private EditText macAddress;
-    private EditText bindKey;
     private EditText loginToken;
     private EditText birthDate;
     private EditText heightCm;
@@ -196,7 +194,6 @@ public final class MainActivity extends Activity {
         });
 
         macAddress = findViewById(R.id.macAddress);
-        bindKey = findViewById(R.id.bindKey);
         loginToken = findViewById(R.id.loginToken);
         birthDate = findViewById(R.id.birthDate);
         heightCm = findViewById(R.id.heightCm);
@@ -227,8 +224,14 @@ public final class MainActivity extends Activity {
         systemRequirementsStatus = findViewById(R.id.systemRequirementsStatus);
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+
+        // Migration from the former passive BLE broadcast implementation.
+        // The GATT collector authenticates with the login token only.
+        if (prefs.contains("bind_key")) {
+            prefs.edit().remove("bind_key").apply();
+        }
+
         macAddress.setText(prefs.getString("mac", ""));
-        bindKey.setText(prefs.getString("bind_key", ""));
         loginToken.setText(prefs.getString("login_token", ""));
         autoStart.setChecked(prefs.getBoolean("autoStart", false));
         diagnosticLogging.setChecked(prefs.getBoolean("diagnostic_logging", false));
@@ -791,15 +794,10 @@ public final class MainActivity extends Activity {
 
     private void saveScaleSettings() {
         String mac = macAddress.getText().toString().trim().toUpperCase(Locale.ROOT);
-        String key = bindKey.getText().toString().trim().toLowerCase(Locale.ROOT);
         String token = loginToken.getText().toString().trim().toLowerCase(Locale.ROOT);
 
         if (!MAC_PATTERN.matcher(mac).matches()) {
             LoggedToast.makeText(this, R.string.scale_error_invalid_mac, Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (!KEY_PATTERN.matcher(key).matches()) {
-            LoggedToast.makeText(this, R.string.scale_error_invalid_bind_key, Toast.LENGTH_LONG).show();
             return;
         }
         if (!TOKEN_PATTERN.matcher(token).matches()) {
@@ -810,12 +808,10 @@ public final class MainActivity extends Activity {
         getSharedPreferences("prefs", MODE_PRIVATE)
                 .edit()
                 .putString("mac", mac)
-                .putString("bind_key", key)
                 .putString("login_token", token)
                 .apply();
 
         macAddress.setText(mac);
-        bindKey.setText(key);
         loginToken.setText(token);
         EventLog.info(this, getString(R.string.scale_settings_saved));
         LoggedToast.makeText(this, R.string.scale_settings_saved, Toast.LENGTH_SHORT).show();
@@ -835,18 +831,11 @@ public final class MainActivity extends Activity {
             return;
         }
         String mac = macAddress.getText().toString().trim().toUpperCase(Locale.ROOT);
-        String key = bindKey.getText().toString().trim().toLowerCase(Locale.ROOT);
         String token = loginToken.getText().toString().trim().toLowerCase(Locale.ROOT);
         if (!MAC_PATTERN.matcher(mac).matches()) {
             LoggedToast.makeText(
                     this,
                     R.string.scale_error_invalid_mac,
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (!KEY_PATTERN.matcher(key).matches()) {
-            LoggedToast.makeText(this,
-                    getString(R.string.scale_error_invalid_bind_key),
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -916,7 +905,6 @@ public final class MainActivity extends Activity {
 
         SharedPreferences.Editor editor = prefs.edit()
                 .putString("mac", mac)
-                .putString("bind_key", key)
                 .putString("login_token", token)
                 .putString("openscale_authority", openScaleAuthority)
                 .putInt("openscale_api_version", openScaleMeta.apiVersion)
