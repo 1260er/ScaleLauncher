@@ -198,6 +198,18 @@ public final class PeerPairingActivity extends Activity {
                                     peer.deviceId));
         }
 
+        int pendingSync =
+                PeerOutboxStore.count(this);
+
+        pairedSummary
+                .append((char) 10)
+                .append((char) 10)
+                .append(
+                        getResources().getQuantityString(
+                                R.plurals.peer_outbox_pending,
+                                pendingSync,
+                                pendingSync));
+
         trustedInfo.setText(
                 pairedSummary.toString());
 
@@ -1112,6 +1124,13 @@ public final class PeerPairingActivity extends Activity {
                     remote.deviceId,
                     label,
                     result.sharedSecret);
+
+            HouseholdProfileSync.enqueueAllProfilesForPeer(
+                    this,
+                    getSharedPreferences(
+                            "prefs",
+                            MODE_PRIVATE),
+                    remote.deviceId);
 
             stopBle();
             clearPendingPairing();

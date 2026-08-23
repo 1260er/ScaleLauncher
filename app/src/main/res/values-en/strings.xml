@@ -398,6 +398,13 @@ Own ID: %2$s
 Pending data for this phone will be deleted. Users assigned to this phone remain marked as unavailable and must be reassigned afterwards.</string>
     <string name="peer_remove_confirm">Remove phone</string>
     <string name="peer_remove_success">%1$s was removed.</string>
+    <plurals name="peer_outbox_pending">
+        <item quantity="one">%1$d synchronization waiting for transfer</item>
+        <item quantity="other">%1$d synchronizations waiting for transfer</item>
+    </plurals>
+    <string name="log_peer_profile_queued">Peer profile %1$s queued for %2$d phone(s)</string>
+    <string name="log_peer_profile_queue_failed">Peer sync for %1$s could not be queued</string>
+    <string name="log_peer_profile_sync_failed">Peer profile %1$s could not be updated</string>
     <string name="peer_pairing_start">Start secure pairing</string>
     <string name="peer_searching">Searching for ScaleLauncher phones …</string>
     <string name="peer_found">Phone found: %1$s</string>

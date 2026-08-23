@@ -763,7 +763,12 @@ public final class ScaleScanService extends Service {
                         profile.userId,
                         5);
                 if (average > 0f) {
-                    UserProfileStore.updateReferenceWeight(prefs, profile.userId, average);
+                    HouseholdProfileSync.updateReferenceWeight(
+                            this,
+                            prefs,
+                            profile.userId,
+                            average);
+
                     EventLog.debug(this, getString(
                             R.string.log_reference_weight_updated,
                             profile.name,

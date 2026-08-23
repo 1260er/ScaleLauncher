@@ -406,6 +406,13 @@ Eigene Kennung: %2$s
 Noch nicht übertragene Daten für dieses Handy werden gelöscht. Benutzer, die diesem Handy zugeordnet waren, bleiben als nicht verfügbar markiert und müssen anschließend neu zugeordnet werden.</string>
     <string name="peer_remove_confirm">Handy entfernen</string>
     <string name="peer_remove_success">%1$s wurde entfernt.</string>
+    <plurals name="peer_outbox_pending">
+        <item quantity="one">%1$d Synchronisierung wartet auf Übertragung</item>
+        <item quantity="other">%1$d Synchronisierungen warten auf Übertragung</item>
+    </plurals>
+    <string name="log_peer_profile_queued">Peer-Profil %1$s für %2$d Handy(s) vorgemerkt</string>
+    <string name="log_peer_profile_queue_failed">Peer-Sync für %1$s konnte nicht vorgemerkt werden</string>
+    <string name="log_peer_profile_sync_failed">Peer-Profil %1$s konnte nicht aktualisiert werden</string>
     <string name="peer_pairing_start">Sichere Kopplung starten</string>
     <string name="peer_searching">Suche nach ScaleLauncher-Handys …</string>
     <string name="peer_found">Handy gefunden: %1$s</string>

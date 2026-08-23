@@ -1,7 +1,13 @@
 package de.pritcloud.scalelauncher;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Transport-neutral wire representation of one raw S400 FINAL measurement.
@@ -20,6 +26,9 @@ final class PeerMeasurementPayload {
     final float impedanceHigh;
     final float impedanceLow;
     final Integer scaleProfileId;
+    final String targetProfileId;
+    final boolean requiresClaim;
+    final List<String> candidateProfileIds;
 
     private PeerMeasurementPayload(String measurementId,
                                    String scaleMac,
@@ -27,7 +36,10 @@ final class PeerMeasurementPayload {
                                    float weightKg,
                                    float impedanceHigh,
                                    float impedanceLow,
-                                   Integer scaleProfileId) {
+                                   Integer scaleProfileId,
+                                   String targetProfileId,
+                                   boolean requiresClaim,
+                                   List<String> candidateProfileIds) {
         this.measurementId = measurementId;
         this.scaleMac = scaleMac;
         this.timestampMs = timestampMs;
@@ -35,6 +47,16 @@ final class PeerMeasurementPayload {
         this.impedanceHigh = impedanceHigh;
         this.impedanceLow = impedanceLow;
         this.scaleProfileId = scaleProfileId;
+        this.targetProfileId =
+                targetProfileId == null
+                        ? ""
+                        : targetProfileId;
+        this.requiresClaim = requiresClaim;
+        this.candidateProfileIds =
+                candidateProfileIds == null
+                        ? List.of()
+                        : List.copyOf(
+                                candidateProfileIds);
     }
 
     static PeerMeasurementPayload fromMeasurement(
@@ -55,12 +77,71 @@ final class PeerMeasurementPayload {
                         measurement.weightKg,
                         measurement.impedanceHigh,
                         measurement.impedanceLow,
-                        measurement.scaleProfileId);
+                        measurement.scaleProfileId,
+                        "",
+                        false,
+                        List.of());
 
         if (!payload.isValid()) {
             throw new IllegalArgumentException(
                     "Invalid peer measurement payload");
         }
+        return payload;
+    }
+
+    static PeerMeasurementPayload forUniqueTarget(
+            String scaleMac,
+            S400FinalMeasurement measurement,
+            String targetProfileId) {
+        if (!UserProfile.isValidHouseholdProfileId(
+                targetProfileId)) {
+            throw new IllegalArgumentException(
+                    "Invalid target household profile");
+        }
+
+        PeerMeasurementPayload payload =
+                new PeerMeasurementPayload(
+                        measurement.measurementId,
+                        normalizeMac(scaleMac),
+                        measurement.timestampMs,
+                        measurement.weightKg,
+                        measurement.impedanceHigh,
+                        measurement.impedanceLow,
+                        measurement.scaleProfileId,
+                        targetProfileId,
+                        false,
+                        List.of());
+
+        if (!payload.isValid()) {
+            throw new IllegalArgumentException(
+                    "Invalid routed peer measurement");
+        }
+
+        return payload;
+    }
+
+    static PeerMeasurementPayload forClaim(
+            String scaleMac,
+            S400FinalMeasurement measurement,
+            List<String> candidateProfileIds) {
+        PeerMeasurementPayload payload =
+                new PeerMeasurementPayload(
+                        measurement.measurementId,
+                        normalizeMac(scaleMac),
+                        measurement.timestampMs,
+                        measurement.weightKg,
+                        measurement.impedanceHigh,
+                        measurement.impedanceLow,
+                        measurement.scaleProfileId,
+                        "",
+                        true,
+                        candidateProfileIds);
+
+        if (!payload.isValid()) {
+            throw new IllegalArgumentException(
+                    "Invalid claim peer measurement");
+        }
+
         return payload;
     }
 
@@ -83,6 +164,31 @@ final class PeerMeasurementPayload {
 
             if (scaleProfileId != null) {
                 object.put("scaleProfileId", scaleProfileId);
+            }
+
+            if (!targetProfileId.isBlank()) {
+                object.put(
+                        "targetProfileId",
+                        targetProfileId);
+            }
+
+            object.put(
+                    "requiresClaim",
+                    requiresClaim);
+
+            if (!candidateProfileIds.isEmpty()) {
+                JSONArray candidates =
+                        new JSONArray();
+
+                for (String profileId :
+                        candidateProfileIds) {
+                    candidates.put(
+                            profileId);
+                }
+
+                object.put(
+                        "candidateProfileIds",
+                        candidates);
             }
 
             return object.toString();
@@ -110,6 +216,29 @@ final class PeerMeasurementPayload {
                             ? object.optInt("scaleProfileId")
                             : null;
 
+            List<String> candidateProfileIds =
+                    new ArrayList<>();
+
+            JSONArray candidates =
+                    object.optJSONArray(
+                            "candidateProfileIds");
+
+            if (candidates != null) {
+                for (int index = 0;
+                     index < candidates.length();
+                     index++) {
+                    String profileId =
+                            candidates.optString(
+                                    index,
+                                    "");
+
+                    if (!profileId.isBlank()) {
+                        candidateProfileIds.add(
+                                profileId);
+                    }
+                }
+            }
+
             PeerMeasurementPayload payload =
                     new PeerMeasurementPayload(
                             object.optString("measurementId", ""),
@@ -125,7 +254,14 @@ final class PeerMeasurementPayload {
                             (float) object.optDouble(
                                     "impedanceLow",
                                     Double.NaN),
-                            scaleProfileId);
+                            scaleProfileId,
+                            object.optString(
+                                    "targetProfileId",
+                                    ""),
+                            object.optBoolean(
+                                    "requiresClaim",
+                                    false),
+                            candidateProfileIds);
 
             return payload.isValid() ? payload : null;
         } catch (JSONException exception) {
@@ -158,7 +294,38 @@ final class PeerMeasurementPayload {
                 && Float.isFinite(impedanceHigh)
                 && impedanceHigh > 0f
                 && Float.isFinite(impedanceLow)
-                && impedanceLow > 0f;
+                && impedanceLow > 0f
+                && (targetProfileId.isBlank()
+                    || UserProfile.isValidHouseholdProfileId(
+                            targetProfileId))
+                && validCandidateProfileIds(
+                        candidateProfileIds)
+                && (requiresClaim
+                    ? targetProfileId.isBlank()
+                        && !candidateProfileIds.isEmpty()
+                    : candidateProfileIds.isEmpty());
+    }
+
+    private static boolean validCandidateProfileIds(
+            List<String> profileIds) {
+        if (profileIds == null) {
+            return false;
+        }
+
+        Set<String> unique =
+                new HashSet<>();
+
+        for (String profileId :
+                profileIds) {
+            if (!UserProfile.isValidHouseholdProfileId(
+                    profileId)
+                    || !unique.add(
+                            profileId)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static String normalizeMac(String value) {

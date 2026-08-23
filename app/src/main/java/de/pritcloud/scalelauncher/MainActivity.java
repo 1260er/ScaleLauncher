@@ -649,6 +649,15 @@ public final class MainActivity extends Activity {
         }
         editor.putLong("profile_editor_user_id", profile.userId).apply();
         UserProfileStore.save(prefs, profiles);
+
+        HouseholdProfileSync.publishProfile(
+                this,
+                prefs,
+                profile.userId);
+
+        profiles =
+                UserProfileStore.load(prefs);
+
         updateProfileStatus();
         refreshHomeUserSummary();
         refreshHealthConnectStatus();

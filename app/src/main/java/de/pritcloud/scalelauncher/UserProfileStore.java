@@ -119,6 +119,25 @@ final class UserProfileStore {
         return null;
     }
 
+    static UserProfile findByHouseholdProfileId(
+            List<UserProfile> profiles,
+            String householdProfileId) {
+        if (!UserProfile.isValidHouseholdProfileId(
+                householdProfileId)) {
+            return null;
+        }
+
+        for (UserProfile profile :
+                profiles) {
+            if (householdProfileId.equals(
+                    profile.householdProfileId)) {
+                return profile;
+            }
+        }
+
+        return null;
+    }
+
     static List<UserProfile> enabled(List<UserProfile> profiles) {
         List<UserProfile> enabled = new ArrayList<>();
         for (UserProfile profile : profiles) {

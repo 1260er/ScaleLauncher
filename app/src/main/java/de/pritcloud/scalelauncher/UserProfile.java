@@ -19,6 +19,7 @@ final class UserProfile {
     float toleranceKg;
     String ownerDeviceId;
     String householdProfileId;
+    long householdUpdatedAtMs;
 
     UserProfile(long userId, String name) {
         this.userId = userId;
@@ -62,6 +63,7 @@ final class UserProfile {
         object.put("ownerDeviceId", ownerDeviceId == null ? "" : ownerDeviceId);
         object.put("householdProfileId",
                 householdProfileId == null ? "" : householdProfileId);
+        object.put("householdUpdatedAtMs", householdUpdatedAtMs);
         return object;
     }
 
@@ -77,6 +79,8 @@ final class UserProfile {
         profile.ownerDeviceId = object.optString("ownerDeviceId", "");
         profile.householdProfileId =
                 object.optString("householdProfileId", "");
+        profile.householdUpdatedAtMs =
+                object.optLong("householdUpdatedAtMs", 0L);
         return profile;
     }
 
