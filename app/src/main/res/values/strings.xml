@@ -387,6 +387,11 @@ UUIDs: %1$s</string>
     <string name="peer_pairing_title">Handys koppeln</string>
     <string name="peer_pairing_intro">Öffne diese Seite auf beiden Handys und starte auf beiden den sicheren Kopplungstest. Beide Handys müssen anschließend denselben sechsstelligen Sicherheitscode anzeigen.</string>
     <string name="peer_local_device">Dieses Handy: %1$s</string>
+    <string name="peer_local_device_details">Dieses Handy: %1$s
+Eigene Kennung: %2$s
+%3$s</string>
+    <string name="peer_assigned_users">Zugeordnete Benutzer: %1$s</string>
+    <string name="peer_assigned_users_none">Zugeordnete Benutzer: keine</string>
     <plurals name="peer_trusted_count">
         <item quantity="one">%1$d gekoppeltes Handy</item>
         <item quantity="other">%1$d gekoppelte Handys</item>

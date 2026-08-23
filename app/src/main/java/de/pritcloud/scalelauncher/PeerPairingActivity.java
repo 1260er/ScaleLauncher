@@ -148,19 +148,87 @@ public final class PeerPairingActivity extends Activity {
     }
 
     private void refreshSummary() {
+        String localDeviceId =
+                localEndpoint.deviceId;
+
         localInfo.setText(
                 getString(
-                        R.string.peer_local_device,
-                        localEndpoint.label));
+                        R.string.peer_local_device_details,
+                        localEndpoint.label,
+                        peerLabel(localDeviceId),
+                        assignedUsersText(localDeviceId)));
 
-        int trusted =
-                PeerTrustStore.count(this);
+        List<PeerTrustStore.Peer> peers =
+                PeerTrustStore.load(this);
+
+        StringBuilder pairedSummary =
+                new StringBuilder(
+                        getResources().getQuantityString(
+                                R.plurals.peer_trusted_count,
+                                peers.size(),
+                                peers.size()));
+
+        for (PeerTrustStore.Peer peer : peers) {
+            pairedSummary
+                    .append((char) 10)
+                    .append((char) 10)
+                    .append(peer.label)
+                    .append((char) 10)
+                    .append(
+                            assignedUsersText(
+                                    peer.deviceId));
+        }
 
         trustedInfo.setText(
-                getResources().getQuantityString(
-                        R.plurals.peer_trusted_count,
-                        trusted,
-                        trusted));
+                pairedSummary.toString());
+    }
+
+    private String assignedUsersText(
+            String deviceId) {
+        List<UserProfile> profiles =
+                UserProfileStore.load(
+                        getSharedPreferences(
+                                "prefs",
+                                MODE_PRIVATE));
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        StringBuilder names =
+                new StringBuilder();
+
+        for (UserProfile profile : profiles) {
+            String ownerDeviceId =
+                    profile.ownerDeviceId;
+
+            if (ownerDeviceId == null
+                    || ownerDeviceId.isBlank()) {
+                ownerDeviceId =
+                        localDeviceId;
+            }
+
+            if (!deviceId.equals(
+                    ownerDeviceId)) {
+                continue;
+            }
+
+            if (names.length() > 0) {
+                names.append(", ");
+            }
+
+            names.append(
+                    profile.name);
+        }
+
+        if (names.length() == 0) {
+            return getString(
+                    R.string.peer_assigned_users_none);
+        }
+
+        return getString(
+                R.string.peer_assigned_users,
+                names.toString());
     }
 
     private void handlePrimaryAction() {

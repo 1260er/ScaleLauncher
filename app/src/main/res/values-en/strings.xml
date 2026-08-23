@@ -379,6 +379,11 @@ UUIDs: %1$s</string>
     <string name="peer_pairing_title">Pair phones</string>
     <string name="peer_pairing_intro">Open this page on both phones and start secure pairing on both. Both phones must then display exactly the same six digit security code.</string>
     <string name="peer_local_device">This phone: %1$s</string>
+    <string name="peer_local_device_details">This phone: %1$s
+Own ID: %2$s
+%3$s</string>
+    <string name="peer_assigned_users">Assigned users: %1$s</string>
+    <string name="peer_assigned_users_none">Assigned users: none</string>
     <plurals name="peer_trusted_count">
         <item quantity="one">%1$d paired phone</item>
         <item quantity="other">%1$d paired phones</item>
