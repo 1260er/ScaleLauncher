@@ -370,14 +370,14 @@ UUIDs: %1$s</string>
     <string name="peer_section_title">Phone connection</string>
     <string name="peer_pair_phone">Pair phones</string>
     <string name="peer_pairing_title">Pair phones</string>
-    <string name="peer_pairing_intro">Open this page on both phones and start the Bluetooth test on both. This first step only verifies direct device discovery without Google Play services.</string>
+    <string name="peer_pairing_intro">Open this page on both phones and start secure pairing on both. Both phones must then display exactly the same six digit security code.</string>
     <string name="peer_local_device">This phone: %1$s</string>
     <plurals name="peer_trusted_count">
         <item quantity="one">%1$d paired phone</item>
         <item quantity="other">%1$d paired phones</item>
     </plurals>
     <string name="peer_pairing_ready">Ready to pair</string>
-    <string name="peer_pairing_start">Start Bluetooth test</string>
+    <string name="peer_pairing_start">Start secure pairing</string>
     <string name="peer_searching">Searching for ScaleLauncher phones …</string>
     <string name="peer_found">Phone found: %1$s</string>
     <string name="peer_request_sent">Connection request sent to %1$s</string>
@@ -414,5 +414,32 @@ Confirm only when both codes are identical.</string>
         <item quantity="one">BLE test finished – %1$d ScaleLauncher phone found</item>
         <item quantity="other">BLE test finished – %1$d ScaleLauncher phones found</item>
     </plurals>
+
+
+    <string name="peer_pair_secure_started">Secure BLE pairing test started</string>
+    <string name="peer_pair_secure_searching">Searching for a ScaleLauncher phone and preparing secure key exchange …</string>
+    <string name="peer_pair_gatt_server_ready">BLE pairing service ready</string>
+    <string name="peer_pair_gatt_server_failed">BLE pairing service could not be started</string>
+    <string name="peer_pair_gatt_server_error">BLE pairing service failed: %1$s</string>
+    <string name="peer_pair_gatt_server_status">BLE pairing service failed – status %1$d</string>
+    <string name="peer_pair_connecting">Establishing secure connection to the other phone …</string>
+    <string name="peer_pair_connected">BLE peer connection established</string>
+    <string name="peer_pair_connection_failed">BLE peer connection could not be started</string>
+    <string name="peer_pair_connection_error">BLE peer connection failed: %1$s</string>
+    <string name="peer_pair_connection_status">BLE peer connection failed – status %1$d</string>
+    <string name="peer_pair_disconnected">BLE peer connection disconnected before key exchange</string>
+    <string name="peer_pair_service_failed">BLE service discovery failed – status %1$d</string>
+    <string name="peer_pair_service_missing">ScaleLauncher pairing service was not found on the other phone</string>
+    <string name="peer_pair_read_failed">BLE key read failed – status %1$d</string>
+    <string name="peer_pair_write_failed">BLE key write failed – status %1$d</string>
+    <string name="peer_pair_write_queue_failed">BLE key write could not be started</string>
+    <string name="peer_pair_invalid_handshake">Invalid secure key exchange data</string>
+    <string name="peer_pair_crypto_failed">Secure key exchange failed: %1$s</string>
+    <string name="peer_pair_timeout">Secure key exchange did not complete within 45 seconds</string>
+    <string name="peer_pair_already_trusted">This phone is already stored as trusted</string>
+    <string name="peer_pair_code_ready">Security code: %1$s
+
+Both phones must show exactly the same code. This test does not save the pairing yet.</string>
+    <string name="peer_pair_code_log">Secure BLE key exchange successful – security code ready</string>
 
 </resources>

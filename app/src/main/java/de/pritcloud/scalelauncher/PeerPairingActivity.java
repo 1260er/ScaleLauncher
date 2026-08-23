@@ -3,7 +3,16 @@ package de.pritcloud.scalelauncher;
 import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattServer;
+import android.bluetooth.BluetoothGattServerCallback;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothStatusCodes;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
@@ -14,6 +23,7 @@ import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -26,35 +36,38 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 public final class PeerPairingActivity extends Activity {
     private static final int REQ_BLE_PERMISSIONS = 401;
-    private static final long DISCOVERY_TIME_MS = 30_000L;
+    private static final long PAIRING_TIMEOUT_MS = 45_000L;
 
-    /*
-     * ScaleLauncher private BLE service UUID.
-     * Used only to identify ScaleLauncher peers.
-     */
+    private static final UUID SERVICE_UUID_VALUE =
+            UUID.fromString(
+                    "62d58d1a-1d4e-4b7e-9d6d-8e6a9053c7a1");
+
+    private static final UUID HANDSHAKE_UUID =
+            UUID.fromString(
+                    "62d58d1b-1d4e-4b7e-9d6d-8e6a9053c7a1");
+
     private static final ParcelUuid SERVICE_UUID =
             new ParcelUuid(
-                    UUID.fromString(
-                            "62d58d1a-1d4e-4b7e-9d6d-8e6a9053c7a1"));
+                    SERVICE_UUID_VALUE);
 
     private final Handler handler =
-            new Handler(Looper.getMainLooper());
+            new Handler(
+                    Looper.getMainLooper());
 
-    private final Set<String> detectedPeers =
-            new HashSet<>();
-
+    private BluetoothManager manager;
     private BluetoothAdapter adapter;
     private BluetoothLeAdvertiser advertiser;
     private BluetoothLeScanner scanner;
+    private BluetoothGattServer gattServer;
+    private BluetoothGatt clientGatt;
 
     private PeerEndpointInfo localEndpoint;
+    private PeerPairingCrypto.Session cryptoSession;
     private byte[] localFingerprint;
 
     private TextView localInfo;
@@ -62,15 +75,19 @@ public final class PeerPairingActivity extends Activity {
     private TextView status;
     private Button startButton;
 
-    private boolean testActive;
+    private boolean pairingActive;
+    private boolean clientConnecting;
+    private boolean codeReady;
 
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
-        setContentView(R.layout.activity_peer_pairing);
+        setContentView(
+                R.layout.activity_peer_pairing);
 
         View contentRoot =
-                findViewById(android.R.id.content);
+                findViewById(
+                        android.R.id.content);
 
         contentRoot.setOnApplyWindowInsetsListener(
                 (view, insets) -> {
@@ -88,29 +105,37 @@ public final class PeerPairingActivity extends Activity {
                     return insets;
                 });
 
-        BluetoothManager manager =
-                getSystemService(BluetoothManager.class);
+        manager =
+                getSystemService(
+                        BluetoothManager.class);
 
         adapter =
                 manager == null
                         ? null
                         : manager.getAdapter();
 
-        localEndpoint = PeerEndpointInfo.local(this);
+        localEndpoint =
+                PeerEndpointInfo.local(this);
+
         localFingerprint =
-                fingerprint(localEndpoint.deviceId);
+                fingerprint(
+                        localEndpoint.deviceId);
 
         localInfo =
-                findViewById(R.id.peerLocalInfo);
+                findViewById(
+                        R.id.peerLocalInfo);
 
         trustedInfo =
-                findViewById(R.id.peerTrustedInfo);
+                findViewById(
+                        R.id.peerTrustedInfo);
 
         status =
-                findViewById(R.id.peerPairingStatus);
+                findViewById(
+                        R.id.peerPairingStatus);
 
         startButton =
-                findViewById(R.id.startPeerPairing);
+                findViewById(
+                        R.id.startPeerPairing);
 
         startButton.setOnClickListener(
                 view -> ensurePermissionsAndStart());
@@ -152,12 +177,13 @@ public final class PeerPairingActivity extends Activity {
 
         if (!missing.isEmpty()) {
             requestPermissions(
-                    missing.toArray(new String[0]),
+                    missing.toArray(
+                            new String[0]),
                     REQ_BLE_PERMISSIONS);
             return;
         }
 
-        startBleTest();
+        startPairing();
     }
 
     private void addIfMissing(
@@ -179,7 +205,8 @@ public final class PeerPairingActivity extends Activity {
                 permissions,
                 grantResults);
 
-        if (requestCode != REQ_BLE_PERMISSIONS) {
+        if (requestCode
+                != REQ_BLE_PERMISSIONS) {
             return;
         }
 
@@ -198,19 +225,16 @@ public final class PeerPairingActivity extends Activity {
             }
         }
 
-        startBleTest();
+        startPairing();
     }
 
-    private void startBleTest() {
-        if (testActive) return;
+    private void startPairing() {
+        stopBle();
 
         if (adapter == null
+                || manager == null
                 || !adapter.isEnabled()) {
-            status.setText(
-                    R.string.peer_bluetooth_off);
-
-            EventLog.warning(
-                    this,
+            fail(
                     getString(
                             R.string.peer_bluetooth_off));
             return;
@@ -224,40 +248,84 @@ public final class PeerPairingActivity extends Activity {
 
         if (advertiser == null
                 || scanner == null) {
-            status.setText(
-                    R.string.peer_ble_unavailable);
-
-            EventLog.error(
-                    this,
+            fail(
                     getString(
                             R.string.peer_ble_unavailable));
             return;
         }
 
-        detectedPeers.clear();
-        testActive = true;
+        cryptoSession =
+                PeerPairingCrypto.newSession(
+                        localEndpoint.deviceId);
+
+        pairingActive = true;
+        clientConnecting = false;
+        codeReady = false;
+
         startButton.setEnabled(false);
 
         status.setText(
-                R.string.peer_searching);
+                R.string.peer_pair_secure_searching);
 
         EventLog.info(
                 this,
                 getString(
-                        R.string.peer_ble_test_started));
+                        R.string.peer_pair_secure_started));
 
-        startAdvertising();
-        startScanning();
-
-        handler.removeCallbacks(
-                finishTask);
+        openGattServer();
 
         handler.postDelayed(
-                finishTask,
-                DISCOVERY_TIME_MS);
+                timeoutTask,
+                PAIRING_TIMEOUT_MS);
     }
 
-    private void startAdvertising() {
+    private void openGattServer() {
+        try {
+            gattServer =
+                    manager.openGattServer(
+                            this,
+                            serverCallback);
+
+            if (gattServer == null) {
+                fail(
+                        getString(
+                                R.string.peer_pair_gatt_server_failed));
+                return;
+            }
+
+            BluetoothGattService service =
+                    new BluetoothGattService(
+                            SERVICE_UUID_VALUE,
+                            BluetoothGattService.SERVICE_TYPE_PRIMARY);
+
+            BluetoothGattCharacteristic handshake =
+                    new BluetoothGattCharacteristic(
+                            HANDSHAKE_UUID,
+                            BluetoothGattCharacteristic.PROPERTY_READ
+                                    | BluetoothGattCharacteristic.PROPERTY_WRITE,
+                            BluetoothGattCharacteristic.PERMISSION_READ
+                                    | BluetoothGattCharacteristic.PERMISSION_WRITE);
+
+            service.addCharacteristic(
+                    handshake);
+
+            if (!gattServer.addService(service)) {
+                fail(
+                        getString(
+                                R.string.peer_pair_gatt_server_failed));
+            }
+        } catch (RuntimeException exception) {
+            fail(
+                    getString(
+                            R.string.peer_pair_gatt_server_error,
+                            exception.getClass()
+                                    .getSimpleName()));
+        }
+    }
+
+    private void startAdvertisingAndScanning() {
+        if (!pairingActive) return;
+
         AdvertiseSettings settings =
                 new AdvertiseSettings.Builder()
                         .setAdvertiseMode(
@@ -268,18 +336,14 @@ public final class PeerPairingActivity extends Activity {
                         .setTimeout(0)
                         .build();
 
-        AdvertiseData advertiseData =
+        AdvertiseData data =
                 new AdvertiseData.Builder()
-                        .addServiceUuid(SERVICE_UUID)
+                        .addServiceUuid(
+                                SERVICE_UUID)
                         .setIncludeDeviceName(false)
-                        .setIncludeTxPowerLevel(false)
                         .build();
 
-        /*
-         * The short random installation fingerprint is placed in
-         * the scan response. It is not a hardware identifier.
-         */
-        AdvertiseData scanResponse =
+        AdvertiseData response =
                 new AdvertiseData.Builder()
                         .addServiceData(
                                 SERVICE_UUID,
@@ -289,9 +353,11 @@ public final class PeerPairingActivity extends Activity {
         try {
             advertiser.startAdvertising(
                     settings,
-                    advertiseData,
-                    scanResponse,
+                    data,
+                    response,
                     advertiseCallback);
+
+            startScanning();
         } catch (RuntimeException exception) {
             fail(
                     getString(
@@ -308,12 +374,6 @@ public final class PeerPairingActivity extends Activity {
                                 SERVICE_UUID)
                         .build();
 
-        /*
-         * Pairing is explicitly started by the user and lasts only
-         * 30 seconds, therefore BALANCED is sufficient here.
-         *
-         * The later automatic background mode will use LOW_POWER.
-         */
         ScanSettings settings =
                 new ScanSettings.Builder()
                         .setScanMode(
@@ -333,6 +393,124 @@ public final class PeerPairingActivity extends Activity {
                                     .getSimpleName()));
         }
     }
+
+    private final BluetoothGattServerCallback
+            serverCallback =
+            new BluetoothGattServerCallback() {
+                @Override
+                public void onServiceAdded(
+                        int statusCode,
+                        BluetoothGattService service) {
+                    if (!SERVICE_UUID_VALUE.equals(
+                            service.getUuid())) {
+                        return;
+                    }
+
+                    if (statusCode
+                            != BluetoothGatt.GATT_SUCCESS) {
+                        fail(
+                                getString(
+                                        R.string.peer_pair_gatt_server_status,
+                                        statusCode));
+                        return;
+                    }
+
+                    EventLog.info(
+                            PeerPairingActivity.this,
+                            getString(
+                                    R.string.peer_pair_gatt_server_ready));
+
+                    runOnUiThread(
+                            () -> startAdvertisingAndScanning());
+                }
+
+                @Override
+                public void onCharacteristicReadRequest(
+                        BluetoothDevice device,
+                        int requestId,
+                        int offset,
+                        BluetoothGattCharacteristic characteristic) {
+                    if (!HANDSHAKE_UUID.equals(
+                            characteristic.getUuid())) {
+                        gattServer.sendResponse(
+                                device,
+                                requestId,
+                                BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED,
+                                offset,
+                                null);
+                        return;
+                    }
+
+                    byte[] hello =
+                            cryptoSession.hello;
+
+                    if (offset < 0
+                            || offset > hello.length) {
+                        gattServer.sendResponse(
+                                device,
+                                requestId,
+                                BluetoothGatt.GATT_INVALID_OFFSET,
+                                offset,
+                                null);
+                        return;
+                    }
+
+                    byte[] value =
+                            Arrays.copyOfRange(
+                                    hello,
+                                    offset,
+                                    hello.length);
+
+                    gattServer.sendResponse(
+                            device,
+                            requestId,
+                            BluetoothGatt.GATT_SUCCESS,
+                            offset,
+                            value);
+                }
+
+                @Override
+                public void onCharacteristicWriteRequest(
+                        BluetoothDevice device,
+                        int requestId,
+                        BluetoothGattCharacteristic characteristic,
+                        boolean preparedWrite,
+                        boolean responseNeeded,
+                        int offset,
+                        byte[] value) {
+                    int response =
+                            BluetoothGatt.GATT_SUCCESS;
+
+                    if (!HANDSHAKE_UUID.equals(
+                            characteristic.getUuid())
+                            || preparedWrite
+                            || offset != 0) {
+                        response =
+                                BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED;
+                    } else {
+                        PeerPairingCrypto.Remote remote =
+                                PeerPairingCrypto.parseHello(
+                                        value);
+
+                        if (remote == null) {
+                            response =
+                                    BluetoothGatt.GATT_FAILURE;
+                        } else {
+                            handleRemoteHello(
+                                    remote);
+                        }
+                    }
+
+                    if (responseNeeded) {
+                        gattServer.sendResponse(
+                                device,
+                                requestId,
+                                response,
+                                offset,
+                                null);
+                    }
+                }
+            };
 
     private final AdvertiseCallback
             advertiseCallback =
@@ -356,21 +534,15 @@ public final class PeerPairingActivity extends Activity {
                 }
             };
 
-    private final ScanCallback scanCallback =
+    private final ScanCallback
+            scanCallback =
             new ScanCallback() {
                 @Override
                 public void onScanResult(
                         int callbackType,
                         ScanResult result) {
-                    handleResult(result);
-                }
-
-                @Override
-                public void onBatchScanResults(
-                        List<ScanResult> results) {
-                    for (ScanResult result : results) {
-                        handleResult(result);
-                    }
+                    handleScanResult(
+                            result);
                 }
 
                 @Override
@@ -383,9 +555,11 @@ public final class PeerPairingActivity extends Activity {
                 }
             };
 
-    private void handleResult(
+    private void handleScanResult(
             ScanResult result) {
-        if (!testActive
+        if (!pairingActive
+                || codeReady
+                || clientConnecting
                 || result == null
                 || result.getScanRecord() == null) {
             return;
@@ -396,84 +570,340 @@ public final class PeerPairingActivity extends Activity {
                         .getServiceData(
                                 SERVICE_UUID);
 
-        if (remoteFingerprint != null
-                && Arrays.equals(
+        if (remoteFingerprint == null
+                || remoteFingerprint.length == 0
+                || Arrays.equals(
                         remoteFingerprint,
                         localFingerprint)) {
             return;
         }
 
-        String key;
-
-        if (remoteFingerprint != null
-                && remoteFingerprint.length > 0) {
-            key = hex(remoteFingerprint);
-        } else {
-            key = "endpoint";
-        }
-
-        if (!detectedPeers.add(key)) {
+        /*
+         * Both phones advertise and scan.
+         * Only one side becomes GATT client.
+         */
+        if (compareUnsigned(
+                localFingerprint,
+                remoteFingerprint) >= 0) {
             return;
         }
 
-        String shortId =
-                key.length() > 8
-                        ? key.substring(0, 8)
-                        : key;
+        clientConnecting = true;
+
+        try {
+            scanner.stopScan(
+                    scanCallback);
+        } catch (RuntimeException ignored) {
+        }
 
         status.setText(
-                getString(
-                        R.string.peer_ble_found,
-                        shortId));
+                R.string.peer_pair_connecting);
 
         EventLog.info(
                 this,
                 getString(
-                        R.string.peer_ble_found_log,
-                        shortId));
+                        R.string.peer_pair_connecting));
+
+        try {
+            clientGatt =
+                    result.getDevice()
+                            .connectGatt(
+                                    this,
+                                    false,
+                                    clientCallback,
+                                    BluetoothDevice.TRANSPORT_LE);
+
+            if (clientGatt == null) {
+                fail(
+                        getString(
+                                R.string.peer_pair_connection_failed));
+            }
+        } catch (RuntimeException exception) {
+            fail(
+                    getString(
+                            R.string.peer_pair_connection_error,
+                            exception.getClass()
+                                    .getSimpleName()));
+        }
     }
 
-    private final Runnable finishTask =
-            this::finishBleTest;
+    private final BluetoothGattCallback
+            clientCallback =
+            new BluetoothGattCallback() {
+                @Override
+                public void onConnectionStateChange(
+                        BluetoothGatt gatt,
+                        int gattStatus,
+                        int newState) {
+                    if (gattStatus
+                            != BluetoothGatt.GATT_SUCCESS) {
+                        fail(
+                                getString(
+                                        R.string.peer_pair_connection_status,
+                                        gattStatus));
+                        return;
+                    }
 
-    private void finishBleTest() {
-        if (!testActive) return;
+                    if (newState
+                            == BluetoothProfile.STATE_CONNECTED) {
+                        EventLog.info(
+                                PeerPairingActivity.this,
+                                getString(
+                                        R.string.peer_pair_connected));
 
-        stopBle();
+                        if (!gatt.requestMtu(96)) {
+                            gatt.discoverServices();
+                        }
+                    } else if (newState
+                            == BluetoothProfile.STATE_DISCONNECTED
+                            && pairingActive
+                            && !codeReady) {
+                        fail(
+                                getString(
+                                        R.string.peer_pair_disconnected));
+                    }
+                }
 
-        status.setText(
-                getResources().getQuantityString(
-                        R.plurals.peer_ble_test_complete,
-                        detectedPeers.size(),
-                        detectedPeers.size()));
+                @Override
+                public void onMtuChanged(
+                        BluetoothGatt gatt,
+                        int mtu,
+                        int gattStatus) {
+                    gatt.discoverServices();
+                }
 
-        EventLog.info(
+                @Override
+                public void onServicesDiscovered(
+                        BluetoothGatt gatt,
+                        int gattStatus) {
+                    if (gattStatus
+                            != BluetoothGatt.GATT_SUCCESS) {
+                        fail(
+                                getString(
+                                        R.string.peer_pair_service_failed,
+                                        gattStatus));
+                        return;
+                    }
+
+                    BluetoothGattService service =
+                            gatt.getService(
+                                    SERVICE_UUID_VALUE);
+
+                    BluetoothGattCharacteristic handshake =
+                            service == null
+                                    ? null
+                                    : service.getCharacteristic(
+                                            HANDSHAKE_UUID);
+
+                    if (handshake == null
+                            || !gatt.readCharacteristic(
+                                    handshake)) {
+                        fail(
+                                getString(
+                                        R.string.peer_pair_service_missing));
+                    }
+                }
+
+                @Override
+                public void onCharacteristicRead(
+                        BluetoothGatt gatt,
+                        BluetoothGattCharacteristic characteristic,
+                        byte[] value,
+                        int gattStatus) {
+                    handleClientRead(
+                            gatt,
+                            characteristic,
+                            value,
+                            gattStatus);
+                }
+
+                @Override
+                public void onCharacteristicRead(
+                        BluetoothGatt gatt,
+                        BluetoothGattCharacteristic characteristic,
+                        int gattStatus) {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        return;
+                    }
+
+                    handleClientRead(
+                            gatt,
+                            characteristic,
+                            characteristic.getValue(),
+                            gattStatus);
+                }
+
+                @Override
+                public void onCharacteristicWrite(
+                        BluetoothGatt gatt,
+                        BluetoothGattCharacteristic characteristic,
+                        int gattStatus) {
+                    if (gattStatus
+                            != BluetoothGatt.GATT_SUCCESS) {
+                        fail(
+                                getString(
+                                        R.string.peer_pair_write_failed,
+                                        gattStatus));
+                    }
+                }
+            };
+
+    private void handleClientRead(
+            BluetoothGatt gatt,
+            BluetoothGattCharacteristic characteristic,
+            byte[] value,
+            int gattStatus) {
+        if (!HANDSHAKE_UUID.equals(
+                characteristic.getUuid())) {
+            return;
+        }
+
+        if (gattStatus
+                != BluetoothGatt.GATT_SUCCESS) {
+            fail(
+                    getString(
+                            R.string.peer_pair_read_failed,
+                            gattStatus));
+            return;
+        }
+
+        PeerPairingCrypto.Remote remote =
+                PeerPairingCrypto.parseHello(
+                        value);
+
+        if (remote == null) {
+            fail(
+                    getString(
+                            R.string.peer_pair_invalid_handshake));
+            return;
+        }
+
+        handleRemoteHello(
+                remote);
+
+        writeLocalHello(
+                gatt,
+                characteristic);
+    }
+
+    private void writeLocalHello(
+            BluetoothGatt gatt,
+            BluetoothGattCharacteristic characteristic) {
+        boolean queued;
+
+        if (Build.VERSION.SDK_INT >= 33) {
+            queued =
+                    gatt.writeCharacteristic(
+                            characteristic,
+                            cryptoSession.hello,
+                            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                            == BluetoothStatusCodes.SUCCESS;
+        } else {
+            characteristic.setWriteType(
+                    BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+            characteristic.setValue(
+                    cryptoSession.hello);
+
+            queued =
+                    gatt.writeCharacteristic(
+                            characteristic);
+        }
+
+        if (!queued) {
+            fail(
+                    getString(
+                            R.string.peer_pair_write_queue_failed));
+        }
+    }
+
+    private synchronized void handleRemoteHello(
+            PeerPairingCrypto.Remote remote) {
+        if (codeReady) return;
+
+        if (PeerTrustStore.isTrusted(
                 this,
-                getResources().getQuantityString(
-                        R.plurals.peer_ble_test_complete,
-                        detectedPeers.size(),
-                        detectedPeers.size()));
+                remote.deviceId)) {
+            codeReady = true;
 
-        startButton.setEnabled(true);
+            handler.removeCallbacks(
+                    timeoutTask);
+
+            stopRadioOnly();
+
+            runOnUiThread(
+                    () -> {
+                        status.setText(
+                                R.string.peer_pair_already_trusted);
+                        startButton.setEnabled(true);
+                    });
+
+            return;
+        }
+
+        try {
+            PeerPairingCrypto.Result result =
+                    PeerPairingCrypto.derive(
+                            cryptoSession,
+                            remote);
+
+            codeReady = true;
+
+            handler.removeCallbacks(
+                    timeoutTask);
+
+            stopRadioOnly();
+
+            EventLog.info(
+                    this,
+                    getString(
+                            R.string.peer_pair_code_log));
+
+            runOnUiThread(
+                    () -> {
+                        status.setText(
+                                getString(
+                                        R.string.peer_pair_code_ready,
+                                        result.securityCode));
+
+                        startButton.setEnabled(true);
+                    });
+        } catch (RuntimeException exception) {
+            fail(
+                    getString(
+                            R.string.peer_pair_crypto_failed,
+                            exception.getClass()
+                                    .getSimpleName()));
+        }
     }
+
+    private final Runnable timeoutTask =
+            () -> {
+                if (!pairingActive
+                        || codeReady) {
+                    return;
+                }
+
+                fail(
+                        getString(
+                                R.string.peer_pair_timeout));
+            };
 
     private void fail(
             String message) {
         stopBle();
 
-        status.setText(message);
+        runOnUiThread(
+                () -> {
+                    status.setText(message);
+                    startButton.setEnabled(true);
+                });
 
         EventLog.error(
                 this,
                 message);
-
-        startButton.setEnabled(true);
     }
 
-    private void stopBle() {
-        handler.removeCallbacks(
-                finishTask);
-
+    private void stopRadioOnly() {
         if (scanner != null) {
             try {
                 scanner.stopScan(
@@ -489,8 +919,65 @@ public final class PeerPairingActivity extends Activity {
             } catch (RuntimeException ignored) {
             }
         }
+    }
 
-        testActive = false;
+    private void stopBle() {
+        handler.removeCallbacks(
+                timeoutTask);
+
+        stopRadioOnly();
+
+        if (clientGatt != null) {
+            try {
+                clientGatt.disconnect();
+            } catch (RuntimeException ignored) {
+            }
+
+            clientGatt.close();
+            clientGatt = null;
+        }
+
+        if (gattServer != null) {
+            try {
+                gattServer.clearServices();
+            } catch (RuntimeException ignored) {
+            }
+
+            gattServer.close();
+            gattServer = null;
+        }
+
+        pairingActive = false;
+        clientConnecting = false;
+    }
+
+    private static int compareUnsigned(
+            byte[] left,
+            byte[] right) {
+        int length =
+                Math.min(
+                        left.length,
+                        right.length);
+
+        for (int index = 0;
+             index < length;
+             index++) {
+            int a =
+                    left[index] & 0xff;
+
+            int b =
+                    right[index] & 0xff;
+
+            if (a != b) {
+                return Integer.compare(
+                        a,
+                        b);
+            }
+        }
+
+        return Integer.compare(
+                left.length,
+                right.length);
     }
 
     private static byte[] fingerprint(
@@ -513,22 +1000,6 @@ public final class PeerPairingActivity extends Activity {
                     "Could not create BLE peer fingerprint",
                     exception);
         }
-    }
-
-    private static String hex(
-            byte[] data) {
-        StringBuilder result =
-                new StringBuilder();
-
-        for (byte value : data) {
-            result.append(
-                    String.format(
-                            java.util.Locale.ROOT,
-                            "%02X",
-                            value & 0xff));
-        }
-
-        return result.toString();
     }
 
     @Override

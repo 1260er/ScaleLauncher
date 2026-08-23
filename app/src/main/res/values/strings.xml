@@ -378,14 +378,14 @@ UUIDs: %1$s</string>
     <string name="peer_section_title">Handy-Verbindung</string>
     <string name="peer_pair_phone">Handys koppeln</string>
     <string name="peer_pairing_title">Handys koppeln</string>
-    <string name="peer_pairing_intro">Öffne diese Seite auf beiden Handys und starte auf beiden den Bluetooth-Test. In diesem ersten Schritt prüfen wir nur die direkte Geräteerkennung ohne Google Play-Dienste.</string>
+    <string name="peer_pairing_intro">Öffne diese Seite auf beiden Handys und starte auf beiden den sicheren Kopplungstest. Beide Handys müssen anschließend denselben sechsstelligen Sicherheitscode anzeigen.</string>
     <string name="peer_local_device">Dieses Handy: %1$s</string>
     <plurals name="peer_trusted_count">
         <item quantity="one">%1$d gekoppeltes Handy</item>
         <item quantity="other">%1$d gekoppelte Handys</item>
     </plurals>
     <string name="peer_pairing_ready">Bereit zur Kopplung</string>
-    <string name="peer_pairing_start">Bluetooth-Test starten</string>
+    <string name="peer_pairing_start">Sichere Kopplung starten</string>
     <string name="peer_searching">Suche nach ScaleLauncher-Handys …</string>
     <string name="peer_found">Handy gefunden: %1$s</string>
     <string name="peer_request_sent">Verbindungsanfrage an %1$s gesendet</string>
@@ -422,5 +422,32 @@ Nur bestätigen, wenn beide Codes identisch sind.</string>
         <item quantity="one">BLE-Test beendet – %1$d ScaleLauncher-Handy gefunden</item>
         <item quantity="other">BLE-Test beendet – %1$d ScaleLauncher-Handys gefunden</item>
     </plurals>
+
+
+    <string name="peer_pair_secure_started">Sicherer BLE-Kopplungstest gestartet</string>
+    <string name="peer_pair_secure_searching">Suche nach ScaleLauncher-Handy und bereite sicheren Schlüsselaustausch vor …</string>
+    <string name="peer_pair_gatt_server_ready">BLE-Kopplungsdienst bereit</string>
+    <string name="peer_pair_gatt_server_failed">BLE-Kopplungsdienst konnte nicht gestartet werden</string>
+    <string name="peer_pair_gatt_server_error">BLE-Kopplungsdienst fehlgeschlagen: %1$s</string>
+    <string name="peer_pair_gatt_server_status">BLE-Kopplungsdienst fehlgeschlagen – Status %1$d</string>
+    <string name="peer_pair_connecting">Sichere Verbindung zum anderen Handy wird aufgebaut …</string>
+    <string name="peer_pair_connected">BLE-Peer-Verbindung hergestellt</string>
+    <string name="peer_pair_connection_failed">BLE-Peer-Verbindung konnte nicht gestartet werden</string>
+    <string name="peer_pair_connection_error">BLE-Peer-Verbindung fehlgeschlagen: %1$s</string>
+    <string name="peer_pair_connection_status">BLE-Peer-Verbindung fehlgeschlagen – Status %1$d</string>
+    <string name="peer_pair_disconnected">BLE-Peer-Verbindung wurde vor dem Schlüsselaustausch getrennt</string>
+    <string name="peer_pair_service_failed">BLE-Dienstsuche fehlgeschlagen – Status %1$d</string>
+    <string name="peer_pair_service_missing">ScaleLauncher-Kopplungsdienst wurde auf dem anderen Handy nicht gefunden</string>
+    <string name="peer_pair_read_failed">BLE-Schlüssellesen fehlgeschlagen – Status %1$d</string>
+    <string name="peer_pair_write_failed">BLE-Schlüsselschreiben fehlgeschlagen – Status %1$d</string>
+    <string name="peer_pair_write_queue_failed">BLE-Schlüsselschreiben konnte nicht gestartet werden</string>
+    <string name="peer_pair_invalid_handshake">Ungültige Daten beim sicheren Schlüsselaustausch</string>
+    <string name="peer_pair_crypto_failed">Sicherer Schlüsselaustausch fehlgeschlagen: %1$s</string>
+    <string name="peer_pair_timeout">Kein vollständiger sicherer Schlüsselaustausch innerhalb von 45 Sekunden</string>
+    <string name="peer_pair_already_trusted">Dieses Handy ist bereits als vertrauenswürdig gespeichert</string>
+    <string name="peer_pair_code_ready">Sicherheitscode: %1$s
+
+Auf beiden Handys muss exakt derselbe Code stehen. In diesem Test wird die Kopplung noch nicht dauerhaft gespeichert.</string>
+    <string name="peer_pair_code_log">Sicherer BLE-Schlüsselaustausch erfolgreich – Sicherheitscode bereit</string>
 
 </resources>
