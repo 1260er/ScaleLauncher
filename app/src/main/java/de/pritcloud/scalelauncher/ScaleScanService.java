@@ -296,7 +296,7 @@ public final class ScaleScanService extends Service {
                             gattClient = null;
                             scheduleGattReconnect(
                                     getString(
-                                            R.string.service_error_monitor_inactive));
+                                            R.string.service_error_gatt_inactive));
                         }
                     }
 
@@ -328,11 +328,19 @@ public final class ScaleScanService extends Service {
                     }
 
                     @Override public void onError(String message) {
-                        EventLog.error(
-                                ScaleScanService.this,
-                                getString(
-                                        R.string.log_gatt_error,
-                                        message));
+                        if (gattCollectorOwned) {
+                            EventLog.error(
+                                    ScaleScanService.this,
+                                    getString(
+                                            R.string.log_gatt_error,
+                                            message));
+                        } else {
+                            EventLog.warning(
+                                    ScaleScanService.this,
+                                    getString(
+                                            R.string.log_gatt_standby_failure,
+                                            message));
+                        }
                     }
                 });
 

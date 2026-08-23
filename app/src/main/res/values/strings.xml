@@ -33,6 +33,7 @@
     <string name="service_error_gatt_final_incomplete">GATT-FINAL unvollständig – Dual-Impedanz fehlt</string>
     <string name="log_gatt_disconnected">GATT-Verbindung getrennt | Status %1$d</string>
     <string name="log_gatt_error">GATT-Fehler: %1$s</string>
+    <string name="log_gatt_standby_failure">GATT-Standby: Anmeldung noch nicht möglich – %1$s</string>
     <string name="log_gatt_reconnect">GATT-Neuverbindung: %1$s | neuer Versuch in %2$d s</string>
     <string name="log_gatt_standby">GATT-Standby aktiv – wartet auf freie Waage</string>
     <string name="service_gatt_connecting">GATT-Collector-Steuerung startet</string>
@@ -347,7 +348,7 @@ UUIDs: %1$s</string>
     <string name="service_error_unused_app_management_returned">Verwaltung bei Nichtnutzung ist wieder aktiv</string>
     <string name="service_error_notifications_disabled">Benachrichtigungen wurden deaktiviert</string>
     <string name="service_error_bluetooth_permission_revoked">Bluetooth-Berechtigung wurde entzogen</string>
-    <string name="service_error_monitor_inactive">BLE-Überwachung war nicht aktiv</string>
+    <string name="service_error_gatt_inactive">GATT-Verbindung nicht aktiv</string>
     <string name="service_restart_delay">%1$s – neuer Versuch in 3 Sekunden</string>
     <string name="log_monitor_stopped">Überwachung angehalten – %1$s</string>
     <string name="notification_monitor_error_title">ScaleLauncher – Fehler</string>

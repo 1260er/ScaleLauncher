@@ -27,6 +27,7 @@
     <string name="service_error_gatt_final_incomplete">GATT FINAL incomplete – dual impedance missing</string>
     <string name="log_gatt_disconnected">GATT connection disconnected | status %1$d</string>
     <string name="log_gatt_error">GATT error: %1$s</string>
+    <string name="log_gatt_standby_failure">GATT standby: authentication not available yet – %1$s</string>
     <string name="log_gatt_reconnect">GATT reconnect: %1$s | retry in %2$d s</string>
     <string name="log_gatt_standby">GATT standby active – waiting for scale</string>
     <string name="service_gatt_connecting">GATT collector coordination starting</string>
@@ -341,7 +342,7 @@ UUIDs: %1$s</string>
     <string name="service_error_unused_app_management_returned">Unused app management is active again</string>
     <string name="service_error_notifications_disabled">Notifications were disabled</string>
     <string name="service_error_bluetooth_permission_revoked">Bluetooth permission was revoked</string>
-    <string name="service_error_monitor_inactive">BLE monitoring was not active</string>
+    <string name="service_error_gatt_inactive">GATT connection not active</string>
     <string name="service_restart_delay">%1$s – retrying in 3 seconds</string>
     <string name="log_monitor_stopped">Monitoring stopped – %1$s</string>
     <string name="notification_monitor_error_title">ScaleLauncher – Error</string>
