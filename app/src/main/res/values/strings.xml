@@ -378,14 +378,14 @@ UUIDs: %1$s</string>
     <string name="peer_section_title">Handy-Verbindung</string>
     <string name="peer_pair_phone">Handys koppeln</string>
     <string name="peer_pairing_title">Handys koppeln</string>
-    <string name="peer_pairing_intro">Öffne diese Seite einmalig auf beiden Handys und starte auf beiden die Kopplung. Bestätige nur, wenn derselbe vierstellige Sicherheitscode angezeigt wird.</string>
+    <string name="peer_pairing_intro">Öffne diese Seite auf beiden Handys und starte auf beiden den Bluetooth-Test. In diesem ersten Schritt prüfen wir nur die direkte Geräteerkennung ohne Google Play-Dienste.</string>
     <string name="peer_local_device">Dieses Handy: %1$s</string>
     <plurals name="peer_trusted_count">
         <item quantity="one">%1$d gekoppeltes Handy</item>
         <item quantity="other">%1$d gekoppelte Handys</item>
     </plurals>
     <string name="peer_pairing_ready">Bereit zur Kopplung</string>
-    <string name="peer_pairing_start">Kopplung starten</string>
+    <string name="peer_pairing_start">Bluetooth-Test starten</string>
     <string name="peer_searching">Suche nach ScaleLauncher-Handys …</string>
     <string name="peer_found">Handy gefunden: %1$s</string>
     <string name="peer_request_sent">Verbindungsanfrage an %1$s gesendet</string>
@@ -406,5 +406,21 @@ Nur bestätigen, wenn beide Codes identisch sind.</string>
     <string name="peer_nearby_failed">Nearby-Fehler: %1$s</string>
     <string name="peer_unknown_device">Unbekanntes Handy</string>
     <string name="peer_unknown_error">Unbekannter Fehler</string>
+
+
+    <string name="peer_bluetooth_off">Bluetooth ist ausgeschaltet</string>
+    <string name="peer_ble_unavailable">BLE-Advertising oder BLE-Scan ist nicht verfügbar</string>
+    <string name="peer_ble_test_started">BLE-Peer-Test gestartet</string>
+    <string name="peer_ble_advertising_active">BLE-Peer-Advertising aktiv</string>
+    <string name="peer_ble_found">ScaleLauncher-Handy gefunden: %1$s</string>
+    <string name="peer_ble_found_log">BLE-Peer gefunden – Kennung %1$s</string>
+    <string name="peer_ble_advertising_failed">BLE-Advertising fehlgeschlagen: %1$s</string>
+    <string name="peer_ble_scan_failed">BLE-Scan fehlgeschlagen: %1$s</string>
+    <string name="peer_ble_advertising_code">BLE-Advertising fehlgeschlagen – Code %1$d</string>
+    <string name="peer_ble_scan_code">BLE-Scan fehlgeschlagen – Code %1$d</string>
+    <plurals name="peer_ble_test_complete">
+        <item quantity="one">BLE-Test beendet – %1$d ScaleLauncher-Handy gefunden</item>
+        <item quantity="other">BLE-Test beendet – %1$d ScaleLauncher-Handys gefunden</item>
+    </plurals>
 
 </resources>

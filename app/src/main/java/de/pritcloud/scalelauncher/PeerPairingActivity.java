@@ -2,72 +2,67 @@ package de.pritcloud.scalelauncher;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.AdvertiseCallback;
+import android.bluetooth.le.AdvertiseData;
+import android.bluetooth.le.AdvertiseSettings;
+import android.bluetooth.le.BluetoothLeAdvertiser;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.ParcelUuid;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.google.android.gms.nearby.Nearby;
-import com.google.android.gms.nearby.connection.AdvertisingOptions;
-import com.google.android.gms.nearby.connection.ConnectionInfo;
-import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback;
-import com.google.android.gms.nearby.connection.ConnectionResolution;
-import com.google.android.gms.nearby.connection.ConnectionsClient;
-import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo;
-import com.google.android.gms.nearby.connection.DiscoveryOptions;
-import com.google.android.gms.nearby.connection.EndpointDiscoveryCallback;
-import com.google.android.gms.nearby.connection.Payload;
-import com.google.android.gms.nearby.connection.PayloadCallback;
-import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
-import com.google.android.gms.nearby.connection.Strategy;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 public final class PeerPairingActivity extends Activity {
-    private static final int REQ_NEARBY_PERMISSIONS = 401;
-    private String serviceId;
+    private static final int REQ_BLE_PERMISSIONS = 401;
+    private static final long DISCOVERY_TIME_MS = 30_000L;
 
-    private ConnectionsClient client;
+    /*
+     * ScaleLauncher private BLE service UUID.
+     * Used only to identify ScaleLauncher peers.
+     */
+    private static final ParcelUuid SERVICE_UUID =
+            new ParcelUuid(
+                    UUID.fromString(
+                            "62d58d1a-1d4e-4b7e-9d6d-8e6a9053c7a1"));
+
+    private final Handler handler =
+            new Handler(Looper.getMainLooper());
+
+    private final Set<String> detectedPeers =
+            new HashSet<>();
+
+    private BluetoothAdapter adapter;
+    private BluetoothLeAdvertiser advertiser;
+    private BluetoothLeScanner scanner;
+
     private PeerEndpointInfo localEndpoint;
+    private byte[] localFingerprint;
 
     private TextView localInfo;
     private TextView trustedInfo;
     private TextView status;
     private Button startButton;
 
-    private final Map<String, PeerEndpointInfo> discoveredPeers =
-            new HashMap<>();
-
-    private final Map<String, PairingCandidate> candidates =
-            new HashMap<>();
-
-    private final Set<String> requestedEndpoints =
-            new HashSet<>();
-
-    private String activeEndpointId;
-    private boolean pairingActive;
-
-    private static final class PairingCandidate {
-        final PeerEndpointInfo peer;
-        final byte[] sharedSecret;
-        boolean acceptedByUser;
-
-        PairingCandidate(PeerEndpointInfo peer,
-                         byte[] sharedSecret) {
-            this.peer = peer;
-            this.sharedSecret = sharedSecret;
-        }
-    }
+    private boolean testActive;
 
     @Override
     public void onCreate(Bundle state) {
@@ -93,14 +88,29 @@ public final class PeerPairingActivity extends Activity {
                     return insets;
                 });
 
-        serviceId = getPackageName() + ".peer.v1";
-        client = Nearby.getConnectionsClient(this);
-        localEndpoint = PeerEndpointInfo.local(this);
+        BluetoothManager manager =
+                getSystemService(BluetoothManager.class);
 
-        localInfo = findViewById(R.id.peerLocalInfo);
-        trustedInfo = findViewById(R.id.peerTrustedInfo);
-        status = findViewById(R.id.peerPairingStatus);
-        startButton = findViewById(R.id.startPeerPairing);
+        adapter =
+                manager == null
+                        ? null
+                        : manager.getAdapter();
+
+        localEndpoint = PeerEndpointInfo.local(this);
+        localFingerprint =
+                fingerprint(localEndpoint.deviceId);
+
+        localInfo =
+                findViewById(R.id.peerLocalInfo);
+
+        trustedInfo =
+                findViewById(R.id.peerTrustedInfo);
+
+        status =
+                findViewById(R.id.peerPairingStatus);
+
+        startButton =
+                findViewById(R.id.startPeerPairing);
 
         startButton.setOnClickListener(
                 view -> ensurePermissionsAndStart());
@@ -114,15 +124,19 @@ public final class PeerPairingActivity extends Activity {
                         R.string.peer_local_device,
                         localEndpoint.label));
 
+        int trusted =
+                PeerTrustStore.count(this);
+
         trustedInfo.setText(
                 getResources().getQuantityString(
                         R.plurals.peer_trusted_count,
-                        PeerTrustStore.count(this),
-                        PeerTrustStore.count(this)));
+                        trusted,
+                        trusted));
     }
 
     private void ensurePermissionsAndStart() {
-        List<String> missing = new ArrayList<>();
+        List<String> missing =
+                new ArrayList<>();
 
         addIfMissing(
                 missing,
@@ -136,31 +150,22 @@ public final class PeerPairingActivity extends Activity {
                 missing,
                 Manifest.permission.BLUETOOTH_ADVERTISE);
 
-        if (Build.VERSION.SDK_INT <= 31) {
-            addIfMissing(
-                    missing,
-                    Manifest.permission.ACCESS_FINE_LOCATION);
-        } else {
-            addIfMissing(
-                    missing,
-                    Manifest.permission.NEARBY_WIFI_DEVICES);
-        }
-
         if (!missing.isEmpty()) {
             requestPermissions(
                     missing.toArray(new String[0]),
-                    REQ_NEARBY_PERMISSIONS);
+                    REQ_BLE_PERMISSIONS);
             return;
         }
 
-        startPairing();
+        startBleTest();
     }
 
-    private void addIfMissing(List<String> list,
-                              String permission) {
+    private void addIfMissing(
+            List<String> missing,
+            String permission) {
         if (checkSelfPermission(permission)
                 != PackageManager.PERMISSION_GRANTED) {
-            list.add(permission);
+            missing.add(permission);
         }
     }
 
@@ -174,447 +179,361 @@ public final class PeerPairingActivity extends Activity {
                 permissions,
                 grantResults);
 
-        if (requestCode != REQ_NEARBY_PERMISSIONS) {
+        if (requestCode != REQ_BLE_PERMISSIONS) {
+            return;
+        }
+
+        if (grantResults.length == 0) {
+            status.setText(
+                    R.string.peer_permission_missing);
             return;
         }
 
         for (int result : grantResults) {
-            if (result != PackageManager.PERMISSION_GRANTED) {
+            if (result
+                    != PackageManager.PERMISSION_GRANTED) {
                 status.setText(
                         R.string.peer_permission_missing);
                 return;
             }
         }
 
-        startPairing();
+        startBleTest();
     }
 
-    private void startPairing() {
-        if (pairingActive) return;
+    private void startBleTest() {
+        if (testActive) return;
 
-        pairingActive = true;
-        activeEndpointId = null;
-        requestedEndpoints.clear();
-        discoveredPeers.clear();
-        candidates.clear();
+        if (adapter == null
+                || !adapter.isEnabled()) {
+            status.setText(
+                    R.string.peer_bluetooth_off);
 
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.peer_bluetooth_off));
+            return;
+        }
+
+        advertiser =
+                adapter.getBluetoothLeAdvertiser();
+
+        scanner =
+                adapter.getBluetoothLeScanner();
+
+        if (advertiser == null
+                || scanner == null) {
+            status.setText(
+                    R.string.peer_ble_unavailable);
+
+            EventLog.error(
+                    this,
+                    getString(
+                            R.string.peer_ble_unavailable));
+            return;
+        }
+
+        detectedPeers.clear();
+        testActive = true;
         startButton.setEnabled(false);
-        status.setText(R.string.peer_searching);
 
-        client.stopAdvertising();
-        client.stopDiscovery();
-        client.stopAllEndpoints();
+        status.setText(
+                R.string.peer_searching);
 
-        AdvertisingOptions advertisingOptions =
-                new AdvertisingOptions.Builder()
-                        .setStrategy(Strategy.P2P_CLUSTER)
-                        .build();
+        EventLog.info(
+                this,
+                getString(
+                        R.string.peer_ble_test_started));
 
-        DiscoveryOptions discoveryOptions =
-                new DiscoveryOptions.Builder()
-                        .setStrategy(Strategy.P2P_CLUSTER)
-                        .build();
+        startAdvertising();
+        startScanning();
 
-        client.startAdvertising(
-                        localEndpoint.encode(),
-                        serviceId,
-                        connectionLifecycleCallback,
-                        advertisingOptions)
-                .addOnFailureListener(
-                        exception -> showFailure(exception));
+        handler.removeCallbacks(
+                finishTask);
 
-        client.startDiscovery(
-                        serviceId,
-                        endpointDiscoveryCallback,
-                        discoveryOptions)
-                .addOnFailureListener(
-                        exception -> showFailure(exception));
+        handler.postDelayed(
+                finishTask,
+                DISCOVERY_TIME_MS);
     }
 
-    private final EndpointDiscoveryCallback
-            endpointDiscoveryCallback =
-            new EndpointDiscoveryCallback() {
-                @Override
-                public void onEndpointFound(
-                        String endpointId,
-                        DiscoveredEndpointInfo info) {
-                    PeerEndpointInfo peer =
-                            PeerEndpointInfo.decode(
-                                    info.getEndpointInfo());
+    private void startAdvertising() {
+        AdvertiseSettings settings =
+                new AdvertiseSettings.Builder()
+                        .setAdvertiseMode(
+                                AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
+                        .setTxPowerLevel(
+                                AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
+                        .setConnectable(true)
+                        .setTimeout(0)
+                        .build();
 
-                    if (peer == null
-                            || peer.deviceId.equals(
-                                    localEndpoint.deviceId)) {
-                        return;
-                    }
+        AdvertiseData advertiseData =
+                new AdvertiseData.Builder()
+                        .addServiceUuid(SERVICE_UUID)
+                        .setIncludeDeviceName(false)
+                        .setIncludeTxPowerLevel(false)
+                        .build();
 
-                    discoveredPeers.put(
-                            endpointId,
-                            peer);
+        /*
+         * The short random installation fingerprint is placed in
+         * the scan response. It is not a hardware identifier.
+         */
+        AdvertiseData scanResponse =
+                new AdvertiseData.Builder()
+                        .addServiceData(
+                                SERVICE_UUID,
+                                localFingerprint)
+                        .build();
 
-                    if (PeerTrustStore.isTrusted(
-                            PeerPairingActivity.this,
-                            peer.deviceId)) {
-                        runOnUiThread(
-                                () -> status.setText(
-                                        getString(
-                                                R.string.peer_already_trusted,
-                                                displayLabel(peer))));
-                        return;
-                    }
-
-                    runOnUiThread(
-                            () -> status.setText(
-                                    getString(
-                                            R.string.peer_found,
-                                            displayLabel(peer))));
-
-                    /*
-                     * Both phones advertise and discover.
-                     * Only the lexicographically smaller persistent
-                     * device ID starts the connection. This prevents
-                     * two simultaneous connection requests.
-                     */
-                    if (localEndpoint.deviceId.compareTo(
-                            peer.deviceId) >= 0) {
-                        return;
-                    }
-
-                    if (!requestedEndpoints.add(endpointId)) {
-                        return;
-                    }
-
-                    client.requestConnection(
-                                    localEndpoint.encode(),
-                                    endpointId,
-                                    connectionLifecycleCallback)
-                            .addOnSuccessListener(
-                                    unused -> runOnUiThread(
-                                            () -> status.setText(
-                                                    getString(
-                                                            R.string.peer_request_sent,
-                                                            displayLabel(peer)))))
-                            .addOnFailureListener(
-                                    exception -> {
-                                        requestedEndpoints.remove(
-                                                endpointId);
-                                        showFailure(exception);
-                                    });
-                }
-
-                @Override
-                public void onEndpointLost(
-                        String endpointId) {
-                    discoveredPeers.remove(endpointId);
-                    requestedEndpoints.remove(endpointId);
-                }
-            };
-
-    private final ConnectionLifecycleCallback
-            connectionLifecycleCallback =
-            new ConnectionLifecycleCallback() {
-                @Override
-                public void onConnectionInitiated(
-                        String endpointId,
-                        ConnectionInfo info) {
-                    PeerEndpointInfo peer =
-                            PeerEndpointInfo.decode(
-                                    info.getEndpointInfo());
-
-                    if (peer == null
-                            || peer.deviceId.equals(
-                                    localEndpoint.deviceId)) {
-                        client.rejectConnection(endpointId);
-                        return;
-                    }
-
-                    discoveredPeers.put(
-                            endpointId,
-                            peer);
-
-                    if (PeerTrustStore.isTrusted(
-                            PeerPairingActivity.this,
-                            peer.deviceId)) {
-                        client.rejectConnection(endpointId);
-
-                        runOnUiThread(
-                                () -> status.setText(
-                                        getString(
-                                                R.string.peer_already_trusted,
-                                                displayLabel(peer))));
-                        return;
-                    }
-
-                    if (activeEndpointId != null
-                            && !activeEndpointId.equals(
-                                    endpointId)) {
-                        client.rejectConnection(endpointId);
-                        return;
-                    }
-
-                    byte[] rawToken =
-                            info.getRawAuthenticationToken();
-
-                    if (rawToken == null
-                            || rawToken.length == 0) {
-                        client.rejectConnection(endpointId);
-
-                        runOnUiThread(
-                                () -> status.setText(
-                                        R.string.peer_authentication_failed));
-                        return;
-                    }
-
-                    byte[] sharedSecret;
-
-                    try {
-                        sharedSecret =
-                                deriveSharedSecret(
-                                        rawToken,
-                                        peer.deviceId);
-                    } catch (RuntimeException exception) {
-                        client.rejectConnection(endpointId);
-                        showFailure(exception);
-                        return;
-                    }
-
-                    PairingCandidate candidate =
-                            new PairingCandidate(
-                                    peer,
-                                    sharedSecret);
-
-                    candidates.put(
-                            endpointId,
-                            candidate);
-
-                    activeEndpointId = endpointId;
-
-                    String digits =
-                            info.getAuthenticationDigits();
-
-                    runOnUiThread(
-                            () -> showAuthenticationDialog(
-                                    endpointId,
-                                    candidate,
-                                    digits));
-                }
-
-                @Override
-                public void onConnectionResult(
-                        String endpointId,
-                        ConnectionResolution resolution) {
-                    PairingCandidate candidate =
-                            candidates.get(endpointId);
-
-                    if (candidate == null) {
-                        return;
-                    }
-
-                    if (!resolution.getStatus().isSuccess()
-                            || !candidate.acceptedByUser) {
-                        candidates.remove(endpointId);
-
-                        if (endpointId.equals(
-                                activeEndpointId)) {
-                            activeEndpointId = null;
-                        }
-
-                        runOnUiThread(
-                                () -> {
-                                    status.setText(
-                                            R.string.peer_pairing_failed);
-                                    pairingActive = false;
-                                    startButton.setEnabled(true);
-                                });
-
-                        return;
-                    }
-
-                    PeerTrustStore.trust(
-                            PeerPairingActivity.this,
-                            candidate.peer.deviceId,
-                            candidate.peer.label,
-                            candidate.sharedSecret);
-
-                    client.stopAdvertising();
-                    client.stopDiscovery();
-
-                    pairingActive = false;
-
-                    runOnUiThread(
-                            () -> {
-                                refreshSummary();
-
-                                status.setText(
-                                        getString(
-                                                R.string.peer_pairing_success,
-                                                displayLabel(
-                                                        candidate.peer)));
-
-                                startButton.setEnabled(true);
-                            });
-                }
-
-                @Override
-                public void onDisconnected(
-                        String endpointId) {
-                    candidates.remove(endpointId);
-                    requestedEndpoints.remove(endpointId);
-
-                    if (endpointId.equals(
-                            activeEndpointId)) {
-                        activeEndpointId = null;
-                    }
-                }
-            };
-
-    private void showAuthenticationDialog(
-            String endpointId,
-            PairingCandidate candidate,
-            String digits) {
-        String code =
-                digits == null || digits.isBlank()
-                        ? "----"
-                        : digits;
-
-        new AlertDialog.Builder(this)
-                .setTitle(
-                        R.string.peer_verify_title)
-                .setMessage(
-                        getString(
-                                R.string.peer_verify_message,
-                                displayLabel(candidate.peer),
-                                code))
-                .setPositiveButton(
-                        R.string.peer_verify_accept,
-                        (dialog, which) -> {
-                            candidate.acceptedByUser = true;
-
-                            client.acceptConnection(
-                                            endpointId,
-                                            payloadCallback)
-                                    .addOnFailureListener(
-                                            exception -> {
-                                                candidate.acceptedByUser =
-                                                        false;
-                                                showFailure(exception);
-                                            });
-                        })
-                .setNegativeButton(
-                        R.string.peer_verify_reject,
-                        (dialog, which) -> {
-                            candidate.acceptedByUser = false;
-                            client.rejectConnection(endpointId);
-                            activeEndpointId = null;
-                        })
-                .setOnCancelListener(
-                        dialog -> {
-                            candidate.acceptedByUser = false;
-                            client.rejectConnection(endpointId);
-                            activeEndpointId = null;
-                        })
-                .show();
-    }
-
-    private final PayloadCallback payloadCallback =
-            new PayloadCallback() {
-                @Override
-                public void onPayloadReceived(
-                        String endpointId,
-                        Payload payload) {
-                    // Stage 3b only establishes trust.
-                }
-
-                @Override
-                public void onPayloadTransferUpdate(
-                        String endpointId,
-                        PayloadTransferUpdate update) {
-                    // No payloads are transferred during Stage 3b.
-                }
-            };
-
-    private byte[] deriveSharedSecret(
-            byte[] rawAuthenticationToken,
-            String remoteDeviceId) {
         try {
-            String first;
-            String second;
+            advertiser.startAdvertising(
+                    settings,
+                    advertiseData,
+                    scanResponse,
+                    advertiseCallback);
+        } catch (RuntimeException exception) {
+            fail(
+                    getString(
+                            R.string.peer_ble_advertising_failed,
+                            exception.getClass()
+                                    .getSimpleName()));
+        }
+    }
 
-            if (localEndpoint.deviceId.compareTo(
-                    remoteDeviceId) < 0) {
-                first = localEndpoint.deviceId;
-                second = remoteDeviceId;
-            } else {
-                first = remoteDeviceId;
-                second = localEndpoint.deviceId;
+    private void startScanning() {
+        ScanFilter filter =
+                new ScanFilter.Builder()
+                        .setServiceUuid(
+                                SERVICE_UUID)
+                        .build();
+
+        /*
+         * Pairing is explicitly started by the user and lasts only
+         * 30 seconds, therefore BALANCED is sufficient here.
+         *
+         * The later automatic background mode will use LOW_POWER.
+         */
+        ScanSettings settings =
+                new ScanSettings.Builder()
+                        .setScanMode(
+                                ScanSettings.SCAN_MODE_BALANCED)
+                        .build();
+
+        try {
+            scanner.startScan(
+                    List.of(filter),
+                    settings,
+                    scanCallback);
+        } catch (RuntimeException exception) {
+            fail(
+                    getString(
+                            R.string.peer_ble_scan_failed,
+                            exception.getClass()
+                                    .getSimpleName()));
+        }
+    }
+
+    private final AdvertiseCallback
+            advertiseCallback =
+            new AdvertiseCallback() {
+                @Override
+                public void onStartSuccess(
+                        AdvertiseSettings settingsInEffect) {
+                    EventLog.info(
+                            PeerPairingActivity.this,
+                            getString(
+                                    R.string.peer_ble_advertising_active));
+                }
+
+                @Override
+                public void onStartFailure(
+                        int errorCode) {
+                    fail(
+                            getString(
+                                    R.string.peer_ble_advertising_code,
+                                    errorCode));
+                }
+            };
+
+    private final ScanCallback scanCallback =
+            new ScanCallback() {
+                @Override
+                public void onScanResult(
+                        int callbackType,
+                        ScanResult result) {
+                    handleResult(result);
+                }
+
+                @Override
+                public void onBatchScanResults(
+                        List<ScanResult> results) {
+                    for (ScanResult result : results) {
+                        handleResult(result);
+                    }
+                }
+
+                @Override
+                public void onScanFailed(
+                        int errorCode) {
+                    fail(
+                            getString(
+                                    R.string.peer_ble_scan_code,
+                                    errorCode));
+                }
+            };
+
+    private void handleResult(
+            ScanResult result) {
+        if (!testActive
+                || result == null
+                || result.getScanRecord() == null) {
+            return;
+        }
+
+        byte[] remoteFingerprint =
+                result.getScanRecord()
+                        .getServiceData(
+                                SERVICE_UUID);
+
+        if (remoteFingerprint != null
+                && Arrays.equals(
+                        remoteFingerprint,
+                        localFingerprint)) {
+            return;
+        }
+
+        String key;
+
+        if (remoteFingerprint != null
+                && remoteFingerprint.length > 0) {
+            key = hex(remoteFingerprint);
+        } else {
+            key = "endpoint";
+        }
+
+        if (!detectedPeers.add(key)) {
+            return;
+        }
+
+        String shortId =
+                key.length() > 8
+                        ? key.substring(0, 8)
+                        : key;
+
+        status.setText(
+                getString(
+                        R.string.peer_ble_found,
+                        shortId));
+
+        EventLog.info(
+                this,
+                getString(
+                        R.string.peer_ble_found_log,
+                        shortId));
+    }
+
+    private final Runnable finishTask =
+            this::finishBleTest;
+
+    private void finishBleTest() {
+        if (!testActive) return;
+
+        stopBle();
+
+        status.setText(
+                getResources().getQuantityString(
+                        R.plurals.peer_ble_test_complete,
+                        detectedPeers.size(),
+                        detectedPeers.size()));
+
+        EventLog.info(
+                this,
+                getResources().getQuantityString(
+                        R.plurals.peer_ble_test_complete,
+                        detectedPeers.size(),
+                        detectedPeers.size()));
+
+        startButton.setEnabled(true);
+    }
+
+    private void fail(
+            String message) {
+        stopBle();
+
+        status.setText(message);
+
+        EventLog.error(
+                this,
+                message);
+
+        startButton.setEnabled(true);
+    }
+
+    private void stopBle() {
+        handler.removeCallbacks(
+                finishTask);
+
+        if (scanner != null) {
+            try {
+                scanner.stopScan(
+                        scanCallback);
+            } catch (RuntimeException ignored) {
             }
+        }
 
+        if (advertiser != null) {
+            try {
+                advertiser.stopAdvertising(
+                        advertiseCallback);
+            } catch (RuntimeException ignored) {
+            }
+        }
+
+        testActive = false;
+    }
+
+    private static byte[] fingerprint(
+            String deviceId) {
+        try {
             MessageDigest digest =
-                    MessageDigest.getInstance("SHA-256");
+                    MessageDigest.getInstance(
+                            "SHA-256");
 
-            digest.update(
-                    "ScaleLauncher-peer-trust-v1"
-                            .getBytes(
+            byte[] full =
+                    digest.digest(
+                            deviceId.getBytes(
                                     StandardCharsets.UTF_8));
 
-            digest.update(
-                    first.getBytes(
-                            StandardCharsets.UTF_8));
-
-            digest.update(
-                    second.getBytes(
-                            StandardCharsets.UTF_8));
-
-            digest.update(rawAuthenticationToken);
-
-            return digest.digest();
+            return Arrays.copyOf(
+                    full,
+                    6);
         } catch (Exception exception) {
             throw new IllegalStateException(
-                    "Could not derive peer trust secret",
+                    "Could not create BLE peer fingerprint",
                     exception);
         }
     }
 
-    private String displayLabel(
-            PeerEndpointInfo peer) {
-        if (peer.label == null
-                || peer.label.isBlank()) {
-            return getString(
-                    R.string.peer_unknown_device);
+    private static String hex(
+            byte[] data) {
+        StringBuilder result =
+                new StringBuilder();
+
+        for (byte value : data) {
+            result.append(
+                    String.format(
+                            java.util.Locale.ROOT,
+                            "%02X",
+                            value & 0xff));
         }
 
-        return peer.label;
-    }
-
-    private void showFailure(
-            Exception exception) {
-        String detail =
-                exception == null
-                        ? getString(
-                                R.string.peer_unknown_error)
-                        : exception.getClass()
-                                .getSimpleName();
-
-        runOnUiThread(
-                () -> {
-                    status.setText(
-                            getString(
-                                    R.string.peer_nearby_failed,
-                                    detail));
-
-                    pairingActive = false;
-                    startButton.setEnabled(true);
-                });
+        return result.toString();
     }
 
     @Override
     protected void onDestroy() {
-        if (client != null) {
-            client.stopAdvertising();
-            client.stopDiscovery();
-            client.stopAllEndpoints();
-        }
-
+        stopBle();
         super.onDestroy();
     }
 }
