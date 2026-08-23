@@ -30,6 +30,23 @@ public class DeviceScanActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_device_scan);
+
+        android.view.View contentRoot =
+                findViewById(android.R.id.content);
+        contentRoot.setOnApplyWindowInsetsListener(
+                (view, insets) -> {
+                    android.graphics.Insets safeInsets =
+                            insets.getInsets(
+                                    android.view.WindowInsets.Type.systemBars()
+                                            | android.view.WindowInsets.Type.displayCutout());
+                    view.setPadding(
+                            safeInsets.left,
+                            safeInsets.top,
+                            safeInsets.right,
+                            safeInsets.bottom);
+                    return insets;
+                });
+
         ListView list = findViewById(R.id.deviceList);
         TextView info = findViewById(R.id.scanInfo);
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
