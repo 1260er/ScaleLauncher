@@ -413,6 +413,8 @@ Noch nicht übertragene Daten für dieses Handy werden gelöscht. Benutzer, die 
     <string name="log_peer_profile_queued">Peer-Profil %1$s für %2$d Handy(s) vorgemerkt</string>
     <string name="log_peer_profile_queue_failed">Peer-Sync für %1$s konnte nicht vorgemerkt werden</string>
     <string name="log_peer_profile_sync_failed">Peer-Profil %1$s konnte nicht aktualisiert werden</string>
+    <string name="log_peer_profile_received">Peer-Profil %1$s von %2$s empfangen</string>
+    <string name="log_peer_ack_received">Peer-Synchronisierung von %1$s bestätigt</string>
     <string name="peer_pairing_start">Sichere Kopplung starten</string>
     <string name="peer_searching">Suche nach ScaleLauncher-Handys …</string>
     <string name="peer_found">Handy gefunden: %1$s</string>

@@ -160,6 +160,100 @@ final class HouseholdProfileSync {
         return queued;
     }
 
+    static boolean acceptIncomingProfile(
+            Context context,
+            SharedPreferences prefs,
+            PeerTrustStore.Peer peer,
+            HouseholdProfile incoming) {
+        if (peer == null
+                || incoming == null
+                || !incoming.isValid()) {
+            return false;
+        }
+
+        boolean senderIsOwner =
+                incoming.ownerDeviceId.equals(
+                        peer.deviceId);
+
+        List<UserProfile> localProfiles =
+                UserProfileStore.load(prefs);
+
+        boolean localChanged =
+                false;
+
+        for (UserProfile local :
+                localProfiles) {
+            boolean sameCanonicalId =
+                    incoming.profileId.equals(
+                            local.householdProfileId);
+
+            boolean sameOwnerAndName =
+                    senderIsOwner
+                            && incoming.ownerDeviceId.equals(
+                                    local.ownerDeviceId)
+                            && incoming.name.trim()
+                                    .equalsIgnoreCase(
+                                            local.name.trim());
+
+            if (!sameCanonicalId
+                    && !sameOwnerAndName) {
+                continue;
+            }
+
+            if (sameOwnerAndName
+                    && !sameCanonicalId) {
+                if (UserProfile.isValidHouseholdProfileId(
+                        local.householdProfileId)) {
+                    HouseholdProfileStore.removeProfile(
+                            context,
+                            local.householdProfileId);
+                }
+
+                local.householdProfileId =
+                        incoming.profileId;
+
+                localChanged =
+                        true;
+            }
+
+            if (senderIsOwner
+                    || incoming.updatedAtMs
+                    > local.householdUpdatedAtMs) {
+                local.referenceWeightKg =
+                        incoming.referenceWeightKg;
+                local.toleranceKg =
+                        incoming.toleranceKg;
+                local.ownerDeviceId =
+                        incoming.ownerDeviceId;
+                local.householdUpdatedAtMs =
+                        incoming.updatedAtMs;
+
+                localChanged =
+                        true;
+            }
+        }
+
+        if (senderIsOwner) {
+            HouseholdProfileStore.removeMatchingIdentityExcept(
+                    context,
+                    incoming.name,
+                    incoming.ownerDeviceId,
+                    incoming.profileId);
+        }
+
+        if (localChanged) {
+            UserProfileStore.save(
+                    prefs,
+                    localProfiles);
+        }
+
+        HouseholdProfileStore.upsert(
+                context,
+                incoming);
+
+        return true;
+    }
+
     private static boolean publishPrepared(
             Context context,
             UserProfile profile,

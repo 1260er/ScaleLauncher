@@ -39,13 +39,13 @@ import java.util.UUID;
 
 final class PeerMeasurementTransport {
     interface Listener {
-        void onMeasurementReceived(
+        void onMessageReceived(
                 PeerTrustStore.Peer peer,
-                PeerMeasurementPayload payload);
+                String payload);
 
-        void onMeasurementSent(
+        void onMessageSent(
                 PeerTrustStore.Peer peer,
-                PeerMeasurementPayload payload);
+                String messageId);
 
         void onError(String message);
     }
@@ -84,7 +84,8 @@ final class PeerMeasurementTransport {
 
     private BluetoothGatt sendGatt;
     private PeerTrustStore.Peer sendPeer;
-    private PeerMeasurementPayload sendPayload;
+    private String sendMessageId;
+    private String sendPayload;
     private byte[] sendBytes;
     private byte[] sendTargetFingerprint;
     private int sendOffset;
@@ -173,13 +174,17 @@ final class PeerMeasurementTransport {
         }
     }
 
-    void send(
+    boolean send(
             PeerTrustStore.Peer peer,
-            PeerMeasurementPayload payload) {
+            String messageId,
+            String payload) {
         if (peer == null
+                || messageId == null
+                || messageId.isBlank()
                 || payload == null
+                || payload.isBlank()
                 || sendPeer != null) {
-            return;
+            return false;
         }
 
         if (!hasBlePermissions()
@@ -188,7 +193,7 @@ final class PeerMeasurementTransport {
                 || scanner == null) {
             reportError(
                     "BLE-Peer-Sendung nicht möglich");
-            return;
+            return false;
         }
 
         try {
@@ -209,12 +214,13 @@ final class PeerMeasurementTransport {
             if (sendBytes.length == 0
                     || sendBytes.length > MAX_MESSAGE_BYTES) {
                 reportError(
-                        "BLE-Peer-Messung ist zu groß");
+                        "BLE-Peer-Nachricht ist zu groß");
                 clearSendState();
-                return;
+                return false;
             }
 
             sendPeer = peer;
+            sendMessageId = messageId;
             sendPayload = payload;
             sendOffset = 0;
             sendMtu = 23;
@@ -244,10 +250,13 @@ final class PeerMeasurementTransport {
             handler.postDelayed(
                     sendTimeoutTask,
                     SEND_TIMEOUT_MS);
+
+            return true;
         } catch (RuntimeException exception) {
             failSend(
                     "BLE-Peer-Sendung: "
                             + exception.getClass().getSimpleName());
+            return false;
         }
     }
 
@@ -759,17 +768,18 @@ final class PeerMeasurementTransport {
             return false;
         }
 
-        PeerMeasurementPayload payload =
-                PeerMeasurementCrypto.decrypt(
+        String payload =
+                PeerMeasurementCrypto.decryptPlaintext(
                         encrypted,
                         peer);
 
-        if (payload == null) {
+        if (payload == null
+                || payload.isBlank()) {
             return false;
         }
 
         handler.post(
-                () -> listener.onMeasurementReceived(
+                () -> listener.onMessageReceived(
                         peer,
                         payload));
 
@@ -780,18 +790,18 @@ final class PeerMeasurementTransport {
         PeerTrustStore.Peer peer =
                 sendPeer;
 
-        PeerMeasurementPayload payload =
-                sendPayload;
+        String messageId =
+                sendMessageId;
 
         cleanupSendConnection();
         clearSendState();
 
         if (peer != null
-                && payload != null) {
+                && messageId != null) {
             handler.post(
-                    () -> listener.onMeasurementSent(
+                    () -> listener.onMessageSent(
                             peer,
-                            payload));
+                            messageId));
         }
     }
 
@@ -824,6 +834,7 @@ final class PeerMeasurementTransport {
 
     private void clearSendState() {
         sendPeer = null;
+        sendMessageId = null;
         sendPayload = null;
         sendBytes = null;
         sendTargetFingerprint = null;

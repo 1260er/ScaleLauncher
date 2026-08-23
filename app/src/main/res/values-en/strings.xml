@@ -405,6 +405,8 @@ Pending data for this phone will be deleted. Users assigned to this phone remain
     <string name="log_peer_profile_queued">Peer profile %1$s queued for %2$d phone(s)</string>
     <string name="log_peer_profile_queue_failed">Peer sync for %1$s could not be queued</string>
     <string name="log_peer_profile_sync_failed">Peer profile %1$s could not be updated</string>
+    <string name="log_peer_profile_received">Peer profile %1$s received from %2$s</string>
+    <string name="log_peer_ack_received">Peer synchronization confirmed by %1$s</string>
     <string name="peer_pairing_start">Start secure pairing</string>
     <string name="peer_searching">Searching for ScaleLauncher phones …</string>
     <string name="peer_found">Phone found: %1$s</string>

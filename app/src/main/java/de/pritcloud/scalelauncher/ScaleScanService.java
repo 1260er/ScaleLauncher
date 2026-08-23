@@ -16,7 +16,10 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 
+import org.json.JSONObject;
+
 import java.time.LocalDate;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Locale;
 
@@ -39,6 +42,7 @@ public final class ScaleScanService extends Service {
     private static final long GATT_RECONNECT_BASE_MS = 5_000L;
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
+    private static final long PEER_SYNC_RETRY_MS = 30_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable watchdogRunnable = this::runWatchdog;
@@ -52,8 +56,15 @@ public final class ScaleScanService extends Service {
         }
     };
 
+    private final Runnable peerSyncRunnable =
+            this::dispatchPeerOutbox;
+
+    private final ArrayDeque<DirectPeerMessage> peerDirectQueue =
+            new ArrayDeque<>();
+
     private S400GattClient gattClient;
     private PeerMeasurementTransport peerTransport;
+    private boolean peerSendInFlight;
     private boolean gattMonitoringActive;
     private boolean gattCollectorOwned;
     private boolean gattReconnectScheduled;
@@ -72,41 +83,55 @@ public final class ScaleScanService extends Service {
                         this,
                         new PeerMeasurementTransport.Listener() {
                             @Override
-                            public void onMeasurementReceived(
+                            public void onMessageReceived(
                                     PeerTrustStore.Peer peer,
-                                    PeerMeasurementPayload payload) {
-                                EventLog.info(
-                                        ScaleScanService.this,
-                                        getString(
-                                                R.string.log_peer_measurement_received,
-                                                peer.label,
-                                                payload.weightKg));
+                                    String payload) {
+                                handlePeerMessage(
+                                        peer,
+                                        payload);
                             }
 
                             @Override
-                            public void onMeasurementSent(
+                            public void onMessageSent(
                                     PeerTrustStore.Peer peer,
-                                    PeerMeasurementPayload payload) {
-                                EventLog.info(
-                                        ScaleScanService.this,
-                                        getString(
-                                                R.string.log_peer_measurement_sent,
-                                                peer.label,
-                                                payload.weightKg));
+                                    String messageId) {
+                                peerSendInFlight =
+                                        false;
+
+                                DirectPeerMessage direct =
+                                        peerDirectQueue.peek();
+
+                                if (direct != null
+                                        && direct.messageId.equals(
+                                                messageId)) {
+                                    peerDirectQueue.poll();
+                                }
+
+                                schedulePeerSync(
+                                        250L);
                             }
 
                             @Override
                             public void onError(
                                     String message) {
+                                peerSendInFlight =
+                                        false;
+
                                 EventLog.warning(
                                         ScaleScanService.this,
                                         getString(
                                                 R.string.log_peer_transport_error,
                                                 message));
+
+                                schedulePeerSync(
+                                        PEER_SYNC_RETRY_MS);
                             }
                         });
 
         peerTransport.start();
+
+        schedulePeerSync(
+                1_000L);
 
         monitorText = getString(R.string.service_gatt_connecting);
         ServiceState.starting(
@@ -538,13 +563,259 @@ public final class ScaleScanService extends Service {
 
             peerTransport.send(
                     peers.get(0),
-                    payload);
+                    payload.measurementId,
+                    payload.encode());
         } catch (RuntimeException exception) {
             EventLog.warning(
                     this,
                     getString(
                             R.string.log_peer_transport_error,
                             exception.getClass().getSimpleName()));
+        }
+    }
+
+    private void handlePeerMessage(
+            PeerTrustStore.Peer peer,
+            String encoded) {
+        if (peer == null
+                || encoded == null
+                || encoded.isBlank()) {
+            return;
+        }
+
+        final String type;
+
+        try {
+            type =
+                    new JSONObject(encoded)
+                            .optString(
+                                    "type",
+                                    "");
+        } catch (Exception exception) {
+            return;
+        }
+
+        if (PeerAckPayload.TYPE.equals(type)) {
+            PeerAckPayload ack =
+                    PeerAckPayload.decode(
+                            encoded);
+
+            if (ack == null) {
+                return;
+            }
+
+            if (PeerOutboxStore.remove(
+                    this,
+                    peer.deviceId,
+                    ack.acknowledgedMessageId)) {
+                EventLog.debug(
+                        this,
+                        getString(
+                                R.string.log_peer_ack_received,
+                                peer.label));
+
+                schedulePeerSync(
+                        250L);
+            }
+
+            return;
+        }
+
+        if (PeerProfilePayload.TYPE.equals(type)) {
+            PeerProfilePayload payload =
+                    PeerProfilePayload.decode(
+                            encoded);
+
+            if (payload == null) {
+                return;
+            }
+
+            boolean duplicate =
+                    PeerInboxDedupStore.contains(
+                            this,
+                            peer.deviceId,
+                            payload.messageId);
+
+            if (!duplicate) {
+                SharedPreferences prefs =
+                        getSharedPreferences(
+                                "prefs",
+                                MODE_PRIVATE);
+
+                if (!HouseholdProfileSync.acceptIncomingProfile(
+                        this,
+                        prefs,
+                        peer,
+                        payload.profile)) {
+                    return;
+                }
+
+                PeerInboxDedupStore.mark(
+                        this,
+                        peer.deviceId,
+                        payload.messageId);
+
+                EventLog.info(
+                        this,
+                        getString(
+                                R.string.log_peer_profile_received,
+                                payload.profile.name,
+                                peer.label));
+            }
+
+            queuePeerAck(
+                    peer,
+                    payload.messageId);
+
+            return;
+        }
+
+        if (PeerMeasurementPayload.TYPE.equals(type)) {
+            PeerMeasurementPayload payload =
+                    PeerMeasurementPayload.decode(
+                            encoded);
+
+            if (payload != null) {
+                EventLog.info(
+                        this,
+                        getString(
+                                R.string.log_peer_measurement_received,
+                                peer.label,
+                                payload.weightKg));
+            }
+        }
+    }
+
+    private void queuePeerAck(
+            PeerTrustStore.Peer peer,
+            String acknowledgedMessageId) {
+        if (peer == null
+                || acknowledgedMessageId == null
+                || acknowledgedMessageId.isBlank()) {
+            return;
+        }
+
+        PeerAckPayload ack =
+                PeerAckPayload.create(
+                        acknowledgedMessageId);
+
+        peerDirectQueue.add(
+                new DirectPeerMessage(
+                        peer.deviceId,
+                        ack.messageId,
+                        ack.encode()));
+
+        schedulePeerSync(
+                100L);
+    }
+
+    private void schedulePeerSync(
+            long delayMs) {
+        if (explicitStop) {
+            return;
+        }
+
+        handler.removeCallbacks(
+                peerSyncRunnable);
+
+        handler.postDelayed(
+                peerSyncRunnable,
+                Math.max(
+                        0L,
+                        delayMs));
+    }
+
+    private void dispatchPeerOutbox() {
+        if (explicitStop
+                || peerTransport == null) {
+            return;
+        }
+
+        if (peerSendInFlight) {
+            schedulePeerSync(
+                    PEER_SYNC_RETRY_MS);
+            return;
+        }
+
+        while (!peerDirectQueue.isEmpty()) {
+            DirectPeerMessage direct =
+                    peerDirectQueue.peek();
+
+            PeerTrustStore.Peer peer =
+                    PeerTrustStore.find(
+                            this,
+                            direct.peerDeviceId);
+
+            if (peer == null) {
+                peerDirectQueue.poll();
+                continue;
+            }
+
+            if (peerTransport.send(
+                    peer,
+                    direct.messageId,
+                    direct.payload)) {
+                peerSendInFlight =
+                        true;
+                return;
+            }
+
+            schedulePeerSync(
+                    PEER_SYNC_RETRY_MS);
+            return;
+        }
+
+        List<PeerOutboxStore.Item> items =
+                PeerOutboxStore.load(
+                        this);
+
+        for (PeerOutboxStore.Item item :
+                items) {
+            PeerTrustStore.Peer peer =
+                    PeerTrustStore.find(
+                            this,
+                            item.peerDeviceId);
+
+            if (peer == null) {
+                PeerOutboxStore.removePeer(
+                        this,
+                        item.peerDeviceId);
+                continue;
+            }
+
+            if (peerTransport.send(
+                    peer,
+                    item.messageId,
+                    item.payload)) {
+                peerSendInFlight =
+                        true;
+                return;
+            }
+
+            schedulePeerSync(
+                    PEER_SYNC_RETRY_MS);
+            return;
+        }
+
+        schedulePeerSync(
+                PEER_SYNC_RETRY_MS);
+    }
+
+    private static final class DirectPeerMessage {
+        final String peerDeviceId;
+        final String messageId;
+        final String payload;
+
+        DirectPeerMessage(
+                String peerDeviceId,
+                String messageId,
+                String payload) {
+            this.peerDeviceId =
+                    peerDeviceId;
+            this.messageId =
+                    messageId;
+            this.payload =
+                    payload;
         }
     }
 

@@ -14,7 +14,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Authenticated encryption for raw peer measurement payloads.
+ * Authenticated encryption for trusted ScaleLauncher peer messages.
  *
  * The stored pairing secret is never written to logs or transferred.
  */
@@ -36,9 +36,10 @@ final class PeerMeasurementCrypto {
     static String encrypt(
             String senderDeviceId,
             byte[] sharedSecret,
-            PeerMeasurementPayload payload) {
+            String plaintext) {
 
-        if (!PeerTrustStore.isValidDeviceId(senderDeviceId)) {
+        if (!PeerTrustStore.isValidDeviceId(
+                senderDeviceId)) {
             throw new IllegalArgumentException(
                     "Invalid sender device ID");
         }
@@ -49,16 +50,18 @@ final class PeerMeasurementCrypto {
                     "Invalid peer secret");
         }
 
-        if (payload == null
-                || !payload.isValid()) {
+        if (plaintext == null
+                || plaintext.isBlank()
+                || plaintext.length() > 16384) {
             throw new IllegalArgumentException(
-                    "Invalid measurement payload");
+                    "Invalid peer plaintext");
         }
 
         byte[] nonce = new byte[12];
         RANDOM.nextBytes(nonce);
 
-        byte[] key = deriveKey(sharedSecret);
+        byte[] key =
+                deriveKey(sharedSecret);
 
         try {
             Cipher cipher =
@@ -79,9 +82,8 @@ final class PeerMeasurementCrypto {
 
             byte[] ciphertext =
                     cipher.doFinal(
-                            payload.encode()
-                                    .getBytes(
-                                            StandardCharsets.UTF_8));
+                            plaintext.getBytes(
+                                    StandardCharsets.UTF_8));
 
             JSONObject envelope =
                     new JSONObject();
@@ -109,7 +111,7 @@ final class PeerMeasurementCrypto {
             return envelope.toString();
         } catch (Exception exception) {
             throw new IllegalStateException(
-                    "Could not encrypt peer measurement",
+                    "Could not encrypt peer message",
                     exception);
         } finally {
             Arrays.fill(
@@ -118,9 +120,24 @@ final class PeerMeasurementCrypto {
         }
     }
 
+    static String encrypt(
+            String senderDeviceId,
+            byte[] sharedSecret,
+            PeerMeasurementPayload payload) {
+        if (payload == null
+                || !payload.isValid()) {
+            throw new IllegalArgumentException(
+                    "Invalid measurement payload");
+        }
+
+        return encrypt(
+                senderDeviceId,
+                sharedSecret,
+                payload.encode());
+    }
+
     static String senderDeviceId(
             String encoded) {
-
         if (encoded == null
                 || encoded.isBlank()) {
             return null;
@@ -150,7 +167,7 @@ final class PeerMeasurementCrypto {
         }
     }
 
-    static PeerMeasurementPayload decrypt(
+    static String decryptPlaintext(
             String encoded,
             PeerTrustStore.Peer peer) {
 
@@ -202,8 +219,9 @@ final class PeerMeasurementCrypto {
                 return null;
             }
 
-            key = deriveKey(
-                    peer.sharedSecret);
+            key =
+                    deriveKey(
+                            peer.sharedSecret);
 
             Cipher cipher =
                     Cipher.getInstance(
@@ -225,10 +243,9 @@ final class PeerMeasurementCrypto {
                     cipher.doFinal(
                             ciphertext);
 
-            return PeerMeasurementPayload.decode(
-                    new String(
-                            plaintext,
-                            StandardCharsets.UTF_8));
+            return new String(
+                    plaintext,
+                    StandardCharsets.UTF_8);
         } catch (Exception exception) {
             return null;
         } finally {
@@ -240,9 +257,22 @@ final class PeerMeasurementCrypto {
         }
     }
 
+    static PeerMeasurementPayload decrypt(
+            String encoded,
+            PeerTrustStore.Peer peer) {
+        String plaintext =
+                decryptPlaintext(
+                        encoded,
+                        peer);
+
+        return plaintext == null
+                ? null
+                : PeerMeasurementPayload.decode(
+                        plaintext);
+    }
+
     private static byte[] deriveKey(
             byte[] sharedSecret) {
-
         byte[] prk = null;
 
         try {
@@ -278,7 +308,7 @@ final class PeerMeasurementCrypto {
             return expand.doFinal();
         } catch (Exception exception) {
             throw new IllegalStateException(
-                    "Could not derive peer measurement key",
+                    "Could not derive peer message key",
                     exception);
         } finally {
             if (prk != null) {
@@ -291,7 +321,6 @@ final class PeerMeasurementCrypto {
 
     private static byte[] aad(
             String senderDeviceId) {
-
         return (CONTEXT
                 + "|"
                 + VERSION
