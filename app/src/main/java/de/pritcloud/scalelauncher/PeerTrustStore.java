@@ -258,6 +258,18 @@ final class PeerTrustStore {
                         KEY_PEERS,
                         array.toString())
                 .commit();
+
+        PeerOutboxStore.removePeer(
+                context,
+                deviceId);
+
+        PeerInboxDedupStore.removePeer(
+                context,
+                deviceId);
+
+        HouseholdProfileStore.removeOwner(
+                context,
+                deviceId);
     }
 
     static byte[] newSharedSecret() {

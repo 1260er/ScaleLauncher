@@ -38,6 +38,22 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_sm" />
 
+        <Spinner
+            android:id="@+id/peerRemoveDevice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_lg"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/removePeer"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:text="@string/peer_remove_button"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/peerPairingStatus"
             style="@style/UiBodyText"

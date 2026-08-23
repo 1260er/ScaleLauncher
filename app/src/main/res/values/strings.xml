@@ -397,6 +397,15 @@ Eigene Kennung: %2$s
         <item quantity="other">%1$d gekoppelte Handys</item>
     </plurals>
     <string name="peer_pairing_ready">Bereit zur Kopplung</string>
+    <string name="peer_remove_button">Gekoppeltes Handy entfernen</string>
+    <string name="peer_remove_title">Handy wirklich entfernen?</string>
+    <string name="peer_remove_message">%1$s wird aus der sicheren Handy-Verbindung entfernt.
+
+%2$s
+
+Noch nicht übertragene Daten für dieses Handy werden gelöscht. Benutzer, die diesem Handy zugeordnet waren, bleiben als nicht verfügbar markiert und müssen anschließend neu zugeordnet werden.</string>
+    <string name="peer_remove_confirm">Handy entfernen</string>
+    <string name="peer_remove_success">%1$s wurde entfernt.</string>
     <string name="peer_pairing_start">Sichere Kopplung starten</string>
     <string name="peer_searching">Suche nach ScaleLauncher-Handys …</string>
     <string name="peer_found">Handy gefunden: %1$s</string>

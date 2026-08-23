@@ -2,6 +2,7 @@ package de.pritcloud.scalelauncher;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -29,7 +30,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelUuid;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.nio.charset.StandardCharsets;
@@ -75,6 +78,11 @@ public final class PeerPairingActivity extends Activity {
     private TextView trustedInfo;
     private TextView status;
     private Button startButton;
+    private Button removePeerButton;
+    private Spinner removePeerSpinner;
+
+    private List<PeerTrustStore.Peer> removablePeers =
+            new ArrayList<>();
 
     private PeerPairingCrypto.Remote pendingRemote;
     private PeerPairingCrypto.Result pendingResult;
@@ -141,8 +149,19 @@ public final class PeerPairingActivity extends Activity {
                 findViewById(
                         R.id.startPeerPairing);
 
+        removePeerButton =
+                findViewById(
+                        R.id.removePeer);
+
+        removePeerSpinner =
+                findViewById(
+                        R.id.peerRemoveDevice);
+
         startButton.setOnClickListener(
                 view -> handlePrimaryAction());
+
+        removePeerButton.setOnClickListener(
+                view -> confirmRemoveSelectedPeer());
 
         refreshSummary();
     }
@@ -181,6 +200,118 @@ public final class PeerPairingActivity extends Activity {
 
         trustedInfo.setText(
                 pairedSummary.toString());
+
+        refreshRemovePeerControls(
+                peers);
+    }
+
+    private void refreshRemovePeerControls(
+            List<PeerTrustStore.Peer> peers) {
+        removablePeers =
+                new ArrayList<>(peers);
+
+        if (removablePeers.isEmpty()) {
+            removePeerSpinner.setAdapter(
+                    null);
+            removePeerSpinner.setVisibility(
+                    View.GONE);
+            removePeerButton.setVisibility(
+                    View.GONE);
+            return;
+        }
+
+        List<String> labels =
+                new ArrayList<>();
+
+        for (PeerTrustStore.Peer peer :
+                removablePeers) {
+            labels.add(
+                    peer.label);
+        }
+
+        ArrayAdapter<String> adapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_spinner_item,
+                        labels);
+
+        adapter.setDropDownViewResource(
+                android.R.layout.simple_spinner_dropdown_item);
+
+        removePeerSpinner.setAdapter(
+                adapter);
+
+        removePeerSpinner.setVisibility(
+                View.VISIBLE);
+
+        removePeerButton.setVisibility(
+                View.VISIBLE);
+        removePeerButton.setEnabled(
+                !pairingActive);
+    }
+
+    private void confirmRemoveSelectedPeer() {
+        int position =
+                removePeerSpinner
+                        .getSelectedItemPosition();
+
+        if (position < 0
+                || position >= removablePeers.size()) {
+            return;
+        }
+
+        PeerTrustStore.Peer peer =
+                removablePeers.get(
+                        position);
+
+        String assignments =
+                assignedUsersText(
+                        peer.deviceId);
+
+        new AlertDialog.Builder(this)
+                .setTitle(
+                        R.string.peer_remove_title)
+                .setMessage(
+                        getString(
+                                R.string.peer_remove_message,
+                                peer.label,
+                                assignments))
+                .setNegativeButton(
+                        android.R.string.cancel,
+                        null)
+                .setPositiveButton(
+                        R.string.peer_remove_confirm,
+                        (dialog, which) ->
+                                removePeer(peer))
+                .show();
+    }
+
+    private void removePeer(
+            PeerTrustStore.Peer peer) {
+        if (peer == null) {
+            return;
+        }
+
+        String label =
+                peer.label;
+
+        PeerTrustStore.remove(
+                this,
+                peer.deviceId);
+
+        String message =
+                getString(
+                        R.string.peer_remove_success,
+                        label);
+
+        status.setText(
+                message);
+
+        EventLog.info(
+                this,
+                message);
+
+        refreshSummary();
     }
 
     private String assignedUsersText(
@@ -350,6 +481,10 @@ public final class PeerPairingActivity extends Activity {
         codeReady = false;
 
         startButton.setEnabled(false);
+
+        if (removePeerButton != null) {
+            removePeerButton.setEnabled(false);
+        }
 
         status.setText(
                 R.string.peer_pair_secure_searching);

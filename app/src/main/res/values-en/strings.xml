@@ -389,6 +389,15 @@ Own ID: %2$s
         <item quantity="other">%1$d paired phones</item>
     </plurals>
     <string name="peer_pairing_ready">Ready to pair</string>
+    <string name="peer_remove_button">Remove paired phone</string>
+    <string name="peer_remove_title">Remove this phone?</string>
+    <string name="peer_remove_message">%1$s will be removed from the secure phone connection.
+
+%2$s
+
+Pending data for this phone will be deleted. Users assigned to this phone remain marked as unavailable and must be reassigned afterwards.</string>
+    <string name="peer_remove_confirm">Remove phone</string>
+    <string name="peer_remove_success">%1$s was removed.</string>
     <string name="peer_pairing_start">Start secure pairing</string>
     <string name="peer_searching">Searching for ScaleLauncher phones …</string>
     <string name="peer_found">Phone found: %1$s</string>

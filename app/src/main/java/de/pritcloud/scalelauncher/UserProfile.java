@@ -4,6 +4,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 final class UserProfile {
     static final float DEFAULT_TOLERANCE_KG = 2.0f;
@@ -17,6 +18,7 @@ final class UserProfile {
     float referenceWeightKg;
     float toleranceKg;
     String ownerDeviceId;
+    String householdProfileId;
 
     UserProfile(long userId, String name) {
         this.userId = userId;
@@ -26,6 +28,7 @@ final class UserProfile {
         this.birthDateIso = "";
         this.toleranceKg = DEFAULT_TOLERANCE_KG;
         this.ownerDeviceId = "";
+        this.householdProfileId = "";
     }
 
     boolean hasValidBodyData(long timestampMs) {
@@ -57,6 +60,8 @@ final class UserProfile {
         object.put("referenceWeightKg", referenceWeightKg);
         object.put("toleranceKg", toleranceKg);
         object.put("ownerDeviceId", ownerDeviceId == null ? "" : ownerDeviceId);
+        object.put("householdProfileId",
+                householdProfileId == null ? "" : householdProfileId);
         return object;
     }
 
@@ -70,7 +75,35 @@ final class UserProfile {
         profile.referenceWeightKg = (float) object.optDouble("referenceWeightKg", 0.0d);
         profile.toleranceKg = (float) object.optDouble("toleranceKg", DEFAULT_TOLERANCE_KG);
         profile.ownerDeviceId = object.optString("ownerDeviceId", "");
+        profile.householdProfileId =
+                object.optString("householdProfileId", "");
         return profile;
+    }
+
+    String ensureHouseholdProfileId() {
+        if (isValidHouseholdProfileId(
+                householdProfileId)) {
+            return householdProfileId;
+        }
+
+        householdProfileId =
+                UUID.randomUUID().toString();
+
+        return householdProfileId;
+    }
+
+    static boolean isValidHouseholdProfileId(
+            String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+
+        try {
+            UUID.fromString(value);
+            return true;
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
     @Override public String toString() {
