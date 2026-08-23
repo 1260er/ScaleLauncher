@@ -53,7 +53,8 @@ public final class ScaleScanService extends Service {
     };
 
     private S400GattClient gattClient;
-    private boolean gattCollectorActive;
+    private boolean gattMonitoringActive;
+    private boolean gattCollectorOwned;
     private boolean gattReconnectScheduled;
     private int gattReconnectAttempt;
     private long lastGattFinalTimestampSeconds;
@@ -97,13 +98,13 @@ public final class ScaleScanService extends Service {
 
     private void runGattReconnect() {
         gattReconnectScheduled = false;
-        if (gattCollectorActive && !explicitStop && !terminalError) {
+        if (gattMonitoringActive && !explicitStop && !terminalError) {
             connectGattCollector();
         }
     }
 
     private void startGattCollector() {
-        if (gattCollectorActive) {
+        if (gattMonitoringActive) {
             if (gattClient == null && !gattReconnectScheduled) {
                 connectGattCollector();
             }
@@ -194,7 +195,8 @@ public final class ScaleScanService extends Service {
             }
         }
 
-        gattCollectorActive = true;
+        gattMonitoringActive = true;
+        gattCollectorOwned = false;
         gattReconnectAttempt = 0;
 
         EventLog.info(
@@ -205,7 +207,7 @@ public final class ScaleScanService extends Service {
     }
 
     private void connectGattCollector() {
-        if (!gattCollectorActive
+        if (!gattMonitoringActive
                 || explicitStop
                 || terminalError
                 || gattClient != null) {
@@ -257,9 +259,13 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        monitorText = getString(R.string.service_gatt_connecting);
-        ServiceState.running(this, monitorText, true);
+        monitorText = getString(R.string.service_gatt_standby);
+        ServiceState.running(this, monitorText, false);
         notifyMonitor();
+
+        EventLog.debug(
+                this,
+                getString(R.string.log_gatt_standby));
 
         gattClient = new S400GattClient(
                 this,
@@ -272,8 +278,21 @@ public final class ScaleScanService extends Service {
                                         R.string.log_gatt_state,
                                         state.name()));
 
+                        if (state == S400GattClient.State.DISCOVERING
+                                || state == S400GattClient.State.SUBSCRIBING
+                                || state == S400GattClient.State.AUTHENTICATING) {
+                            monitorText =
+                                    getString(R.string.service_gatt_claiming);
+                            ServiceState.running(
+                                    ScaleScanService.this,
+                                    monitorText,
+                                    false);
+                            notifyMonitor();
+                        }
+
                         if (state == S400GattClient.State.DISCONNECTED
-                                && gattCollectorActive) {
+                                && gattMonitoringActive) {
+                            gattCollectorOwned = false;
                             gattClient = null;
                             scheduleGattReconnect(
                                     getString(
@@ -282,6 +301,7 @@ public final class ScaleScanService extends Service {
                     }
 
                     @Override public void onAuthenticated() {
+                        gattCollectorOwned = true;
                         gattReconnectAttempt = 0;
                         ServiceState.scaleSeen(ScaleScanService.this);
 
@@ -426,7 +446,7 @@ public final class ScaleScanService extends Service {
     }
 
     private void scheduleGattReconnect(String reason) {
-        if (!gattCollectorActive
+        if (!gattMonitoringActive
                 || explicitStop
                 || terminalError
                 || gattReconnectScheduled) {
@@ -440,6 +460,7 @@ public final class ScaleScanService extends Service {
 
         gattReconnectAttempt++;
         gattReconnectScheduled = true;
+        gattCollectorOwned = false;
 
         S400GattClient oldClient = gattClient;
         gattClient = null;
@@ -469,7 +490,8 @@ public final class ScaleScanService extends Service {
     }
 
     private void stopGattCollector() {
-        gattCollectorActive = false;
+        gattMonitoringActive = false;
+        gattCollectorOwned = false;
         gattReconnectScheduled = false;
         gattReconnectAttempt = 0;
         handler.removeCallbacks(gattReconnectRunnable);
@@ -977,20 +999,21 @@ public final class ScaleScanService extends Service {
                         getString(
                                 R.string.service_error_bluetooth_disabled));
 
-                if (gattCollectorActive
+                if (gattMonitoringActive
                         && !gattReconnectScheduled) {
                     scheduleGattReconnect(
                             getString(
                                     R.string.service_error_bluetooth_disabled));
                 }
-            } else if (!gattCollectorActive) {
+            } else if (!gattMonitoringActive) {
                 startGattCollector();
             } else if (gattClient == null) {
                 if (!gattReconnectScheduled) {
                     connectGattCollector();
                 }
             } else {
-                boolean ready = gattClient.isReady();
+                boolean ready =
+                        gattCollectorOwned && gattClient.isReady();
                 ServiceState.heartbeat(
                         this,
                         ready,
@@ -1137,8 +1160,11 @@ public final class ScaleScanService extends Service {
         monitorText = text == null || text.isBlank()
                 ? getString(R.string.service_waiting_for_measurement)
                 : text;
-        if (gattCollectorActive && !terminalError) {
-            ServiceState.running(this, monitorText, true);
+        if (gattMonitoringActive && !terminalError) {
+            ServiceState.running(
+                    this,
+                    monitorText,
+                    gattCollectorOwned);
         } else {
             ServiceState.heartbeat(this, false, monitorText);
         }

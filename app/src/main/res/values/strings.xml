@@ -24,9 +24,9 @@
     <string name="scale_error_invalid_login_token">Der Login-Token muss aus genau 24 Hex-Zeichen bestehen.</string>
     <string name="scale_error_invalid_mac">Ungültige Bluetooth-Adresse.</string>
     <string name="scale_settings_saved">Waageneinstellungen gespeichert.</string>
-    <string name="log_gatt_collector_started">GATT-Collector gestartet</string>
+    <string name="log_gatt_collector_started">GATT-Collector-Steuerung gestartet</string>
     <string name="log_gatt_state">GATT-Status: %1$s</string>
-    <string name="log_gatt_authenticated">GATT authentifiziert – Collector aktiv</string>
+    <string name="log_gatt_authenticated">GATT authentifiziert – Collector-Rolle übernommen</string>
     <string name="log_gatt_live">GATT LIVE: %1$.1f kg | stabil=%2$s</string>
     <string name="log_gatt_final">GATT FINAL: %1$.1f kg | Impedanz %2$s / %3$s Ohm</string>
     <string name="log_gatt_final_incomplete">GATT FINAL unvollständig: %1$.1f kg | Impedanz %2$s / %3$s Ohm</string>
@@ -34,9 +34,12 @@
     <string name="log_gatt_disconnected">GATT-Verbindung getrennt | Status %1$d</string>
     <string name="log_gatt_error">GATT-Fehler: %1$s</string>
     <string name="log_gatt_reconnect">GATT-Neuverbindung: %1$s | neuer Versuch in %2$d s</string>
-    <string name="service_gatt_connecting">GATT-Collector verbindet mit der Waage</string>
-    <string name="service_gatt_ready">GATT-Collector verbunden – wartet auf Messung</string>
-    <string name="service_gatt_reconnecting">GATT-Verbindung unterbrochen – neuer Versuch in %1$d s</string>
+    <string name="log_gatt_standby">GATT-Standby aktiv – wartet auf freie Waage</string>
+    <string name="service_gatt_connecting">GATT-Collector-Steuerung startet</string>
+    <string name="service_gatt_standby">Standby – wartet auf freie Waage</string>
+    <string name="service_gatt_claiming">Waage verfügbar – Collector-Rolle wird übernommen</string>
+    <string name="service_gatt_ready">Collector aktiv – wartet auf Messung</string>
+    <string name="service_gatt_reconnecting">Standby – neuer Verbindungsversuch in %1$d s</string>
     <string name="page_permissions_title">Berechtigungen</string>
     <string name="action_allow_openscale_access">openScale-Zugriff erlauben\nund Benutzer laden</string>
     <string name="action_disable_battery_optimization">Akkuoptimierung ausschalten</string>

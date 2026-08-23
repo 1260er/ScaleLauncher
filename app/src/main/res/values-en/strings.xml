@@ -18,6 +18,22 @@
     <string name="action_scan_scale">Search for and select scale</string>
     <string name="scale_error_invalid_mac">Invalid Bluetooth address.</string>
     <string name="scale_settings_saved">Scale settings saved.</string>
+    <string name="log_gatt_collector_started">GATT collector coordination started</string>
+    <string name="log_gatt_state">GATT state: %1$s</string>
+    <string name="log_gatt_authenticated">GATT authenticated – collector role acquired</string>
+    <string name="log_gatt_live">GATT LIVE: %1$.1f kg | stable=%2$s</string>
+    <string name="log_gatt_final">GATT FINAL: %1$.1f kg | impedance %2$s / %3$s Ohm</string>
+    <string name="log_gatt_final_incomplete">GATT FINAL incomplete: %1$.1f kg | impedance %2$s / %3$s Ohm</string>
+    <string name="service_error_gatt_final_incomplete">GATT FINAL incomplete – dual impedance missing</string>
+    <string name="log_gatt_disconnected">GATT connection disconnected | status %1$d</string>
+    <string name="log_gatt_error">GATT error: %1$s</string>
+    <string name="log_gatt_reconnect">GATT reconnect: %1$s | retry in %2$d s</string>
+    <string name="log_gatt_standby">GATT standby active – waiting for scale</string>
+    <string name="service_gatt_connecting">GATT collector coordination starting</string>
+    <string name="service_gatt_standby">Standby – waiting for scale</string>
+    <string name="service_gatt_claiming">Scale available – acquiring collector role</string>
+    <string name="service_gatt_ready">Collector active – waiting for measurement</string>
+    <string name="service_gatt_reconnecting">Standby – retrying connection in %1$d s</string>
     <string name="page_permissions_title">Permissions</string>
     <string name="action_allow_openscale_access">Allow openScale access\nand load users</string>
     <string name="action_disable_battery_optimization">Disable battery optimization</string>
