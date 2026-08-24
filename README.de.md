@@ -135,7 +135,7 @@ https://github.com/1260er/ScaleLauncher
 
 Empfohlene Reihenfolge:
 
-1. openScale installieren und dort den oder die benötigten Benutzer anlegen.
+1. openScale installieren und dort den oder die Benutzer anlegen, deren Messdaten auf diesem Handy lokal verwaltet werden sollen. Normalerweise verwendet jeder Benutzer sein eigenes Handy.
 2. Die S400 **nicht als Bluetooth-Waage in openScale koppeln**.
 3. S400 vorübergehend in Xiaomi Home einrichten.
 4. MAC-Adresse und Login-Token auslesen.

@@ -125,7 +125,7 @@ https://github.com/1260er/ScaleLauncher
 
 Recommended order:
 
-1. Install openScale and create the required user or users.
+1. Install openScale and create the user or users whose measurements should be managed locally on this phone. Normally, each user uses their own phone.
 2. **Do not pair the S400 as a Bluetooth scale in openScale.**
 3. Temporarily add the S400 to Xiaomi Home.
 4. Extract its MAC address and login token.
