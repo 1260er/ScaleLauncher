@@ -35,6 +35,14 @@
                 android:src="@drawable/ic_save" />
         </LinearLayout>
 
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:text="@string/health_connect_page_description"
+            android:textColor="@color/ui_text_secondary" />
+
         <CheckBox
             android:id="@+id/healthConnectEnabled"
             style="@style/UiCheckBox"

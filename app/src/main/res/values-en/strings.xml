@@ -13,6 +13,8 @@
     <string name="status_waiting_for_measurement">Waiting for measurement</string>
     <string name="status_scale_last_seen">Scale last seen: %1$s</string>
     <string name="page_scale_title">Scale</string>
+    <string name="scale_page_description">Select the Xiaomi S400 here and enter its login token for the secure connection.</string>
+    <string name="scale_scan_connection_hint">If the scale cannot be found, another phone may currently be using it. The S400 can only be connected to one ScaleLauncher phone at a time. Stop monitoring there or briefly turn off Bluetooth, then search again.</string>
     <string name="scale_bluetooth_address">Scale Bluetooth address</string>
     <string name="scale_mac_hint">AA:BB:CC:DD:EE:FF</string>
     <string name="action_scan_scale">Search for and select scale</string>
@@ -39,6 +41,7 @@
     <string name="service_gatt_ready">Collector active – waiting for measurement</string>
     <string name="service_gatt_reconnecting">Standby – retrying connection in %1$d s</string>
     <string name="page_permissions_title">Permissions</string>
+    <string name="permissions_page_description">These settings allow ScaleLauncher to reliably wait for the scale and process measurements even while the screen is off.</string>
     <string name="action_allow_openscale_access">Allow openScale access\nand load users</string>
     <string name="action_disable_battery_optimization">Disable battery optimization</string>
     <string name="action_disable_unused_app_management">Disable unused app management</string>
@@ -63,6 +66,7 @@
     <string name="permissions_notifications_bad">✗ Notifications: not allowed</string>
     <string name="permissions_settings_saved">Permission settings saved.</string>
     <string name="page_users_title">Users</string>
+    <string name="users_page_description">Define how measurements are recognized and on which phone they are stored. Reference weight and tolerance are used for user recognition.</string>
     <string name="users_empty">No openScale users available</string>
     <string name="action_edit_user">Edit user</string>
     <string name="action_delete_user">Delete user profile</string>
@@ -85,6 +89,7 @@
     <string name="user_health_connect">Use Health Connect only for this user</string>
     <string name="user_profile_saved">User profile %1$s saved.</string>
     <string name="page_health_connect_title">Health Connect</string>
+    <string name="health_connect_page_description">Choose which measurements for the selected user are additionally written to Health Connect.</string>
     <string name="health_connect_enabled">Transfer measurements for the selected user</string>
     <string name="health_connect_values_title">Values to transfer</string>
     <string name="health_connect_weight">Weight</string>
@@ -374,10 +379,15 @@ UUIDs: %1$s</string>
     <string name="help_link_error">The project page could not be opened.</string>
     <string name="support_link_error">The support link could not be opened.</string>
 
-    <string name="peer_section_title">Phone connection</string>
-    <string name="peer_pair_phone">Pair phones</string>
-    <string name="peer_pairing_title">Pair phones</string>
-    <string name="peer_pairing_intro">Open this page on both phones and start secure pairing on both. Both phones must then display exactly the same six digit security code.</string>
+    <string name="peer_section_title">Multi-user</string>
+    <string name="multiuser_title">Multi-user</string>
+    <string name="multiuser_description">Users can be assigned to different ScaleLauncher phones. Manage the secure connections between those phones here.</string>
+    <string name="peer_pair_phone">Manage multi-user</string>
+    <string name="peer_pairing_title">Multi-user</string>
+    <string name="peer_pairing_intro">Manage the ScaleLauncher phones in your household here. To add another phone, open this page on both devices and then compare the six-digit security code.</string>
+    <string name="peer_this_phone_title">This phone</string>
+    <string name="peer_connected_phones_title">Connected phones</string>
+    <string name="peer_add_phone_title">Add another phone</string>
     <string name="peer_local_device">This phone: %1$s</string>
     <string name="peer_local_device_details">This phone: %1$s
 Own ID: %2$s
@@ -388,7 +398,7 @@ Own ID: %2$s
         <item quantity="one">%1$d paired phone</item>
         <item quantity="other">%1$d paired phones</item>
     </plurals>
-    <string name="peer_pairing_ready">Ready to pair</string>
+    <string name="peer_pairing_ready">Ready for another phone</string>
     <string name="peer_remove_button">Remove paired phone</string>
     <string name="peer_remove_title">Remove this phone?</string>
     <string name="peer_remove_message">%1$s will be removed from the secure phone connection.
@@ -407,7 +417,7 @@ Pending data for this phone will be deleted. Users assigned to this phone remain
     <string name="log_peer_profile_sync_failed">Peer profile %1$s could not be updated</string>
     <string name="log_peer_profile_received">Peer profile %1$s received from %2$s</string>
     <string name="log_peer_ack_received">Peer synchronization confirmed by %1$s</string>
-    <string name="peer_pairing_start">Start secure pairing</string>
+    <string name="peer_pairing_start">Pair another phone</string>
     <string name="peer_searching">Searching for ScaleLauncher phones …</string>
     <string name="peer_found">Phone found: %1$s</string>
     <string name="peer_request_sent">Connection request sent to %1$s</string>

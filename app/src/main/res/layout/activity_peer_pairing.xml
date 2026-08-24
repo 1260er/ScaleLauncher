@@ -24,51 +24,112 @@
             android:layout_marginTop="@dimen/spacing_md"
             android:text="@string/peer_pairing_intro" />
 
-        <TextView
-            android:id="@+id/peerLocalInfo"
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl" />
+        <!-- Dieses Handy -->
 
         <TextView
-            android:id="@+id/peerTrustedInfo"
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_sm" />
-
-        <Spinner
-            android:id="@+id/peerRemoveDevice"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_lg"
-            android:visibility="gone" />
-
-        <Button
-            android:id="@+id/removePeer"
-            style="@style/UiPrimaryButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_sm"
-            android:text="@string/peer_remove_button"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/peerPairingStatus"
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xl"
-            android:text="@string/peer_pairing_ready" />
+            android:text="@string/peer_this_phone_title"
+            android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/startPeerPairing"
-            style="@style/UiPrimaryButton"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_lg"
-            android:text="@string/peer_pairing_start" />
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:background="@drawable/ui_section_background"
+            android:orientation="vertical"
+            android:padding="@dimen/spacing_lg">
+
+            <TextView
+                android:id="@+id/peerLocalInfo"
+                style="@style/UiBodyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+        </LinearLayout>
+
+        <!-- Verbundene Handys -->
+
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/peer_connected_phones_title"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:background="@drawable/ui_section_background"
+            android:orientation="vertical"
+            android:padding="@dimen/spacing_lg">
+
+            <TextView
+                android:id="@+id/peerTrustedInfo"
+                style="@style/UiBodyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <Spinner
+                android:id="@+id/peerRemoveDevice"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/input_height"
+                android:layout_marginTop="@dimen/spacing_lg"
+                android:background="@drawable/ui_spinner_background"
+                android:paddingStart="@dimen/spacing_lg"
+                android:paddingEnd="56dp"
+                android:spinnerMode="dropdown"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/removePeer"
+                style="@style/UiPrimaryButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_sm"
+                android:text="@string/peer_remove_button"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- Weiteres Handy -->
+
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/peer_add_phone_title"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:background="@drawable/ui_section_background"
+            android:orientation="vertical"
+            android:padding="@dimen/spacing_lg">
+
+            <TextView
+                android:id="@+id/peerPairingStatus"
+                style="@style/UiBodyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/peer_pairing_ready" />
+
+            <Button
+                android:id="@+id/startPeerPairing"
+                style="@style/UiPrimaryButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_lg"
+                android:text="@string/peer_pairing_start" />
+
+        </LinearLayout>
 
     </LinearLayout>
 </ScrollView>

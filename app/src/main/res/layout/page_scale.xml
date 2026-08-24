@@ -37,6 +37,14 @@
 
         <TextView
             style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_md"
+            android:text="@string/scale_page_description"
+            android:textColor="@color/ui_text_secondary" />
+
+        <TextView
+            style="@style/UiBodyText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xl"
@@ -62,6 +70,14 @@
 
         <TextView
             style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:text="@string/scale_scan_connection_hint"
+            android:textColor="@color/ui_text_secondary" />
+
+        <TextView
+            style="@style/UiBodyText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xl"
@@ -77,21 +93,6 @@
             android:inputType="textNoSuggestions"
             android:maxLength="24"
             android:maxLines="1" />
-
-        <TextView
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
-            android:text="@string/peer_section_title" />
-
-        <Button
-            android:id="@+id/pairPhone"
-            style="@style/UiPrimaryButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
-            android:text="@string/peer_pair_phone" />
 
     </LinearLayout>
 </ScrollView>

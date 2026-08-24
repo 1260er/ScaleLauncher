@@ -16,6 +16,8 @@
     <string name="status_waiting_for_measurement">Warte auf Messung</string>
     <string name="status_scale_last_seen">Waage zuletzt gesehen: %1$s</string>
     <string name="page_scale_title">Waage</string>
+    <string name="scale_page_description">Hier wird die Xiaomi S400 ausgewählt und der Login-Token für die sichere Verbindung hinterlegt.</string>
+    <string name="scale_scan_connection_hint">Wird die Waage nicht gefunden, wird sie möglicherweise gerade von einem anderen Handy verwendet. Die S400 kann nur mit einem ScaleLauncher-Handy gleichzeitig verbunden sein. Beende dort die Überwachung oder schalte Bluetooth kurz aus und starte die Suche erneut.</string>
     <string name="scale_bluetooth_address">Bluetooth-Adresse der Waage</string>
     <string name="scale_mac_hint">AA:BB:CC:DD:EE:FF</string>
     <string name="action_scan_scale">Waage suchen und auswählen</string>
@@ -45,6 +47,7 @@
     <string name="service_gatt_ready">Collector aktiv – wartet auf Messung</string>
     <string name="service_gatt_reconnecting">Standby – neuer Verbindungsversuch in %1$d s</string>
     <string name="page_permissions_title">Berechtigungen</string>
+    <string name="permissions_page_description">Diese Einstellungen sorgen dafür, dass ScaleLauncher zuverlässig auf die Waage warten und Messungen auch bei ausgeschaltetem Bildschirm verarbeiten kann.</string>
     <string name="action_allow_openscale_access">openScale-Zugriff erlauben\nund Benutzer laden</string>
     <string name="action_disable_battery_optimization">Akkuoptimierung ausschalten</string>
     <string name="action_disable_unused_app_management">Verwaltung bei Nichtnutzung deaktivieren</string>
@@ -69,6 +72,7 @@
     <string name="permissions_notifications_bad">✗ Benachrichtigung: nicht erlaubt</string>
     <string name="permissions_settings_saved">Berechtigungseinstellungen gespeichert.</string>
     <string name="page_users_title">Benutzer</string>
+    <string name="users_page_description">Hier legst du fest, wie Messungen erkannt werden und auf welchem Handy sie gespeichert werden. Referenzgewicht und Toleranz werden zur Benutzererkennung verwendet.</string>
     <string name="users_empty">Keine openScale-Benutzer verfügbar</string>
     <string name="action_edit_user">Benutzer bearbeiten</string>
     <string name="action_delete_user">Benutzerprofil löschen</string>
@@ -91,6 +95,7 @@
     <string name="user_health_connect">Health Connect nur für diesen Benutzer verwenden</string>
     <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
     <string name="page_health_connect_title">Health Connect</string>
+    <string name="health_connect_page_description">Hier bestimmst du, welche Messwerte des ausgewählten Benutzers zusätzlich an Health Connect übergeben werden.</string>
     <string name="health_connect_enabled">Messungen des ausgewählten Benutzers übertragen</string>
     <string name="health_connect_values_title">Zu übertragende Werte</string>
     <string name="health_connect_weight">Gewicht</string>
@@ -382,10 +387,15 @@ UUIDs: %1$s</string>
     <string name="help_url" translatable="false">https://github.com/1260er/ScaleLauncher</string>
     <string name="support_url" translatable="false">https://ko-fi.com/1260er</string>
 
-    <string name="peer_section_title">Handy-Verbindung</string>
-    <string name="peer_pair_phone">Handys koppeln</string>
-    <string name="peer_pairing_title">Handys koppeln</string>
-    <string name="peer_pairing_intro">Öffne diese Seite auf beiden Handys und starte auf beiden den sicheren Kopplungstest. Beide Handys müssen anschließend denselben sechsstelligen Sicherheitscode anzeigen.</string>
+    <string name="peer_section_title">Mehrbenutzer</string>
+    <string name="multiuser_title">Mehrbenutzer</string>
+    <string name="multiuser_description">Benutzer können unterschiedlichen ScaleLauncher-Handys zugeordnet werden. Hier verwaltest du die sicheren Verbindungen zwischen diesen Handys.</string>
+    <string name="peer_pair_phone">Mehrbenutzer verwalten</string>
+    <string name="peer_pairing_title">Mehrbenutzer</string>
+    <string name="peer_pairing_intro">Verwalte hier die ScaleLauncher-Handys im Haushalt. Für ein weiteres Handy öffnest du diese Seite auf beiden Geräten und vergleichst anschließend den sechsstelligen Sicherheitscode.</string>
+    <string name="peer_this_phone_title">Dieses Handy</string>
+    <string name="peer_connected_phones_title">Verbundene Handys</string>
+    <string name="peer_add_phone_title">Weiteres Handy</string>
     <string name="peer_local_device">Dieses Handy: %1$s</string>
     <string name="peer_local_device_details">Dieses Handy: %1$s
 Eigene Kennung: %2$s
@@ -396,7 +406,7 @@ Eigene Kennung: %2$s
         <item quantity="one">%1$d gekoppeltes Handy</item>
         <item quantity="other">%1$d gekoppelte Handys</item>
     </plurals>
-    <string name="peer_pairing_ready">Bereit zur Kopplung</string>
+    <string name="peer_pairing_ready">Bereit für ein weiteres Handy</string>
     <string name="peer_remove_button">Gekoppeltes Handy entfernen</string>
     <string name="peer_remove_title">Handy wirklich entfernen?</string>
     <string name="peer_remove_message">%1$s wird aus der sicheren Handy-Verbindung entfernt.
@@ -415,7 +425,7 @@ Noch nicht übertragene Daten für dieses Handy werden gelöscht. Benutzer, die 
     <string name="log_peer_profile_sync_failed">Peer-Profil %1$s konnte nicht aktualisiert werden</string>
     <string name="log_peer_profile_received">Peer-Profil %1$s von %2$s empfangen</string>
     <string name="log_peer_ack_received">Peer-Synchronisierung von %1$s bestätigt</string>
-    <string name="peer_pairing_start">Sichere Kopplung starten</string>
+    <string name="peer_pairing_start">Weiteres Handy koppeln</string>
     <string name="peer_searching">Suche nach ScaleLauncher-Handys …</string>
     <string name="peer_found">Handy gefunden: %1$s</string>
     <string name="peer_request_sent">Verbindungsanfrage an %1$s gesendet</string>
