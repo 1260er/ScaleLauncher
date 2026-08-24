@@ -135,7 +135,7 @@ https://github.com/1260er/ScaleLauncher
 
 Empfohlene Reihenfolge:
 
-1. openScale installieren und dort die benötigten Benutzer anlegen.
+1. openScale installieren und dort den oder die benötigten Benutzer anlegen.
 2. Die S400 **nicht als Bluetooth-Waage in openScale koppeln**.
 3. S400 vorübergehend in Xiaomi Home einrichten.
 4. MAC-Adresse und Login-Token auslesen.
@@ -222,17 +222,71 @@ Diese Profile bleiben vollständig getrennt.
 
 ## Mehrbenutzer und mehrere Handys
 
-Unter **Benutzer → Mehrbenutzer** können ScaleLauncher-Handys eines Haushalts sicher miteinander verbunden werden.
+Unter **Benutzer → Mehrbenutzer** können die ScaleLauncher-Handys eines Haushalts zu einem gemeinsamen Verbund gekoppelt werden.
 
-Die S400 kann nur von einem Handy gleichzeitig aktiv genutzt werden. Dieses Handy übernimmt die **Collector-Rolle**. Andere ScaleLauncher-Handys warten im **Standby** und können übernehmen, wenn die Waage frei wird.
+### Warum ist der Mehrbenutzerbetrieb notwendig?
+
+Die S400 erlaubt nur **eine aktive authentifizierte Bluetooth-Verbindung gleichzeitig**.
+
+Deshalb kann immer nur ein ScaleLauncher-Handy direkt mit der Waage verbunden sein. Dieses Handy übernimmt die **Collector-Rolle** und empfängt die vollständige Messung.
+
+Der Mehrbenutzerbetrieb trennt die aktuelle Waagenverbindung vom Besitzer einer Messung:
+
+1. Ein beliebiges ScaleLauncher-Handy im Haushalt verbindet sich als Collector mit der S400.
+2. Der Collector empfängt die vollständige Messung.
+3. Anhand der synchronisierten Haushaltsprofile wird geprüft, welcher Benutzer zur Messung passt.
+4. Die Messung wird verschlüsselt an das Besitzer-Handy des passenden Benutzers weitergeleitet.
+5. Erst auf diesem Besitzer-Handy werden die persönlichen Körperdaten verwendet und die Körperanalyse berechnet.
+6. Dort wird die Messung anschließend in openScale und optional in Health Connect gespeichert.
+
+Dadurch kann jeder Benutzer im Haushalt die gemeinsame Waage verwenden, **unabhängig davon, welches ScaleLauncher-Handy gerade die exklusive Verbindung zur S400 hält**.
+
+Bei einer eindeutigen Benutzererkennung muss nur das zuständige Besitzer-Handy erreicht werden.
+
+Sind mehrere Benutzer aufgrund ihrer Gewichtstoleranzen möglich, muss der Collector die Messung an alle infrage kommenden Besitzer-Handys übertragen können, damit die Zuordnung dort korrekt abgeschlossen werden kann.
+
+### Alle Handys müssen miteinander gekoppelt sein
+
+Für einen zuverlässigen Mehrbenutzerbetrieb müssen **alle beteiligten ScaleLauncher-Handys direkt miteinander gekoppelt sein**.
+
+Es reicht nicht aus, die Geräte nur in einer Kette zu verbinden.
+
+Beispiel mit drei Handys:
+
+```text
+Handy A ↔ Handy B
+Handy A ↔ Handy C
+Handy B ↔ Handy C
+```
+
+Der Grund dafür ist die Collector-Rolle:
+
+**Jedes Handy kann zum Collector werden und muss anschließend jedes mögliche Besitzer-Handy direkt erreichen können.**
+
+Es gibt deshalb kein festes Haupt-Handy und kein dauerhaft festgelegtes Collector-Handy.
+
+Das Koppeln erfolgt immer zwischen zwei Handys. Bei mehr als zwei Geräten wird der Kopplungsvorgang so oft wiederholt, bis jedes Handy mit jedem anderen Handy verbunden ist.
+
+### Collector und Standby
+
+Nur ein Handy kann die S400 gleichzeitig aktiv verwenden. Dieses Handy ist der **Collector**.
+
+Alle anderen ScaleLauncher-Handys warten im **Standby**.
+
+Wird die Waage frei oder der bisherige Collector ist nicht mehr verfügbar, kann ein anderes Handy die Verbindung übernehmen.
+
+Welches Handy gerade Collector ist, ist für die Benutzerzuordnung nicht entscheidend. Wichtig ist, dass der Collector jedes mögliche Besitzer-Handy direkt erreichen kann.
 
 ### Sicheres Koppeln
 
-1. **Mehrbenutzer** auf beiden Handys öffnen.
+Für jedes noch nicht verbundene Handypaar:
+
+1. Auf beiden Geräten **Benutzer → Mehrbenutzer** öffnen.
 2. Kopplung auf beiden Geräten starten.
-3. Beide Geräte führen einen lokalen kryptografischen Schlüsselaustausch durch.
+3. Die Geräte führen einen lokalen kryptografischen Schlüsselaustausch durch.
 4. Auf beiden Geräten erscheint ein sechsstelliger Sicherheitscode.
 5. Nur bestätigen, wenn beide Codes identisch sind.
+6. Den Vorgang mit den übrigen Handypaaren wiederholen.
 
 ### Welche Daten werden geteilt?
 
@@ -254,20 +308,27 @@ Nicht als gemeinsames Haushaltsprofil synchronisiert werden insbesondere:
 - openScale-Benutzer-ID
 - berechnete Körperanalysewerte
 
-Diese Daten bleiben auf dem Besitzer-Handy.
+Diese persönlichen Daten bleiben auf dem Besitzer-Handy.
 
 ### Besitzer-Handy
 
-Jeder Benutzer besitzt ein Ziel- beziehungsweise Besitzer-Handy. Dort sollen Körperanalyse, openScale-Speicherung und optional Health Connect ausgeführt werden.
+Jeder Benutzer besitzt ein Ziel- beziehungsweise **Besitzer-Handy**.
 
-Die `householdProfileId` ist die eindeutige Identität. Namen werden niemals zum automatischen Zusammenführen verwendet.
+Dort werden:
+
+- die persönlichen Profildaten vorgehalten
+- die Körperanalyse berechnet
+- die Messung in openScale gespeichert
+- optional Werte an Health Connect übertragen
+
+Die `householdProfileId` ist die eindeutige Identität eines Benutzers im Haushaltsverbund. Namen werden niemals zum automatischen Zusammenführen von Profilen verwendet.
 
 ### Aktueller Entwicklungsstand
 
 Im Entwicklungszweig `ui-v1.2.0` sind bereits vorhanden:
 
 - sichere BLE-Kopplung
-- vertrauenswürdige Geräte
+- mehrere vertrauenswürdige Geräte
 - verschlüsselte Peer-Kommunikation
 - Haushalts-Profil-IDs
 - Profil-Synchronisierung
@@ -276,7 +337,7 @@ Im Entwicklungszweig `ui-v1.2.0` sind bereits vorhanden:
 - ACK-Bestätigungen
 - Collector-/Standby-Grundfunktion
 
-Die endgültige automatische Weiterleitung und Zuordnung von Messungen zwischen Besitzer-Handys befindet sich noch in Entwicklung und wird vor Freigabe mit mehreren realen Handys getestet.
+Die endgültige automatische Weiterleitung und Zuordnung der Messungen zwischen den Besitzer-Handys befindet sich noch in Entwicklung und wird vor der Freigabe mit mehreren realen Handys getestet.
 
 ## Health Connect
 

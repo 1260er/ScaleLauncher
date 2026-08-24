@@ -125,7 +125,7 @@ https://github.com/1260er/ScaleLauncher
 
 Recommended order:
 
-1. Install openScale and create the required users.
+1. Install openScale and create the required user or users.
 2. **Do not pair the S400 as a Bluetooth scale in openScale.**
 3. Temporarily add the S400 to Xiaomi Home.
 4. Extract its MAC address and login token.
@@ -212,17 +212,71 @@ These profiles remain completely separate.
 
 ## Multi-user and multiple phones
 
-Under **Users → Multi-user**, multiple ScaleLauncher phones in one household can be securely connected.
+Under **Users → Multi-user**, the ScaleLauncher phones in a household can be connected into one shared network.
 
-The S400 can only be actively used by one phone at a time. That phone is the **collector**. Other phones remain in **standby** and can take over when the scale becomes available.
+### Why is multi-user mode needed?
+
+The S400 allows only **one active authenticated Bluetooth connection at a time**.
+
+Therefore only one ScaleLauncher phone can communicate directly with the scale. This phone becomes the **collector** and receives the complete measurement.
+
+Multi-user mode separates the current scale connection from the phone that owns the measurement:
+
+1. Any ScaleLauncher phone in the household can become the collector.
+2. The collector receives the complete measurement.
+3. The synchronized household profiles are used to determine which user may match.
+4. The measurement is forwarded securely to the matching user's owner phone.
+5. Personal body data is used and body composition is calculated only on that owner phone.
+6. The measurement is then stored in openScale and optionally Health Connect on that phone.
+
+This allows every household member to use the shared scale **regardless of which ScaleLauncher phone currently holds the exclusive S400 connection**.
+
+For a unique user match, only that user's owner phone needs to receive the measurement.
+
+If multiple users are possible because their weight tolerances overlap, the collector must be able to reach every relevant owner phone so the assignment can be completed correctly.
+
+### Every phone must be paired with every other phone
+
+For reliable multi-user operation, **all participating ScaleLauncher phones must be directly paired with each other**.
+
+Connecting them only as a chain is not sufficient.
+
+Example with three phones:
+
+```text
+Phone A ↔ Phone B
+Phone A ↔ Phone C
+Phone B ↔ Phone C
+```
+
+The reason is the collector role:
+
+**Any phone may become the collector and must then be able to directly reach every possible owner phone.**
+
+There is therefore no permanently designated main phone or collector.
+
+Pairing always takes place between two phones. With more than two devices, repeat the pairing process until every phone is paired with every other phone.
+
+### Collector and standby
+
+Only one phone can actively use the S400 at a time. That phone is the **collector**.
+
+All other ScaleLauncher phones remain in **standby**.
+
+When the scale becomes available or the previous collector is no longer available, another phone can take over.
+
+Which phone currently acts as collector is not important for user assignment. What matters is that the collector can directly reach every possible owner phone.
 
 ### Secure pairing
 
-1. Open **Multi-user** on both phones.
+For every phone pair that has not yet been connected:
+
+1. Open **Users → Multi-user** on both devices.
 2. Start pairing on both devices.
-3. The phones perform a local cryptographic key exchange.
-4. Both display a six-digit safety code.
+3. The devices perform a local cryptographic key exchange.
+4. Both devices display a six-digit safety code.
 5. Confirm only when both codes are identical.
+6. Repeat this process for the remaining phone pairs.
 
 ### Which data is shared?
 
@@ -244,20 +298,26 @@ The shared household profile does not include:
 - openScale user ID
 - calculated body-composition values
 
-These remain on the owner phone.
+These personal values remain on the owner phone.
 
 ### Owner phone
 
-Each user has an owner or destination phone. Body calculation, openScale storage, and optional Health Connect are intended to happen there.
+Every user has an **owner phone**.
 
-The `householdProfileId` is the identity. Names are never used to merge profiles automatically.
+That phone holds the personal profile data and is responsible for:
+
+- calculating body composition
+- storing the measurement in openScale
+- optionally writing values to Health Connect
+
+The `householdProfileId` is the unique identity of a user inside the household network. Names are never used to automatically merge profiles.
 
 ### Current development status
 
 The `ui-v1.2.0` development branch already contains:
 
 - secure BLE pairing
-- trusted peers
+- multiple trusted peers
 - encrypted peer communication
 - household profile IDs
 - profile synchronization
@@ -266,7 +326,7 @@ The `ui-v1.2.0` development branch already contains:
 - ACK confirmation
 - collector/standby foundation
 
-Final automatic measurement routing between owner phones is still being implemented and validated with multiple physical phones before release.
+Final automatic measurement forwarding and assignment between owner phones is still being implemented and will be validated with multiple physical phones before release.
 
 ## Health Connect
 
