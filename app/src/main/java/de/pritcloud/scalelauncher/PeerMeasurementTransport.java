@@ -92,6 +92,7 @@ final class PeerMeasurementTransport {
     private int sendMtu = 23;
     private boolean sendConnecting;
     private boolean sendLastChunkFinal;
+    private String sendStage = "idle";
 
     PeerMeasurementTransport(
             Context context,
@@ -247,6 +248,13 @@ final class PeerMeasurementTransport {
                     settings,
                     scanCallback);
 
+            sendStage = "scanning";
+
+            EventLog.debug(
+                    context,
+                    "Peer-Transport: Suche nach "
+                            + peer.label);
+
             handler.postDelayed(
                     sendTimeoutTask,
                     SEND_TIMEOUT_MS);
@@ -318,6 +326,10 @@ final class PeerMeasurementTransport {
                                         + status);
                         return;
                     }
+
+                    EventLog.debug(
+                            context,
+                            "Peer-Transport: GATT-Dienst bereit");
 
                     startAdvertising();
                 }
@@ -402,6 +414,14 @@ final class PeerMeasurementTransport {
     private final AdvertiseCallback advertiseCallback =
             new AdvertiseCallback() {
                 @Override
+                public void onStartSuccess(
+                        AdvertiseSettings settingsInEffect) {
+                    EventLog.debug(
+                            context,
+                            "Peer-Transport: Advertising aktiv");
+                }
+
+                @Override
                 public void onStartFailure(
                         int errorCode) {
                     reportError(
@@ -436,6 +456,13 @@ final class PeerMeasurementTransport {
                     }
 
                     sendConnecting = true;
+                    sendStage = "connecting";
+
+                    EventLog.debug(
+                            context,
+                            "Peer-Transport: Ziel gefunden – "
+                                    + sendPeer.label);
+
                     stopSendScan();
 
                     try {
@@ -484,7 +511,15 @@ final class PeerMeasurementTransport {
 
                     if (newState
                             == BluetoothProfile.STATE_CONNECTED) {
+                        sendStage = "connected";
+
+                        EventLog.debug(
+                                context,
+                                "Peer-Transport: Verbindung hergestellt – "
+                                        + sendPeer.label);
+
                         if (!gatt.requestMtu(517)) {
+                            sendStage = "discovering";
                             gatt.discoverServices();
                         }
                     } else if (newState
@@ -507,6 +542,14 @@ final class PeerMeasurementTransport {
                                         23,
                                         mtu);
                     }
+
+                    sendStage = "discovering";
+
+                    EventLog.debug(
+                            context,
+                            "Peer-Transport: MTU "
+                                    + sendMtu
+                                    + " – Dienste werden gesucht");
 
                     gatt.discoverServices();
                 }
@@ -538,6 +581,13 @@ final class PeerMeasurementTransport {
                                 "BLE-Peer-Messwertkanal fehlt");
                         return;
                     }
+
+                    sendStage = "writing";
+
+                    EventLog.debug(
+                            context,
+                            "Peer-Transport: Datenkanal bereit – "
+                                    + sendPeer.label);
 
                     writeNextChunk(
                             gatt,
@@ -778,6 +828,11 @@ final class PeerMeasurementTransport {
             return false;
         }
 
+        EventLog.debug(
+                context,
+                "Peer-Transport: Nachricht empfangen von "
+                        + peer.label);
+
         handler.post(
                 () -> listener.onMessageReceived(
                         peer,
@@ -798,6 +853,11 @@ final class PeerMeasurementTransport {
 
         if (peer != null
                 && messageId != null) {
+            EventLog.debug(
+                    context,
+                    "Peer-Transport: Nachricht gesendet an "
+                            + peer.label);
+
             handler.post(
                     () -> listener.onMessageSent(
                             peer,
@@ -842,6 +902,7 @@ final class PeerMeasurementTransport {
         sendMtu = 23;
         sendConnecting = false;
         sendLastChunkFinal = false;
+        sendStage = "idle";
     }
 
     private void stopSendScan() {
@@ -877,7 +938,9 @@ final class PeerMeasurementTransport {
             () -> {
                 if (sendPeer != null) {
                     failSend(
-                            "BLE-Peer-Sendung Zeitlimit überschritten");
+                            "BLE-Peer-Sendung Zeitlimit überschritten (Stufe: "
+                                    + sendStage
+                                    + ")");
                 }
             };
 
