@@ -745,22 +745,54 @@ public final class ScaleScanService extends Service {
                 return;
             }
 
+            if (payload.requiresClaim) {
+                String dedupKey =
+                        "claim-request:"
+                                + payload.measurementId;
+
+                boolean duplicate =
+                        PeerInboxDedupStore.contains(
+                                this,
+                                peer.deviceId,
+                                dedupKey);
+
+                if (!duplicate) {
+                    EventLog.info(
+                            this,
+                            getString(
+                                    R.string.log_peer_measurement_received,
+                                    peer.label,
+                                    payload.weightKg));
+
+                    handleIncomingClaimRequest(
+                            peer,
+                            payload);
+
+                    /*
+                     * The CLAIM response is persisted in PeerOutboxStore
+                     * before the request is marked as processed. After a
+                     * restart/retry we can therefore safely suppress another
+                     * response and only ACK the repeated request.
+                     */
+                    PeerInboxDedupStore.mark(
+                            this,
+                            peer.deviceId,
+                            dedupKey);
+                }
+
+                queuePeerAck(
+                        peer,
+                        payload.measurementId);
+
+                return;
+            }
+
             EventLog.info(
                     this,
                     getString(
                             R.string.log_peer_measurement_received,
                             peer.label,
                             payload.weightKg));
-
-            if (payload.requiresClaim) {
-                handleIncomingClaimRequest(
-                        peer,
-                        payload);
-
-                queuePeerAck(
-                        peer,
-                        payload.measurementId);
-            }
         }
     }
 
