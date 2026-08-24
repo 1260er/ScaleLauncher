@@ -1154,7 +1154,7 @@ public final class PeerPairingActivity extends Activity {
         codeReady = false;
     }
 
-    private static String peerLabel(
+    static String peerLabel(
             String deviceId) {
         byte[] value =
                 fingerprint(

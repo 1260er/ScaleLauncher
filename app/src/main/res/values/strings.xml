@@ -72,7 +72,7 @@
     <string name="permissions_notifications_bad">✗ Benachrichtigung: nicht erlaubt</string>
     <string name="permissions_settings_saved">Berechtigungseinstellungen gespeichert.</string>
     <string name="page_users_title">Benutzer</string>
-    <string name="users_page_description">Hier legst du fest, wie Messungen erkannt werden und auf welchem Handy sie gespeichert werden. Referenzgewicht und Toleranz werden zur Benutzererkennung verwendet.</string>
+    <string name="users_page_description">Hier legst du fest, wie Messungen für lokale Benutzer verwaltet werden. Referenzgewicht und Toleranz werden zur Benutzererkennung verwendet.</string>
     <string name="users_empty">Keine openScale-Benutzer verfügbar</string>
     <string name="action_edit_user">Benutzer bearbeiten</string>
     <string name="action_delete_user">Benutzerprofil löschen</string>
@@ -389,11 +389,11 @@ UUIDs: %1$s</string>
     <string name="help_url" translatable="false">https://github.com/1260er/ScaleLauncher</string>
     <string name="support_url" translatable="false">https://ko-fi.com/1260er</string>
 
-    <string name="peer_section_title">Mehrbenutzer</string>
-    <string name="multiuser_title">Mehrbenutzer</string>
-    <string name="multiuser_description">Benutzer können unterschiedlichen ScaleLauncher-Handys zugeordnet werden. Hier verwaltest du die sicheren Verbindungen zwischen diesen Handys.</string>
+    <string name="peer_section_title">Remotebenutzer</string>
+    <string name="multiuser_title">Remotebenutzer</string>
+    <string name="multiuser_description">Remotebenutzer können unterschiedlichen ScaleLauncher-Handys zugeordnet werden. Hier verwaltest du die sicheren Verbindungen zwischen diesen Handys.</string>
     <string name="peer_pair_phone">Mehrbenutzer verwalten</string>
-    <string name="peer_pairing_title">Mehrbenutzer</string>
+    <string name="peer_pairing_title">Remotebenutzer</string>
     <string name="peer_pairing_intro">Verwalte hier die ScaleLauncher-Handys im Haushalt. Für ein weiteres Handy öffnest du diese Seite auf beiden Geräten und vergleichst anschließend den sechsstelligen Sicherheitscode.</string>
     <string name="peer_this_phone_title">Dieses Handy</string>
     <string name="peer_connected_phones_title">Verbundene Handys</string>

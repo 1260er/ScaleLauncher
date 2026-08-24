@@ -66,7 +66,7 @@
     <string name="permissions_notifications_bad">✗ Notifications: not allowed</string>
     <string name="permissions_settings_saved">Permission settings saved.</string>
     <string name="page_users_title">Users</string>
-    <string name="users_page_description">Define how measurements are recognized and on which phone they are stored. Reference weight and tolerance are used for user recognition.</string>
+    <string name="users_page_description">Here you define how measurements for local users are managed. Reference weight and tolerance are used for user recognition.</string>
     <string name="users_empty">No openScale users available</string>
     <string name="action_edit_user">Edit user</string>
     <string name="action_delete_user">Delete user profile</string>
@@ -381,11 +381,11 @@ UUIDs: %1$s</string>
     <string name="help_link_error">The project page could not be opened.</string>
     <string name="support_link_error">The support link could not be opened.</string>
 
-    <string name="peer_section_title">Multi-user</string>
-    <string name="multiuser_title">Multi-user</string>
-    <string name="multiuser_description">Users can be assigned to different ScaleLauncher phones. Manage the secure connections between those phones here.</string>
+    <string name="peer_section_title">Remote users</string>
+    <string name="multiuser_title">Remote users</string>
+    <string name="multiuser_description">Remote users can be assigned to different ScaleLauncher phones. Manage the secure connections between those phones here.</string>
     <string name="peer_pair_phone">Manage multi-user</string>
-    <string name="peer_pairing_title">Multi-user</string>
+    <string name="peer_pairing_title">Remote users</string>
     <string name="peer_pairing_intro">Manage the ScaleLauncher phones in your household here. To add another phone, open this page on both devices and then compare the six-digit security code.</string>
     <string name="peer_this_phone_title">This phone</string>
     <string name="peer_connected_phones_title">Connected phones</string>

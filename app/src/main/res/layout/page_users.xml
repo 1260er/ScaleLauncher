@@ -72,7 +72,67 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_md"
-            android:text="@string/multiuser_description" />
+            android:text="@string/multiuser_description"
+            android:textColor="@color/ui_text_secondary" />
+
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/peer_this_phone_title"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/inlinePeerLocalInfo"
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm" />
+
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/peer_connected_phones_title"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/inlinePeerTrustedInfo"
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm" />
+
+        <LinearLayout
+            android:id="@+id/inlinePeerTrustedList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/inlinePeerPendingInfo"
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_lg" />
+
+        <TextView
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_xl"
+            android:text="@string/peer_add_phone_title"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/inlinePeerPairingStatus"
+            style="@style/UiBodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_sm"
+            android:text="@string/peer_pairing_ready" />
 
         <Button
             android:id="@+id/pairPhone"
@@ -80,6 +140,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_lg"
-            android:text="@string/peer_pair_phone" />
+            android:text="@string/peer_pairing_start" />
+
     </LinearLayout>
 </ScrollView>

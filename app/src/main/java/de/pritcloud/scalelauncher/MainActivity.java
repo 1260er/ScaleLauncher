@@ -140,6 +140,7 @@ public final class MainActivity extends Activity {
 
         findViewById(R.id.navUsers).setOnClickListener(view -> {
             refreshUserList();
+            refreshInlinePeerSummary();
             pageHome.setVisibility(View.GONE);
             pageScale.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.GONE);
@@ -272,6 +273,7 @@ public final class MainActivity extends Activity {
             if (!saveCurrentProfile(true)) return;
 
             refreshUserList();
+            refreshInlinePeerSummary();
             findViewById(R.id.pageUserDetail).setVisibility(View.GONE);
             findViewById(R.id.pageUsers).setVisibility(View.VISIBLE);
         });
@@ -667,6 +669,176 @@ public final class MainActivity extends Activity {
         return true;
     }
 
+    private void refreshInlinePeerSummary() {
+        TextView localInfo = findViewById(R.id.inlinePeerLocalInfo);
+        TextView trustedInfo = findViewById(R.id.inlinePeerTrustedInfo);
+        TextView pendingInfo = findViewById(R.id.inlinePeerPendingInfo);
+        android.widget.LinearLayout trustedList =
+                findViewById(R.id.inlinePeerTrustedList);
+
+        if (localInfo == null
+                || trustedInfo == null
+                || pendingInfo == null
+                || trustedList == null) {
+            return;
+        }
+
+        PeerEndpointInfo localEndpoint =
+                PeerEndpointInfo.local(this);
+
+        localInfo.setText(
+                getString(
+                        R.string.peer_local_device_details,
+                        localEndpoint.label,
+                        PeerPairingActivity.peerLabel(localEndpoint.deviceId),
+                        inlineAssignedUsersText(localEndpoint.deviceId)));
+
+        List<PeerTrustStore.Peer> peers =
+                PeerTrustStore.load(this);
+
+        trustedInfo.setText(
+                getResources().getQuantityString(
+                        R.plurals.peer_trusted_count,
+                        peers.size(),
+                        peers.size()));
+
+        trustedList.removeAllViews();
+
+        for (PeerTrustStore.Peer peer : peers) {
+            View row =
+                    getLayoutInflater().inflate(
+                            R.layout.item_peer,
+                            trustedList,
+                            false);
+
+            TextView info =
+                    row.findViewById(R.id.peerItemInfo);
+
+            android.widget.ImageButton deleteButton =
+                    row.findViewById(R.id.peerDelete);
+
+            info.setText(
+                    peer.label
+                            + (char) 10
+                            + inlineAssignedUsersText(peer.deviceId));
+
+            deleteButton.setOnClickListener(
+                    view -> confirmRemoveInlinePeer(peer));
+
+            trustedList.addView(row);
+        }
+
+        int pendingSync =
+                PeerOutboxStore.count(this);
+
+        pendingInfo.setText(
+                getResources().getQuantityString(
+                        R.plurals.peer_outbox_pending,
+                        pendingSync,
+                        pendingSync));
+    }
+
+    private String inlineAssignedUsersText(
+            String deviceId) {
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(this);
+
+        StringBuilder names =
+                new StringBuilder();
+
+        if (localDeviceId.equals(deviceId)) {
+            List<UserProfile> storedProfiles =
+                    UserProfileStore.load(
+                            getSharedPreferences(
+                                    "prefs",
+                                    MODE_PRIVATE));
+
+            for (UserProfile profile : storedProfiles) {
+                if (!profile.enabled) {
+                    continue;
+                }
+
+                if (names.length() > 0) {
+                    names.append(", ");
+                }
+
+                names.append(profile.name);
+            }
+        } else {
+            for (HouseholdProfile profile :
+                    HouseholdProfileStore.load(this)) {
+                if (!profile.active
+                        || !deviceId.equals(profile.ownerDeviceId)) {
+                    continue;
+                }
+
+                if (names.length() > 0) {
+                    names.append(", ");
+                }
+
+                names.append(profile.name);
+            }
+        }
+
+        if (names.length() == 0) {
+            return getString(
+                    R.string.peer_assigned_users_none);
+        }
+
+        return getString(
+                R.string.peer_assigned_users,
+                names.toString());
+    }
+
+    private void confirmRemoveInlinePeer(
+            PeerTrustStore.Peer peer) {
+        if (peer == null) {
+            return;
+        }
+
+        String assignments =
+                inlineAssignedUsersText(peer.deviceId);
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.peer_remove_title)
+                .setMessage(
+                        getString(
+                                R.string.peer_remove_message,
+                                peer.label,
+                                assignments))
+                .setNegativeButton(
+                        android.R.string.cancel,
+                        null)
+                .setPositiveButton(
+                        R.string.peer_remove_confirm,
+                        (dialog, which) -> {
+                            String label = peer.label;
+
+                            PeerTrustStore.remove(
+                                    this,
+                                    peer.deviceId);
+
+                            String message =
+                                    getString(
+                                            R.string.peer_remove_success,
+                                            label);
+
+                            TextView pairingStatus =
+                                    findViewById(
+                                            R.id.inlinePeerPairingStatus);
+
+                            if (pairingStatus != null) {
+                                pairingStatus.setText(message);
+                            }
+
+                            EventLog.info(this, message);
+
+                            refreshInlinePeerSummary();
+                            refreshHomeUserSummary();
+                        })
+                .show();
+    }
+
     private void refreshHomeUserSummary() {
         TextView usersSummary = findViewById(R.id.homeUsersSummary);
         TextView usersList = findViewById(R.id.homeUsersList);
@@ -829,6 +1001,7 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         refreshHealthConnectStatus();
+        refreshInlinePeerSummary();
         refreshPending();
         refreshRuntimeStatus();
         refreshReliabilityRequirements();
