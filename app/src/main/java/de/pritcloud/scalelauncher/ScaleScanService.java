@@ -1225,9 +1225,46 @@ public final class ScaleScanService extends Service {
 
         if (householdMatch.status
                 == HouseholdMeasurementRouter.Status.AMBIGUOUS) {
+            String reason =
+                    getString(
+                            R.string.pending_reason_similar_users);
+
+            PendingMeasurementStore.Item pending =
+                    PendingMeasurementStore.add(
+                            prefs,
+                            measurement,
+                            reason,
+                            householdCandidateProfileIds);
+
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_measurement_unassigned,
+                            measurement.weightKg,
+                            reason));
+
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_pending_measurement_saved,
+                            pending.id));
+
+            updateMonitor(
+                    getString(
+                            R.string.service_user_assignment_required));
+
+            updateAssignmentNotification();
+
+            /*
+             * Persist the pending measurement before sending CLAIM requests.
+             * A fast peer response must never arrive before the collector has
+             * a pending measurement against which the claim can be validated.
+             */
             enqueueHouseholdClaimRequests(
                     measurement,
                     householdMatch);
+
+            return;
         }
 
         List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
