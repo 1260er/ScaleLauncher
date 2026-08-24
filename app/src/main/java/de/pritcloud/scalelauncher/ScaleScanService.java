@@ -190,11 +190,9 @@ public final class ScaleScanService extends Service {
         } else if (intent != null
                 && ACTION_REJECT_PENDING.equals(
                         intent.getAction())) {
-            rejectPendingCandidate(
+            rejectLocalPendingCandidates(
                     intent.getStringExtra(
-                            EXTRA_PENDING_ID),
-                    intent.getStringExtra(
-                            EXTRA_PROFILE_ID));
+                            EXTRA_PENDING_ID));
         } else if (intent != null
                 && ACTION_DISCARD_PENDING.equals(
                         intent.getAction())) {
@@ -764,7 +762,7 @@ public final class ScaleScanService extends Service {
                                     prefs,
                                     decision.measurementId);
                         } else {
-                            autoResolveSingleRemainingCandidate(
+                            autoResolveSingleRemainingRemoteCandidate(
                                     prefs,
                                     decision.measurementId);
                         }
@@ -831,6 +829,20 @@ public final class ScaleScanService extends Service {
                             claim.measurementId,
                             peer.deviceId,
                             claim.claimedProfileIds);
+
+                    rejectUnclaimedPeerCandidates(
+                            prefs,
+                            pending,
+                            peer.deviceId,
+                            claim.claimedProfileIds);
+
+                    autoResolveSingleRemainingRemoteCandidate(
+                            prefs,
+                            claim.measurementId);
+
+                    removePendingWithoutCandidates(
+                            prefs,
+                            claim.measurementId);
 
                     PeerInboxDedupStore.mark(
                             this,
@@ -1097,6 +1109,74 @@ public final class ScaleScanService extends Service {
 
         schedulePeerSync(
                 100L);
+    }
+
+    private void rejectUnclaimedPeerCandidates(
+            SharedPreferences prefs,
+            PendingMeasurementStore.Item pending,
+            String peerDeviceId,
+            List<String> claimedProfileIds) {
+        if (prefs == null
+                || pending == null
+                || !PeerTrustStore.isValidDeviceId(
+                        peerDeviceId)) {
+            return;
+        }
+
+        List<String> claimed =
+                claimedProfileIds == null
+                        ? List.of()
+                        : claimedProfileIds;
+
+        for (String profileId :
+                new java.util.ArrayList<>(
+                        pending.remainingCandidateProfileIds())) {
+            HouseholdProfile profile =
+                    HouseholdProfileStore.find(
+                            this,
+                            profileId);
+
+            if (profile != null
+                    && peerDeviceId.equals(
+                            profile.ownerDeviceId)
+                    && !claimed.contains(
+                            profileId)) {
+                PendingMeasurementStore.rejectCandidate(
+                        prefs,
+                        pending.id,
+                        profileId);
+            }
+        }
+    }
+
+    private void removePendingWithoutCandidates(
+            SharedPreferences prefs,
+            String pendingId) {
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pendingId);
+
+        if (pending == null
+                || pending.isResolved()
+                || !pending.remainingCandidateProfileIds()
+                        .isEmpty()) {
+            return;
+        }
+
+        PeerOutboxStore.removeMeasurement(
+                this,
+                pendingId);
+
+        PendingMeasurementStore.remove(
+                prefs,
+                pendingId);
+
+        EventLog.info(
+                this,
+                getString(
+                        R.string.log_pending_no_candidates,
+                        pending.weightKg));
     }
 
     private boolean validIncomingDecision(
@@ -1709,7 +1789,13 @@ public final class ScaleScanService extends Service {
                         prefs,
                         pendingId);
 
-        if (pending == null
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        if (!localDeviceId.equals(
+                    ownerDeviceId)
+                || pending == null
                 || !validSelectablePendingCandidate(
                         prefs,
                         pending,
@@ -1751,13 +1837,10 @@ public final class ScaleScanService extends Service {
                 pendingId);
     }
 
-    private void rejectPendingCandidate(
-            String pendingId,
-            String profileId) {
+    private void rejectLocalPendingCandidates(
+            String pendingId) {
         if (pendingId == null
-                || pendingId.isBlank()
-                || !UserProfile.isValidHouseholdProfileId(
-                        profileId)) {
+                || pendingId.isBlank()) {
             return;
         }
 
@@ -1772,29 +1855,58 @@ public final class ScaleScanService extends Service {
                         pendingId);
 
         if (pending == null
-                || pending.isResolved()
-                || !pending.remainingCandidateProfileIds()
-                        .contains(
-                                profileId)) {
+                || pending.isResolved()) {
             return;
         }
 
-        if (PendingMeasurementStore.rejectCandidate(
-                prefs,
-                pendingId,
-                profileId)) {
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        int rejectedCount =
+                0;
+
+        List<String> remaining =
+                new java.util.ArrayList<>(
+                        pending.remainingCandidateProfileIds());
+
+        for (String profileId :
+                remaining) {
+            HouseholdProfile household =
+                    HouseholdProfileStore.find(
+                            this,
+                            profileId);
+
+            if (household == null
+                    || !localDeviceId.equals(
+                            household.ownerDeviceId)) {
+                continue;
+            }
+
+            if (PendingMeasurementStore.rejectCandidate(
+                    prefs,
+                    pendingId,
+                    profileId)) {
+                rejectedCount++;
+            }
+        }
+
+        if (rejectedCount > 0) {
             EventLog.info(
                     this,
                     getString(
-                            R.string.log_pending_candidate_rejected,
+                            R.string.log_pending_local_candidates_rejected,
                             pending.weightKg,
-                            pendingDisplayName(
-                                    profileId)));
-
-            autoResolveSingleRemainingCandidate(
-                    prefs,
-                    pendingId);
+                            rejectedCount));
         }
+
+        autoResolveSingleRemainingRemoteCandidate(
+                prefs,
+                pendingId);
+
+        removePendingWithoutCandidates(
+                prefs,
+                pendingId);
 
         updateAssignmentNotification();
     }
@@ -1911,7 +2023,7 @@ public final class ScaleScanService extends Service {
         return false;
     }
 
-    private void autoResolveSingleRemainingCandidate(
+    private void autoResolveSingleRemainingRemoteCandidate(
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
@@ -1934,12 +2046,21 @@ public final class ScaleScanService extends Service {
         String profileId =
                 remaining.get(0);
 
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
         for (HouseholdProfile profile :
                 HouseholdProfileStore.active(
                         this)) {
             if (!profileId.equals(
                     profile.profileId)) {
                 continue;
+            }
+
+            if (localDeviceId.equals(
+                    profile.ownerDeviceId)) {
+                return;
             }
 
             if (!validSelectablePendingCandidate(

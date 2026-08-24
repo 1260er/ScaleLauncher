@@ -293,7 +293,6 @@ public final class MainActivity extends Activity {
         });
         findViewById(R.id.assignPending).setOnClickListener(v -> assignPendingMeasurement());
         findViewById(R.id.rejectPending).setOnClickListener(v -> rejectPendingMeasurement());
-        findViewById(R.id.discardPending).setOnClickListener(v -> discardPendingMeasurement());
         findViewById(R.id.refreshLog).setOnClickListener(v -> refreshLog());
         findViewById(R.id.copyLog).setOnClickListener(v -> {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
@@ -1356,67 +1355,32 @@ public final class MainActivity extends Activity {
                             UserProfileStore.load(
                                     prefs));
 
-            List<PendingMeasurementStore.ClaimResponse> claims =
-                    PendingMeasurementStore.claimResponses(
-                            prefs,
-                            item.id);
-
             for (String profileId :
                     item.remainingCandidateProfileIds()) {
                 HouseholdProfile household =
-                        null;
+                        HouseholdProfileStore.find(
+                                this,
+                                profileId);
 
-                for (HouseholdProfile candidate :
-                        HouseholdProfileStore.active(
-                                this)) {
-                    if (profileId.equals(
-                            candidate.profileId)) {
-                        household =
-                                candidate;
-                        break;
-                    }
-                }
-
-                if (household == null) {
+                if (household == null
+                        || !localDeviceId.equals(
+                                household.ownerDeviceId)) {
                     continue;
                 }
 
-                boolean available =
-                        false;
+                UserProfile local =
+                        UserProfileStore.findByHouseholdProfileId(
+                                localProfiles,
+                                profileId);
 
-                if (localDeviceId.equals(
-                        household.ownerDeviceId)) {
-                    UserProfile local =
-                            UserProfileStore.findByHouseholdProfileId(
-                                    localProfiles,
-                                    profileId);
-
-                    available =
-                            local != null
-                                    && local.hasValidBodyData(
-                                            item.timestampMs);
-                } else {
-                    for (PendingMeasurementStore.ClaimResponse response :
-                            claims) {
-                        if (household.ownerDeviceId.equals(
-                                    response.peerDeviceId)
-                                && response.profileIds.contains(
-                                    profileId)) {
-                            available =
-                                    true;
-                            break;
-                        }
-                    }
-                }
-
-                if (available) {
+                if (local != null
+                        && local.hasValidBodyData(
+                                item.timestampMs)) {
                     pendingCandidates.add(
                             new PendingCandidate(
                                     household.profileId,
                                     household.ownerDeviceId,
-                                    household.name,
-                                    !localDeviceId.equals(
-                                            household.ownerDeviceId)));
+                                    household.name));
                 }
             }
         }
@@ -1473,7 +1437,7 @@ public final class MainActivity extends Activity {
                         && pendingMeasurements.get(0)
                                 .isResolved();
 
-        boolean selectable =
+        boolean hasLocalCandidate =
                 hasPending
                         && !resolved
                         && !pendingCandidates.isEmpty();
@@ -1481,21 +1445,15 @@ public final class MainActivity extends Activity {
         findViewById(
                 R.id.assignPending)
                 .setEnabled(
-                        selectable);
+                        hasLocalCandidate);
 
         findViewById(
                 R.id.rejectPending)
                 .setEnabled(
-                        selectable);
-
-        findViewById(
-                R.id.discardPending)
-                .setEnabled(
-                        hasPending
-                                && !resolved);
+                        hasLocalCandidate);
 
         pendingUserSpinner.setEnabled(
-                selectable);
+                hasLocalCandidate);
 
         if (!hasPending) {
             pendingStatus.setText(
@@ -1587,7 +1545,7 @@ public final class MainActivity extends Activity {
         LoggedToast.makeText(
                 this,
                 getString(
-                        R.string.pending_my_measurement_toast,
+                        R.string.pending_assignment_toast,
                         item.weightKg,
                         candidate.name),
                 Toast.LENGTH_SHORT).show();
@@ -1599,22 +1557,10 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        int position =
-                pendingUserSpinner.getSelectedItemPosition();
-
-        if (position < 0
-                || position >= pendingCandidates.size()) {
-            return;
-        }
-
         PendingMeasurementStore.Item item =
                 pendingMeasurements.get(0);
 
-        PendingCandidate candidate =
-                pendingCandidates.get(
-                        position);
-
-        Intent intent =
+        startForegroundService(
                 new Intent(
                         this,
                         ScaleScanService.class)
@@ -1622,56 +1568,23 @@ public final class MainActivity extends Activity {
                                 ScaleScanService.ACTION_REJECT_PENDING)
                         .putExtra(
                                 ScaleScanService.EXTRA_PENDING_ID,
-                                item.id)
-                        .putExtra(
-                                ScaleScanService.EXTRA_PROFILE_ID,
-                                candidate.profileId);
-
-        startForegroundService(
-                intent);
+                                item.id));
 
         LoggedToast.makeText(
                 this,
-                getString(
-                        R.string.pending_not_my_measurement_toast,
-                        candidate.name),
+                R.string.pending_not_my_device_toast,
                 Toast.LENGTH_SHORT).show();
-    }
-
-    private void discardPendingMeasurement() {
-        if (pendingMeasurements.isEmpty()) {
-            return;
-        }
-
-        PendingMeasurementStore.Item item =
-                pendingMeasurements.get(0);
-
-        if (item.isResolved()) {
-            return;
-        }
-
-        startForegroundService(
-                new Intent(
-                        this,
-                        ScaleScanService.class)
-                        .setAction(
-                                ScaleScanService.ACTION_DISCARD_PENDING)
-                        .putExtra(
-                                ScaleScanService.EXTRA_PENDING_ID,
-                                item.id));
     }
 
     private final class PendingCandidate {
         final String profileId;
         final String ownerDeviceId;
         final String name;
-        final boolean remote;
 
         PendingCandidate(
                 String profileId,
                 String ownerDeviceId,
-                String name,
-                boolean remote) {
+                String name) {
             this.profileId =
                     profileId;
             this.ownerDeviceId =
@@ -1680,17 +1593,10 @@ public final class MainActivity extends Activity {
                     name == null
                             ? ""
                             : name;
-            this.remote =
-                    remote;
         }
 
         @Override public String toString() {
-            return name
-                    + " "
-                    + getString(
-                            remote
-                                    ? R.string.pending_candidate_remote
-                                    : R.string.pending_candidate_local);
+            return name;
         }
     }
 

@@ -518,4 +518,7 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="log_pending_candidate_selected">%1$.1f kg wurde als „Meine Messung“ für %2$s bestätigt</string>
     <string name="log_pending_candidate_rejected">%1$.1f kg wurde für %2$s als „Nicht meine Messung“ markiert</string>
     <string name="log_pending_single_candidate">%1$.1f kg wird automatisch %2$s zugeordnet – einziger bestätigter Kandidat</string>
+    <string name="pending_not_my_device_toast">Alle lokalen Benutzer wurden für diese Messung ausgeschlossen</string>
+    <string name="log_pending_local_candidates_rejected">%1$.1f kg: %2$d lokale Kandidaten als „Nicht meine Messung“ ausgeschlossen</string>
+    <string name="log_pending_no_candidates">%1$.1f kg verworfen – kein Haushaltskandidat bleibt übrig</string>
 </resources>
