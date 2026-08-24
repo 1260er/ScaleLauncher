@@ -629,9 +629,11 @@ final class PeerMeasurementTransport {
         }
 
         int maxValueLength =
-                Math.max(
-                        20,
-                        sendMtu - 3);
+                Math.min(
+                        512,
+                        Math.max(
+                                20,
+                                sendMtu - 3));
 
         boolean first =
                 sendOffset == 0;
