@@ -76,7 +76,6 @@ public final class PeerPairingActivity extends Activity {
 
     private TextView localInfo;
     private TextView trustedInfo;
-    private TextView pendingInfo;
     private LinearLayout trustedList;
     private TextView status;
     private Button startButton;
@@ -143,10 +142,6 @@ public final class PeerPairingActivity extends Activity {
                 findViewById(
                         R.id.peerTrustedInfo);
 
-        pendingInfo =
-                findViewById(
-                        R.id.peerPendingInfo);
-
         trustedList =
                 findViewById(
                         R.id.peerTrustedList);
@@ -194,16 +189,6 @@ public final class PeerPairingActivity extends Activity {
                     peer);
         }
 
-        int pendingSync =
-                PeerOutboxStore.count(
-                        this);
-
-        pendingInfo.setText(
-                getResources()
-                        .getQuantityString(
-                                R.plurals.peer_outbox_pending,
-                                pendingSync,
-                                pendingSync));
     }
 
     private void addPeerRow(

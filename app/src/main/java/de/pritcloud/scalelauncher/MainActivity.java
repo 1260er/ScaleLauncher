@@ -672,13 +672,11 @@ public final class MainActivity extends Activity {
     private void refreshInlinePeerSummary() {
         TextView localInfo = findViewById(R.id.inlinePeerLocalInfo);
         TextView trustedInfo = findViewById(R.id.inlinePeerTrustedInfo);
-        TextView pendingInfo = findViewById(R.id.inlinePeerPendingInfo);
         android.widget.LinearLayout trustedList =
                 findViewById(R.id.inlinePeerTrustedList);
 
         if (localInfo == null
                 || trustedInfo == null
-                || pendingInfo == null
                 || trustedList == null) {
             return;
         }
@@ -728,14 +726,6 @@ public final class MainActivity extends Activity {
             trustedList.addView(row);
         }
 
-        int pendingSync =
-                PeerOutboxStore.count(this);
-
-        pendingInfo.setText(
-                getResources().getQuantityString(
-                        R.plurals.peer_outbox_pending,
-                        pendingSync,
-                        pendingSync));
     }
 
     private String inlineAssignedUsersText(
@@ -842,6 +832,7 @@ public final class MainActivity extends Activity {
     private void refreshHomeUserSummary() {
         TextView usersSummary = findViewById(R.id.homeUsersSummary);
         TextView usersList = findViewById(R.id.homeUsersList);
+        TextView peerSyncStatus = findViewById(R.id.homePeerSyncStatus);
         TextView healthConnectState = findViewById(R.id.homeHealthConnectState);
         TextView healthConnectUser = findViewById(R.id.homeHealthConnectUser);
 
@@ -925,6 +916,16 @@ public final class MainActivity extends Activity {
             usersList.setText(
                     names.toString());
         }
+
+        int pendingSync =
+                PeerOutboxStore.count(this);
+
+        peerSyncStatus.setText(
+                getResources()
+                        .getQuantityString(
+                                R.plurals.peer_outbox_pending,
+                                pendingSync,
+                                pendingSync));
 
         SharedPreferences prefs =
                 getSharedPreferences(
