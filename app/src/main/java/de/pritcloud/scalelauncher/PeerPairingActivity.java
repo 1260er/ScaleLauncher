@@ -97,6 +97,11 @@ public final class PeerPairingActivity extends Activity {
         setContentView(
                 R.layout.activity_peer_pairing);
 
+        findViewById(
+                R.id.backPeerPairing)
+                .setOnClickListener(
+                        view -> finish());
+
         View contentRoot =
                 findViewById(
                         android.R.id.content);
