@@ -30,9 +30,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelUuid;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.Spinner;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.nio.charset.StandardCharsets;
@@ -76,13 +76,10 @@ public final class PeerPairingActivity extends Activity {
 
     private TextView localInfo;
     private TextView trustedInfo;
+    private TextView pendingInfo;
+    private LinearLayout trustedList;
     private TextView status;
     private Button startButton;
-    private Button removePeerButton;
-    private Spinner removePeerSpinner;
-
-    private List<PeerTrustStore.Peer> removablePeers =
-            new ArrayList<>();
 
     private PeerPairingCrypto.Remote pendingRemote;
     private PeerPairingCrypto.Result pendingResult;
@@ -146,6 +143,14 @@ public final class PeerPairingActivity extends Activity {
                 findViewById(
                         R.id.peerTrustedInfo);
 
+        pendingInfo =
+                findViewById(
+                        R.id.peerPendingInfo);
+
+        trustedList =
+                findViewById(
+                        R.id.peerTrustedList);
+
         status =
                 findViewById(
                         R.id.peerPairingStatus);
@@ -154,19 +159,8 @@ public final class PeerPairingActivity extends Activity {
                 findViewById(
                         R.id.startPeerPairing);
 
-        removePeerButton =
-                findViewById(
-                        R.id.removePeer);
-
-        removePeerSpinner =
-                findViewById(
-                        R.id.peerRemoveDevice);
-
         startButton.setOnClickListener(
                 view -> handlePrimaryAction());
-
-        removePeerButton.setOnClickListener(
-                view -> confirmRemoveSelectedPeer());
 
         refreshSummary();
     }
@@ -185,101 +179,78 @@ public final class PeerPairingActivity extends Activity {
         List<PeerTrustStore.Peer> peers =
                 PeerTrustStore.load(this);
 
-        StringBuilder pairedSummary =
-                new StringBuilder(
-                        getResources().getQuantityString(
+        trustedInfo.setText(
+                getResources()
+                        .getQuantityString(
                                 R.plurals.peer_trusted_count,
                                 peers.size(),
                                 peers.size()));
 
-        for (PeerTrustStore.Peer peer : peers) {
-            pairedSummary
-                    .append((char) 10)
-                    .append((char) 10)
-                    .append(peer.label)
-                    .append((char) 10)
-                    .append(
-                            assignedUsersText(
-                                    peer.deviceId));
+        trustedList.removeAllViews();
+
+        for (PeerTrustStore.Peer peer :
+                peers) {
+            addPeerRow(
+                    peer);
         }
 
         int pendingSync =
-                PeerOutboxStore.count(this);
+                PeerOutboxStore.count(
+                        this);
 
-        pairedSummary
-                .append((char) 10)
-                .append((char) 10)
-                .append(
-                        getResources().getQuantityString(
+        pendingInfo.setText(
+                getResources()
+                        .getQuantityString(
                                 R.plurals.peer_outbox_pending,
                                 pendingSync,
                                 pendingSync));
-
-        trustedInfo.setText(
-                pairedSummary.toString());
-
-        refreshRemovePeerControls(
-                peers);
     }
 
-    private void refreshRemovePeerControls(
-            List<PeerTrustStore.Peer> peers) {
-        removablePeers =
-                new ArrayList<>(peers);
-
-        if (removablePeers.isEmpty()) {
-            removePeerSpinner.setAdapter(
-                    null);
-            removePeerSpinner.setVisibility(
-                    View.GONE);
-            removePeerButton.setVisibility(
-                    View.GONE);
+    private void addPeerRow(
+            PeerTrustStore.Peer peer) {
+        if (peer == null) {
             return;
         }
 
-        List<String> labels =
-                new ArrayList<>();
+        View row =
+                getLayoutInflater()
+                        .inflate(
+                                R.layout.item_peer,
+                                trustedList,
+                                false);
 
-        for (PeerTrustStore.Peer peer :
-                removablePeers) {
-            labels.add(
-                    peer.label);
-        }
+        TextView info =
+                row.findViewById(
+                        R.id.peerItemInfo);
 
-        ArrayAdapter<String> adapter =
-                new ArrayAdapter<>(
-                        this,
-                        android.R.layout.simple_spinner_item,
-                        labels);
+        ImageButton deleteButton =
+                row.findViewById(
+                        R.id.peerDelete);
 
-        adapter.setDropDownViewResource(
-                android.R.layout.simple_spinner_dropdown_item);
+        info.setText(
+                peer.label
+                        + (char) 10
+                        + assignedUsersText(
+                                peer.deviceId));
 
-        removePeerSpinner.setAdapter(
-                adapter);
+        deleteButton.setOnClickListener(
+                view -> {
+                    if (!pairingActive) {
+                        confirmRemovePeer(
+                                peer);
+                    }
+                });
 
-        removePeerSpinner.setVisibility(
-                View.VISIBLE);
-
-        removePeerButton.setVisibility(
-                View.VISIBLE);
-        removePeerButton.setEnabled(
-                !pairingActive);
+        trustedList.addView(
+                row);
     }
 
-    private void confirmRemoveSelectedPeer() {
-        int position =
-                removePeerSpinner
-                        .getSelectedItemPosition();
-
-        if (position < 0
-                || position >= removablePeers.size()) {
+    private void confirmRemovePeer(
+            PeerTrustStore.Peer peer) {
+        if (peer == null
+                || pairingActive) {
             return;
         }
-
-        PeerTrustStore.Peer peer =
-                removablePeers.get(
-                        position);
 
         String assignments =
                 assignedUsersText(
@@ -509,10 +480,6 @@ public final class PeerPairingActivity extends Activity {
         codeReady = false;
 
         startButton.setEnabled(false);
-
-        if (removePeerButton != null) {
-            removePeerButton.setEnabled(false);
-        }
 
         status.setText(
                 R.string.peer_pair_secure_searching);

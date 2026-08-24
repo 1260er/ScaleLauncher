@@ -126,6 +126,8 @@
     <string name="home_users_none">No users loaded</string>
     <string name="home_users_expand">Show users</string>
     <string name="home_users_collapse">Hide users</string>
+    <string name="home_user_local">(local)</string>
+    <string name="home_user_remote">(remote)</string>
     <plurals name="home_user_count">
         <item quantity="one">%1$d user</item>
         <item quantity="other">%1$d users</item>

@@ -67,28 +67,19 @@
             android:text="@string/multiuser_title"
             android:textStyle="bold" />
 
-        <LinearLayout
+        <TextView
+            style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_md"
-            android:background="@drawable/ui_section_background"
-            android:orientation="vertical"
-            android:padding="@dimen/spacing_lg">
+            android:text="@string/multiuser_description" />
 
-            <TextView
-                style="@style/UiBodyText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/multiuser_description" />
-
-            <Button
-                android:id="@+id/pairPhone"
-                style="@style/UiPrimaryButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_lg"
-                android:text="@string/peer_pair_phone" />
-
-        </LinearLayout>
+        <Button
+            android:id="@+id/pairPhone"
+            style="@style/UiPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_lg"
+            android:text="@string/peer_pair_phone" />
     </LinearLayout>
 </ScrollView>

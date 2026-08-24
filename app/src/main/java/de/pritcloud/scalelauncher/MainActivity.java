@@ -43,6 +43,7 @@ public final class MainActivity extends Activity {
             refreshPending();
             refreshRuntimeStatus();
             refreshReliabilityRequirements();
+            refreshHomeUserSummary();
             refreshHandler.postDelayed(this, 1_000L);
         }
     };
@@ -672,39 +673,120 @@ public final class MainActivity extends Activity {
         TextView healthConnectState = findViewById(R.id.homeHealthConnectState);
         TextView healthConnectUser = findViewById(R.id.homeHealthConnectUser);
 
-        if (users == null || users.isEmpty()) {
-            usersSummary.setText(R.string.home_users_none);
-            usersList.setText("");
-        } else {
-            usersSummary.setText(getResources().getQuantityString(
-                    R.plurals.home_user_count,
-                    users.size(),
-                    users.size()));
+        List<OpenScaleProvider.User> localUsers =
+                users == null
+                        ? new ArrayList<>()
+                        : users;
 
-            StringBuilder names = new StringBuilder();
-            for (OpenScaleProvider.User user : users) {
-                if (names.length() > 0) names.append((char) 10);
-                names.append("• ").append(user.name);
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<HouseholdProfile> remoteUsers =
+                new ArrayList<>();
+
+        for (HouseholdProfile profile :
+                HouseholdProfileStore.active(
+                        this)) {
+            if (localDeviceId.equals(
+                    profile.ownerDeviceId)) {
+                continue;
             }
-            usersList.setText(names.toString());
+
+            if (!PeerTrustStore.isTrusted(
+                    this,
+                    profile.ownerDeviceId)) {
+                continue;
+            }
+
+            remoteUsers.add(
+                    profile);
         }
 
-        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        int totalUsers =
+                localUsers.size()
+                        + remoteUsers.size();
+
+        if (totalUsers == 0) {
+            usersSummary.setText(
+                    R.string.home_users_none);
+            usersList.setText("");
+        } else {
+            usersSummary.setText(
+                    getResources()
+                            .getQuantityString(
+                                    R.plurals.home_user_count,
+                                    totalUsers,
+                                    totalUsers));
+
+            StringBuilder names =
+                    new StringBuilder();
+
+            for (OpenScaleProvider.User user :
+                    localUsers) {
+                if (names.length() > 0) {
+                    names.append((char) 10);
+                }
+
+                names.append("• ")
+                        .append(user.name)
+                        .append(" ")
+                        .append(
+                                getString(
+                                        R.string.home_user_local));
+            }
+
+            for (HouseholdProfile profile :
+                    remoteUsers) {
+                if (names.length() > 0) {
+                    names.append((char) 10);
+                }
+
+                names.append("• ")
+                        .append(profile.name)
+                        .append(" ")
+                        .append(
+                                getString(
+                                        R.string.home_user_remote));
+            }
+
+            usersList.setText(
+                    names.toString());
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
         boolean healthConnectActive =
-                prefs.getBoolean("health_connect_enabled", false);
+                prefs.getBoolean(
+                        "health_connect_enabled",
+                        false);
+
         healthConnectState.setText(
                 healthConnectActive
                         ? R.string.home_health_connect_active
                         : R.string.home_health_connect_disabled);
 
-        List<UserProfile> storedProfiles = UserProfileStore.load(prefs);
-        long healthUserId = prefs.getLong("health_connect_user_id", -1L);
+        List<UserProfile> storedProfiles =
+                UserProfileStore.load(
+                        prefs);
+
+        long healthUserId =
+                prefs.getLong(
+                        "health_connect_user_id",
+                        -1L);
+
         UserProfile healthProfile =
-                UserProfileStore.find(storedProfiles, healthUserId);
+                UserProfileStore.find(
+                        storedProfiles,
+                        healthUserId);
 
         healthConnectUser.setText(
                 healthProfile == null
-                        ? getString(R.string.home_health_connect_user_none)
+                        ? getString(
+                                R.string.home_health_connect_user_none)
                         : "• " + healthProfile.name);
     }
 
