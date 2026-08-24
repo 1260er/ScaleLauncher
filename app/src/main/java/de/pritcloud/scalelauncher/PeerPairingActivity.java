@@ -328,31 +328,29 @@ public final class PeerPairingActivity extends Activity {
 
     private String assignedUsersText(
             String deviceId) {
-        List<UserProfile> profiles =
-                UserProfileStore.load(
-                        getSharedPreferences(
-                                "prefs",
-                                MODE_PRIVATE));
+        if (!PeerTrustStore.isValidDeviceId(
+                deviceId)) {
+            return getString(
+                    R.string.peer_assigned_users_none);
+        }
 
-        String localDeviceId =
-                PeerTrustStore.localDeviceId(
+        List<HouseholdProfile> profiles =
+                HouseholdProfileStore.load(
                         this);
+
+        java.util.HashSet<String> seenProfileIds =
+                new java.util.HashSet<>();
 
         StringBuilder names =
                 new StringBuilder();
 
-        for (UserProfile profile : profiles) {
-            String ownerDeviceId =
-                    profile.ownerDeviceId;
-
-            if (ownerDeviceId == null
-                    || ownerDeviceId.isBlank()) {
-                ownerDeviceId =
-                        localDeviceId;
-            }
-
-            if (!deviceId.equals(
-                    ownerDeviceId)) {
+        for (HouseholdProfile profile : profiles) {
+            if (profile == null
+                    || !profile.isValid()
+                    || !deviceId.equals(
+                            profile.ownerDeviceId)
+                    || !seenProfileIds.add(
+                            profile.profileId)) {
                 continue;
             }
 
