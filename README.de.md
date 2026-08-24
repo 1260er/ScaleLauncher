@@ -48,7 +48,7 @@ flowchart LR
 
 | Voraussetzung | Hinweis |
 |---|---|
-| Xiaomi Body Composition Scale S400 | Andere Waagenmodelle werden derzeit nicht unterstützt. |
+| Xiaomi Body Composition Scale S400 | Getestet mit `yunmai.scales.ms104`. Weitere S400-Varianten könnten kompatibel sein, sind aber nicht getestet. |
 | Android 12 oder neuer | Mindestversion. |
 | openScale | Provider API 2 erforderlich. |
 | S400 MAC-Adresse | Format `AA:BB:CC:DD:EE:FF` |
@@ -56,6 +56,32 @@ flowchart LR
 | Bluetooth | Muss eingeschaltet sein. |
 | Benachrichtigungen | Für Hintergrundüberwachung und Messergebnisse. |
 | Health Connect, optional | Direkte Übertragung ab Android 14. |
+
+### Andere Xiaomi-Körperwaagen
+
+ScaleLauncher ist derzeit praktisch mit der **Xiaomi Body Composition Scale S400 `yunmai.scales.ms104`** getestet.
+
+#### Nahe S400-Varianten
+
+Technisch eng verwandt sind:
+
+- S400 `yunmai.scales.ms103`
+- S400 Blue `yunmai.scales.ms107`
+- S400 Pro `xiaomi.scales.ms110`
+
+Diese Modelle liefern ebenfalls Gewicht sowie Low-/High-Impedanz und gehören zur S400-Familie. Sie könnten mit ScaleLauncher kompatibel sein, wurden jedoch noch nicht praktisch getestet. Eine Kompatibilität wird deshalb derzeit nicht garantiert.
+
+#### Xiaomi S800
+
+Die **Xiaomi Mijia Eight-Electrode Body Fat Scale S800 `xiaomi.scales.ms116` / `MJTZC04YM`** verwendet ebenfalls verschlüsselte Xiaomi-Bluetooth-Kommunikation, besitzt jedoch eine andere Messarchitektur mit acht Elektroden und segmentaler Körperanalyse.
+
+Gewicht kann bei diesem Modell über verschlüsselte MiBeacon-Daten übertragen werden. Die vollständigen 8-Elektroden-Messwerte benötigen jedoch einen eigenen verschlüsselten GATT-Datenweg.
+
+Die S800 wird deshalb von der aktuellen ScaleLauncher-S400-Implementierung **nicht unterstützt**. Sie ist ein möglicher Kandidat für eine spätere Erweiterung, benötigt dafür aber eine eigene Protokollanalyse und reale Tests.
+
+#### Ältere Xiaomi-Waagen
+
+Ältere Modelle wie die **Mi Body Composition Scale 2** verwenden ein anderes Bluetooth-Verfahren mit passiven BLE-Werbepaketen. Sie sind nicht mit der aktuellen authentifizierten S400-GATT-Implementierung kompatibel.
 
 ### Login-Token
 
@@ -77,6 +103,22 @@ Referenz:
 
 Veröffentliche den Token niemals in Screenshots, Protokollen oder Fehlerberichten.
 
+### Wichtig: Xiaomi Home danach nicht parallel verwenden
+
+Die S400 kann nur **eine aktive Bluetooth-Verbindung gleichzeitig** halten. Xiaomi Home und ScaleLauncher können die Waage deshalb nicht gleichzeitig zuverlässig verwenden.
+
+Für den ScaleLauncher-Betrieb wird folgende Reihenfolge empfohlen:
+
+1. S400 zunächst in Xiaomi Home / Mi Home einrichten.
+2. MAC-Adresse und Login-Token auslesen.
+3. MAC-Adresse und Token in ScaleLauncher speichern.
+4. Die S400 anschließend in Xiaomi Home über **Gerät löschen** entfernen.
+5. Die Waage dabei **nicht auf Werkseinstellungen zurücksetzen**.
+6. Danach die Waage ausschließlich über ScaleLauncher überwachen.
+
+Ein Factory Reset oder ein erneutes Hinzufügen der Waage in Xiaomi Home kann einen neuen Login-Token erzeugen. Dann muss der aktuelle Token erneut ausgelesen und in ScaleLauncher eingetragen werden.
+
+
 ## Installation
 
 Die aktuelle APK kann über die GitHub-Releases installiert werden:
@@ -93,14 +135,30 @@ https://github.com/1260er/ScaleLauncher
 
 Empfohlene Reihenfolge:
 
-1. openScale installieren.
-2. Benutzer in openScale anlegen.
-3. Unter **Waage** die S400 auswählen.
-4. MAC-Adresse und Login-Token speichern.
-5. Unter **Berechtigungen** die Anforderungen erfüllen.
-6. Unter **Benutzer** die Profile konfigurieren.
-7. Health Connect bei Bedarf einrichten.
-8. Überwachung starten.
+1. openScale installieren und dort die benötigten Benutzer anlegen.
+2. Die S400 **nicht als Bluetooth-Waage in openScale koppeln**.
+3. S400 vorübergehend in Xiaomi Home einrichten.
+4. MAC-Adresse und Login-Token auslesen.
+5. Die S400 anschließend aus Xiaomi Home löschen, aber **nicht resetten**.
+6. Unter **Waage** MAC-Adresse und Login-Token speichern.
+7. Unter **Berechtigungen** die Anforderungen erfüllen.
+8. Unter **Benutzer** die Profile konfigurieren.
+9. Health Connect bei Bedarf einrichten.
+10. Überwachung starten.
+
+### openScale
+
+openScale wird zusammen mit ScaleLauncher **nicht direkt mit der S400 gekoppelt**.
+
+ScaleLauncher übernimmt die komplette Bluetooth-Verbindung zur Waage und schreibt die fertige Messung anschließend über die **openScale Provider API 2** in den passenden lokalen openScale-Benutzer.
+
+Deshalb gilt:
+
+- Benutzer in openScale anlegen
+- ScaleLauncher den openScale-Zugriff erlauben
+- die S400 **nicht zusätzlich in openScale als Waage verbinden**
+
+Eine zusätzliche Bluetooth-Verbindung durch openScale würde mit der exklusiven S400-Verbindung von ScaleLauncher konkurrieren.
 
 ### Waage
 
@@ -112,10 +170,12 @@ Die S400 kann praktisch nur von **einem aktiven authentifizierten Bluetooth-Clie
 
 Wird die Waage nicht gefunden:
 
-1. Überwachung auf einem anderen ScaleLauncher-Handy beenden oder dort Bluetooth kurz ausschalten.
-2. Xiaomi Home gegebenenfalls vollständig schließen.
-3. Die Waage kurz betreten und aufwecken.
-4. Suche erneut starten.
+1. Prüfen, ob ein anderes ScaleLauncher-Handy die Waage bereits verwendet.
+2. Prüfen, ob die S400 noch in Xiaomi Home aktiv ist. Für ScaleLauncher sollte sie dort nach dem Auslesen des Tokens entfernt sein.
+3. Prüfen, ob openScale selbst mit der S400 gekoppelt wurde. Diese Kopplung ist für ScaleLauncher nicht erforderlich und sollte entfernt werden.
+4. Gegebenenfalls Bluetooth auf dem anderen Handy kurz ausschalten.
+5. Die Waage kurz betreten und aufwecken.
+6. Suche erneut starten.
 
 ### Berechtigungen
 
@@ -296,7 +356,9 @@ ScaleLauncher ist auf lokale Verarbeitung ausgelegt.
 
 ## Bekannte Einschränkungen
 
-- Nur Xiaomi Body Composition Scale S400.
+- Offiziell getestet ist derzeit die Xiaomi Body Composition Scale S400 `yunmai.scales.ms104`.
+- S400 `ms103`, S400 Blue `ms107` und S400 Pro `ms110` könnten aufgrund ihrer ähnlichen Architektur funktionieren, sind mit ScaleLauncher aber noch nicht getestet.
+- Ältere Xiaomi-Waagen wie die Mi Body Composition Scale 2 verwenden ein anderes Bluetooth-Protokoll und sind nicht automatisch kompatibel.
 - openScale Provider API 2 erforderlich.
 - Direkte Health-Connect-Übertragung benötigt Android 14 oder neuer.
 - Die S400 erlaubt nur eine aktive authentifizierte Verbindung gleichzeitig.

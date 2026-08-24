@@ -48,7 +48,7 @@ flowchart LR
 
 | Requirement | Notes |
 |---|---|
-| Xiaomi Body Composition Scale S400 | Other scale models are not currently supported. |
+| Xiaomi Body Composition Scale S400 | Tested with `yunmai.scales.ms104`. Other S400 variants may be compatible but have not been tested. |
 | Android 12 or newer | Minimum version. |
 | openScale | Provider API 2 required. |
 | S400 MAC address | Format `AA:BB:CC:DD:EE:FF` |
@@ -56,6 +56,22 @@ flowchart LR
 | Bluetooth | Must be enabled. |
 | Notifications | Required for background monitoring and results. |
 | Health Connect, optional | Direct writing requires Android 14 or newer. |
+
+### Other Xiaomi body scales
+
+ScaleLauncher is currently tested in practice with the **Xiaomi Body Composition Scale S400 `yunmai.scales.ms104`**.
+
+Closely related models include:
+
+- S400 `yunmai.scales.ms103`
+- S400 Blue `yunmai.scales.ms107`
+- S400 Pro `xiaomi.scales.ms110`
+
+These models also provide weight plus low- and high-frequency impedance and belong to the newer Xiaomi S400 family. They **may** therefore work with ScaleLauncher if their GATT authentication and encrypted data channels are identical.
+
+They have **not been tested with ScaleLauncher and are not currently guaranteed to be compatible**.
+
+Older models such as the **Mi Body Composition Scale 2** use a different Bluetooth architecture based on passive BLE advertisements and are therefore not automatically compatible with the current ScaleLauncher S400 GATT implementation.
 
 ### Login token
 
@@ -77,6 +93,22 @@ Reference:
 
 Never publish the token in screenshots, logs, or bug reports.
 
+### Important: do not use Xiaomi Home in parallel afterwards
+
+The S400 can maintain only **one active Bluetooth connection at a time**. Xiaomi Home and ScaleLauncher therefore cannot reliably use the scale simultaneously.
+
+Recommended ScaleLauncher setup:
+
+1. Initially add the S400 to Xiaomi Home / Mi Home.
+2. Extract the MAC address and login token.
+3. Save the MAC address and token in ScaleLauncher.
+4. Afterwards remove the S400 from Xiaomi Home using **Delete device**.
+5. **Do not factory-reset the scale** when doing this.
+6. From then on, monitor the scale through ScaleLauncher.
+
+A factory reset or adding the scale to Xiaomi Home again may generate a new login token. If that happens, extract the current token again and update ScaleLauncher.
+
+
 ## Installation
 
 Install an APK from GitHub Releases:
@@ -93,14 +125,30 @@ https://github.com/1260er/ScaleLauncher
 
 Recommended order:
 
-1. Install openScale.
-2. Create users in openScale.
-3. Select the S400 under **Scale**.
-4. Save MAC address and login token.
-5. Complete **Permissions**.
-6. Configure **Users**.
-7. Optionally configure Health Connect.
-8. Start monitoring.
+1. Install openScale and create the required users.
+2. **Do not pair the S400 as a Bluetooth scale in openScale.**
+3. Temporarily add the S400 to Xiaomi Home.
+4. Extract its MAC address and login token.
+5. Remove the S400 from Xiaomi Home afterwards, but **do not reset it**.
+6. Save the MAC address and login token under **Scale**.
+7. Complete **Permissions**.
+8. Configure **Users**.
+9. Optionally configure Health Connect.
+10. Start monitoring.
+
+### openScale
+
+When used with ScaleLauncher, openScale is **not connected directly to the S400 over Bluetooth**.
+
+ScaleLauncher owns the Bluetooth connection and then writes the completed measurement to the correct local openScale user through **openScale Provider API 2**.
+
+Therefore:
+
+- create the users in openScale
+- grant ScaleLauncher access to openScale
+- **do not additionally connect the S400 as a scale inside openScale**
+
+An additional Bluetooth connection from openScale would compete with the exclusive S400 connection used by ScaleLauncher.
 
 ### Scale
 
@@ -112,10 +160,12 @@ The S400 effectively supports only **one active authenticated Bluetooth client a
 
 If it cannot be found:
 
-1. Stop monitoring on another ScaleLauncher phone or briefly disable Bluetooth there.
-2. Fully close Xiaomi Home when necessary.
-3. Wake the scale by briefly stepping on it.
-4. Search again.
+1. Check whether another ScaleLauncher phone is already using the scale.
+2. Check whether the S400 is still active in Xiaomi Home. For ScaleLauncher it should be removed there after extracting the token.
+3. Check whether openScale itself was paired with the S400. That pairing is not required for ScaleLauncher and should be removed.
+4. Briefly disable Bluetooth on another phone when necessary.
+5. Wake the scale by briefly stepping on it.
+6. Search again.
 
 ### Permissions
 
@@ -296,7 +346,9 @@ ScaleLauncher is designed for local processing.
 
 ## Known limitations
 
-- Xiaomi Body Composition Scale S400 only.
+- The currently verified model is Xiaomi Body Composition Scale S400 `yunmai.scales.ms104`.
+- S400 `ms103`, S400 Blue `ms107`, and S400 Pro `ms110` may work because of their similar architecture, but have not yet been tested with ScaleLauncher.
+- Older Xiaomi scales such as Mi Body Composition Scale 2 use a different Bluetooth protocol and are not automatically compatible.
 - openScale Provider API 2 is required.
 - Direct Health Connect writing requires Android 14 or newer.
 - The S400 permits only one active authenticated connection at a time.
