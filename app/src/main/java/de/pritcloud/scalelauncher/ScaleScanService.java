@@ -519,59 +519,7 @@ public final class ScaleScanService extends Service {
                         finalized.impedanceHigh,
                         finalized.impedanceLow));
 
-        sendPeerMeasurementTransportTest(
-                finalized);
-
         routeMeasurement(finalized);
-    }
-
-    private void sendPeerMeasurementTransportTest(
-            S400FinalMeasurement measurement) {
-        if (!gattCollectorOwned
-                || peerTransport == null
-                || measurement == null
-                || !measurement.isComplete()) {
-            return;
-        }
-
-        List<PeerTrustStore.Peer> peers =
-                PeerTrustStore.load(this);
-
-        if (peers.size() != 1) {
-            return;
-        }
-
-        SharedPreferences prefs =
-                getSharedPreferences(
-                        "prefs",
-                        MODE_PRIVATE);
-
-        String mac =
-                prefs.getString(
-                        "mac",
-                        "");
-
-        if (!S400GattProtocol.isValidMacAddress(mac)) {
-            return;
-        }
-
-        try {
-            PeerMeasurementPayload payload =
-                    PeerMeasurementPayload.fromMeasurement(
-                            mac,
-                            measurement);
-
-            peerTransport.send(
-                    peers.get(0),
-                    payload.measurementId,
-                    payload.encode());
-        } catch (RuntimeException exception) {
-            EventLog.warning(
-                    this,
-                    getString(
-                            R.string.log_peer_transport_error,
-                            exception.getClass().getSimpleName()));
-        }
     }
 
     private void handlePeerMessage(
