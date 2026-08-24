@@ -670,20 +670,304 @@ public final class ScaleScanService extends Service {
             return;
         }
 
+        if (PeerClaimPayload.TYPE.equals(type)) {
+            PeerClaimPayload claim =
+                    PeerClaimPayload.decode(
+                            encoded);
+
+            if (claim == null) {
+                return;
+            }
+
+            boolean duplicate =
+                    PeerInboxDedupStore.contains(
+                            this,
+                            peer.deviceId,
+                            claim.messageId);
+
+            if (!duplicate) {
+                SharedPreferences prefs =
+                        getSharedPreferences(
+                                "prefs",
+                                MODE_PRIVATE);
+
+                PendingMeasurementStore.Item pending =
+                        PendingMeasurementStore.find(
+                                prefs,
+                                claim.measurementId);
+
+                if (pending != null
+                        && validIncomingClaim(
+                                peer,
+                                pending,
+                                claim.claimedProfileIds)) {
+                    PendingMeasurementStore.recordClaimResponse(
+                            prefs,
+                            claim.measurementId,
+                            peer.deviceId,
+                            claim.claimedProfileIds);
+
+                    PeerInboxDedupStore.mark(
+                            this,
+                            peer.deviceId,
+                            claim.messageId);
+
+                    EventLog.info(
+                            this,
+                            getString(
+                                    R.string.log_peer_claim_received,
+                                    peer.label,
+                                    claim.measurementId,
+                                    claim.claimedProfileIds.size()));
+                } else if (pending != null) {
+                    EventLog.warning(
+                            this,
+                            getString(
+                                    R.string.log_peer_claim_rejected,
+                                    peer.label,
+                                    claim.measurementId));
+                }
+            }
+
+            queuePeerAck(
+                    peer,
+                    claim.messageId);
+
+            return;
+        }
+
         if (PeerMeasurementPayload.TYPE.equals(type)) {
             PeerMeasurementPayload payload =
                     PeerMeasurementPayload.decode(
                             encoded);
 
-            if (payload != null) {
-                EventLog.info(
-                        this,
-                        getString(
-                                R.string.log_peer_measurement_received,
-                                peer.label,
-                                payload.weightKg));
+            if (payload == null) {
+                return;
+            }
+
+            EventLog.info(
+                    this,
+                    getString(
+                            R.string.log_peer_measurement_received,
+                            peer.label,
+                            payload.weightKg));
+
+            if (payload.requiresClaim) {
+                handleIncomingClaimRequest(
+                        peer,
+                        payload);
+
+                queuePeerAck(
+                        peer,
+                        payload.measurementId);
             }
         }
+    }
+
+    private void handleIncomingClaimRequest(
+            PeerTrustStore.Peer peer,
+            PeerMeasurementPayload payload) {
+        if (peer == null
+                || payload == null
+                || !payload.requiresClaim) {
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<UserProfile> localProfiles =
+                UserProfileStore.enabled(
+                        UserProfileStore.load(
+                                prefs));
+
+        List<String> claimedProfileIds =
+                new java.util.ArrayList<>();
+
+        for (String candidateProfileId :
+                payload.candidateProfileIds) {
+            UserProfile profile =
+                    UserProfileStore.findByHouseholdProfileId(
+                            localProfiles,
+                            candidateProfileId);
+
+            if (profile == null
+                    || !localDeviceId.equals(
+                            profile.ownerDeviceId)
+                    || !profile.hasValidMatchingData()
+                    || !profile.hasValidBodyData(
+                            payload.timestampMs)) {
+                continue;
+            }
+
+            float difference =
+                    Math.abs(
+                            payload.weightKg
+                                    - profile.referenceWeightKg);
+
+            if (difference
+                    <= profile.toleranceKg) {
+                claimedProfileIds.add(
+                        profile.householdProfileId);
+            }
+        }
+
+        PeerClaimPayload claim =
+                PeerClaimPayload.create(
+                        payload.measurementId,
+                        claimedProfileIds);
+
+        PeerOutboxStore.enqueueClaim(
+                this,
+                peer.deviceId,
+                claim);
+
+        EventLog.debug(
+                this,
+                getString(
+                        R.string.log_peer_claim_response_queued,
+                        payload.measurementId,
+                        peer.label,
+                        claimedProfileIds.size()));
+
+        schedulePeerSync(
+                100L);
+    }
+
+    private boolean validIncomingClaim(
+            PeerTrustStore.Peer peer,
+            PendingMeasurementStore.Item pending,
+            List<String> claimedProfileIds) {
+        if (peer == null
+                || pending == null
+                || claimedProfileIds == null) {
+            return false;
+        }
+
+        List<HouseholdProfile> householdProfiles =
+                HouseholdProfileStore.active(
+                        this);
+
+        for (String profileId :
+                claimedProfileIds) {
+            if (!pending.candidateProfileIds.contains(
+                    profileId)) {
+                return false;
+            }
+
+            boolean ownedByPeer =
+                    false;
+
+            for (HouseholdProfile profile :
+                    householdProfiles) {
+                if (profileId.equals(
+                        profile.profileId)
+                        && peer.deviceId.equals(
+                                profile.ownerDeviceId)) {
+                    ownedByPeer =
+                            true;
+                    break;
+                }
+            }
+
+            if (!ownedByPeer) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void enqueueHouseholdClaimRequests(
+            S400FinalMeasurement measurement,
+            HouseholdMeasurementRouter.Result householdMatch) {
+        if (measurement == null
+                || householdMatch == null
+                || householdMatch.status
+                != HouseholdMeasurementRouter.Status.AMBIGUOUS) {
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        String scaleMac =
+                prefs.getString(
+                        "mac",
+                        "");
+
+        if (!S400GattProtocol.isValidMacAddress(
+                scaleMac)) {
+            return;
+        }
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        for (String targetDeviceId :
+                householdMatch.targetDeviceIds) {
+            if (localDeviceId.equals(
+                    targetDeviceId)) {
+                continue;
+            }
+
+            PeerTrustStore.Peer peer =
+                    PeerTrustStore.find(
+                            this,
+                            targetDeviceId);
+
+            if (peer == null) {
+                continue;
+            }
+
+            List<String> candidateProfileIds =
+                    householdMatch.profileIdsForDevice(
+                            targetDeviceId);
+
+            if (candidateProfileIds.isEmpty()) {
+                continue;
+            }
+
+            try {
+                PeerMeasurementPayload payload =
+                        PeerMeasurementPayload.forClaim(
+                                scaleMac,
+                                measurement,
+                                candidateProfileIds);
+
+                PeerOutboxStore.enqueueMeasurement(
+                        this,
+                        targetDeviceId,
+                        payload);
+
+                EventLog.debug(
+                        this,
+                        getString(
+                                R.string.log_peer_claim_request_queued,
+                                measurement.measurementId,
+                                peer.label,
+                                candidateProfileIds.size()));
+            } catch (RuntimeException exception) {
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_peer_transport_error,
+                                exception.getClass()
+                                        .getSimpleName()));
+            }
+        }
+
+        schedulePeerSync(
+                100L);
     }
 
     private void queuePeerAck(
@@ -938,6 +1222,13 @@ public final class ScaleScanService extends Service {
                         R.string.log_household_match,
                         householdMatch.status.name(),
                         householdCandidateProfileIds.size()));
+
+        if (householdMatch.status
+                == HouseholdMeasurementRouter.Status.AMBIGUOUS) {
+            enqueueHouseholdClaimRequests(
+                    measurement,
+                    householdMatch);
+        }
 
         List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
         UserMatcher.Result match = UserMatcher.match(profiles, measurement.weightKg);

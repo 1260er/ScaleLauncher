@@ -17,6 +17,9 @@ final class PeerOutboxStore {
     static final String KIND_MEASUREMENT =
             "measurement";
 
+    static final String KIND_CLAIM =
+            "measurement_claim";
+
     private static final String PREFS =
             "peer_outbox_v1";
 
@@ -97,6 +100,30 @@ final class PeerOutboxStore {
                         payload.encode(),
                         System.currentTimeMillis()),
                 false);
+    }
+
+    static void enqueueClaim(
+            Context context,
+            String peerDeviceId,
+            PeerClaimPayload payload) {
+        if (!PeerTrustStore.isValidDeviceId(
+                        peerDeviceId)
+                || payload == null
+                || !payload.isValid()) {
+            throw new IllegalArgumentException(
+                    "Invalid claim outbox item");
+        }
+
+        enqueue(
+                context,
+                new Item(
+                        payload.messageId,
+                        peerDeviceId,
+                        KIND_CLAIM,
+                        payload.measurementId,
+                        payload.encode(),
+                        System.currentTimeMillis()),
+                true);
     }
 
     static List<Item> load(
@@ -285,6 +312,8 @@ final class PeerOutboxStore {
                 && (KIND_PROFILE.equals(
                         item.kind)
                     || KIND_MEASUREMENT.equals(
+                        item.kind)
+                    || KIND_CLAIM.equals(
                         item.kind))
                 && item.dedupKey != null
                 && !item.dedupKey.isBlank()

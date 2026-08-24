@@ -13,7 +13,123 @@ import java.util.Set;
 
 final class PendingMeasurementStore {
     private static final String KEY = "pending_measurements_json";
+    private static final String CLAIMS_KEY =
+            "pending_measurement_claims_json";
     private static final int MAX_ITEMS = 10;
+    private static final int MAX_CLAIM_RESPONSES = 100;
+
+    static final class ClaimResponse {
+        final String measurementId;
+        final String peerDeviceId;
+        final List<String> profileIds;
+        final long updatedAtMs;
+
+        ClaimResponse(
+                String measurementId,
+                String peerDeviceId,
+                List<String> profileIds,
+                long updatedAtMs) {
+            this.measurementId =
+                    measurementId == null
+                            ? ""
+                            : measurementId;
+            this.peerDeviceId =
+                    peerDeviceId == null
+                            ? ""
+                            : peerDeviceId;
+            this.profileIds =
+                    sanitizeCandidateProfileIds(
+                            profileIds);
+            this.updatedAtMs =
+                    updatedAtMs;
+        }
+
+        boolean isValid() {
+            return !measurementId.isBlank()
+                    && measurementId.length() <= 200
+                    && PeerTrustStore.isValidDeviceId(
+                            peerDeviceId)
+                    && updatedAtMs > 0L;
+        }
+
+        JSONObject toJson()
+                throws JSONException {
+            JSONObject object =
+                    new JSONObject();
+
+            object.put(
+                    "measurementId",
+                    measurementId);
+            object.put(
+                    "peerDeviceId",
+                    peerDeviceId);
+            object.put(
+                    "updatedAtMs",
+                    updatedAtMs);
+
+            JSONArray profileIdsJson =
+                    new JSONArray();
+
+            for (String profileId :
+                    profileIds) {
+                profileIdsJson.put(
+                        profileId);
+            }
+
+            object.put(
+                    "profileIds",
+                    profileIdsJson);
+
+            return object;
+        }
+
+        static ClaimResponse fromJson(
+                JSONObject object) {
+            if (object == null) {
+                return null;
+            }
+
+            List<String> profileIds =
+                    new ArrayList<>();
+
+            JSONArray profileIdsJson =
+                    object.optJSONArray(
+                            "profileIds");
+
+            if (profileIdsJson != null) {
+                for (int index = 0;
+                     index < profileIdsJson.length();
+                     index++) {
+                    String profileId =
+                            profileIdsJson.optString(
+                                    index,
+                                    "");
+
+                    if (!profileId.isBlank()) {
+                        profileIds.add(
+                                profileId);
+                    }
+                }
+            }
+
+            ClaimResponse response =
+                    new ClaimResponse(
+                            object.optString(
+                                    "measurementId",
+                                    ""),
+                            object.optString(
+                                    "peerDeviceId",
+                                    ""),
+                            profileIds,
+                            object.optLong(
+                                    "updatedAtMs",
+                                    0L));
+
+            return response.isValid()
+                    ? response
+                    : null;
+        }
+    }
 
     static final class Item {
         final String id;
@@ -204,6 +320,132 @@ final class PendingMeasurementStore {
         return item;
     }
 
+    static void recordClaimResponse(
+            SharedPreferences prefs,
+            String measurementId,
+            String peerDeviceId,
+            List<String> profileIds) {
+        ClaimResponse incoming =
+                new ClaimResponse(
+                        measurementId,
+                        peerDeviceId,
+                        profileIds,
+                        System.currentTimeMillis());
+
+        if (!incoming.isValid()) {
+            throw new IllegalArgumentException(
+                    "Invalid pending claim response");
+        }
+
+        List<ClaimResponse> responses =
+                loadClaimResponses(
+                        prefs);
+
+        responses.removeIf(
+                response ->
+                        response.measurementId.equals(
+                                measurementId)
+                                && response.peerDeviceId.equals(
+                                        peerDeviceId));
+
+        responses.add(
+                incoming);
+
+        while (responses.size()
+                > MAX_CLAIM_RESPONSES) {
+            responses.remove(0);
+        }
+
+        saveClaimResponses(
+                prefs,
+                responses);
+    }
+
+    static List<ClaimResponse> claimResponses(
+            SharedPreferences prefs,
+            String measurementId) {
+        List<ClaimResponse> result =
+                new ArrayList<>();
+
+        if (measurementId == null
+                || measurementId.isBlank()) {
+            return result;
+        }
+
+        for (ClaimResponse response :
+                loadClaimResponses(
+                        prefs)) {
+            if (measurementId.equals(
+                    response.measurementId)) {
+                result.add(
+                        response);
+            }
+        }
+
+        return result;
+    }
+
+    private static List<ClaimResponse> loadClaimResponses(
+            SharedPreferences prefs) {
+        List<ClaimResponse> result =
+                new ArrayList<>();
+
+        String encoded =
+                prefs.getString(
+                        CLAIMS_KEY,
+                        "");
+
+        if (encoded == null
+                || encoded.isBlank()) {
+            return result;
+        }
+
+        try {
+            JSONArray array =
+                    new JSONArray(
+                            encoded);
+
+            for (int index = 0;
+                 index < array.length();
+                 index++) {
+                ClaimResponse response =
+                        ClaimResponse.fromJson(
+                                array.optJSONObject(
+                                        index));
+
+                if (response != null) {
+                    result.add(
+                            response);
+                }
+            }
+        } catch (JSONException ignored) {
+        }
+
+        return result;
+    }
+
+    private static void saveClaimResponses(
+            SharedPreferences prefs,
+            List<ClaimResponse> responses) {
+        JSONArray array =
+                new JSONArray();
+
+        for (ClaimResponse response :
+                responses) {
+            try {
+                array.put(
+                        response.toJson());
+            } catch (JSONException ignored) {
+            }
+        }
+
+        prefs.edit()
+                .putString(
+                        CLAIMS_KEY,
+                        array.toString())
+                .apply();
+    }
+
     static Item find(SharedPreferences prefs, String id) {
         for (Item item : load(prefs)) {
             if (item.id.equals(id)) return item;
@@ -215,6 +457,19 @@ final class PendingMeasurementStore {
         List<Item> items = load(prefs);
         items.removeIf(item -> item.id.equals(id));
         save(prefs, items);
+
+        List<ClaimResponse> responses =
+                loadClaimResponses(
+                        prefs);
+
+        if (responses.removeIf(
+                response ->
+                        response.measurementId.equals(
+                                id))) {
+            saveClaimResponses(
+                    prefs,
+                    responses);
+        }
     }
 
     static void save(SharedPreferences prefs, List<Item> items) {
