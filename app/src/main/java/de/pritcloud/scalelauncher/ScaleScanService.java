@@ -27,8 +27,13 @@ public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
     public static final String ACTION_ASSIGN_PENDING = "de.pritcloud.scalelauncher.ASSIGN_PENDING";
     public static final String ACTION_REFRESH_PENDING = "de.pritcloud.scalelauncher.REFRESH_PENDING";
+    public static final String ACTION_SELECT_PENDING = "de.pritcloud.scalelauncher.SELECT_PENDING";
+    public static final String ACTION_REJECT_PENDING = "de.pritcloud.scalelauncher.REJECT_PENDING";
+    public static final String ACTION_DISCARD_PENDING = "de.pritcloud.scalelauncher.DISCARD_PENDING";
     public static final String EXTRA_PENDING_ID = "pending_id";
     public static final String EXTRA_USER_ID = "user_id";
+    public static final String EXTRA_PROFILE_ID = "profile_id";
+    public static final String EXTRA_OWNER_DEVICE_ID = "owner_device_id";
 
     private static final String CHANNEL_MONITOR = "scale_monitor_v10";
     private static final String CHANNEL_RESULT = "scale_measurement_results_v1";
@@ -172,6 +177,30 @@ public final class ScaleScanService extends Service {
             String pendingId = intent.getStringExtra(EXTRA_PENDING_ID);
             long userId = intent.getLongExtra(EXTRA_USER_ID, -1L);
             assignPending(pendingId, userId);
+        } else if (intent != null
+                && ACTION_SELECT_PENDING.equals(
+                        intent.getAction())) {
+            selectPendingCandidate(
+                    intent.getStringExtra(
+                            EXTRA_PENDING_ID),
+                    intent.getStringExtra(
+                            EXTRA_PROFILE_ID),
+                    intent.getStringExtra(
+                            EXTRA_OWNER_DEVICE_ID));
+        } else if (intent != null
+                && ACTION_REJECT_PENDING.equals(
+                        intent.getAction())) {
+            rejectPendingCandidate(
+                    intent.getStringExtra(
+                            EXTRA_PENDING_ID),
+                    intent.getStringExtra(
+                            EXTRA_PROFILE_ID));
+        } else if (intent != null
+                && ACTION_DISCARD_PENDING.equals(
+                        intent.getAction())) {
+            discardPending(
+                    intent.getStringExtra(
+                            EXTRA_PENDING_ID));
         } else if (intent != null && ACTION_REFRESH_PENDING.equals(intent.getAction())) {
             updateAssignmentNotification();
         } else {
@@ -579,6 +608,41 @@ public final class ScaleScanService extends Service {
                                 R.string.log_peer_ack_received,
                                 peer.label));
 
+                if (ack.acknowledgedMessageId.startsWith(
+                        "route:")) {
+                    String measurementId =
+                            ack.acknowledgedMessageId.substring(
+                                    "route:".length());
+
+                    SharedPreferences prefs =
+                            getSharedPreferences(
+                                    "prefs",
+                                    MODE_PRIVATE);
+
+                    PendingMeasurementStore.Item pending =
+                            PendingMeasurementStore.find(
+                                    prefs,
+                                    measurementId);
+
+                    if (pending != null
+                            && pending.isResolved()
+                            && peer.deviceId.equals(
+                                    pending.selectedOwnerDeviceId)) {
+                        PendingMeasurementStore.remove(
+                                prefs,
+                                measurementId);
+
+                        EventLog.info(
+                                this,
+                                getString(
+                                        R.string.log_peer_routed_measurement_confirmed,
+                                        peer.label,
+                                        measurementId));
+
+                        updateAssignmentNotification();
+                    }
+                }
+
                 schedulePeerSync(
                         250L);
             }
@@ -631,6 +695,102 @@ public final class ScaleScanService extends Service {
             queuePeerAck(
                     peer,
                     payload.messageId);
+
+            return;
+        }
+
+        if (PeerMeasurementDecisionPayload.TYPE.equals(
+                type)) {
+            PeerMeasurementDecisionPayload decision =
+                    PeerMeasurementDecisionPayload.decode(
+                            encoded);
+
+            if (decision == null) {
+                return;
+            }
+
+            boolean duplicate =
+                    PeerInboxDedupStore.contains(
+                            this,
+                            peer.deviceId,
+                            decision.messageId);
+
+            if (!duplicate) {
+                SharedPreferences prefs =
+                        getSharedPreferences(
+                                "prefs",
+                                MODE_PRIVATE);
+
+                PendingMeasurementStore.Item pending =
+                        PendingMeasurementStore.find(
+                                prefs,
+                                decision.measurementId);
+
+                if (pending != null
+                        && validIncomingDecision(
+                                prefs,
+                                peer,
+                                pending,
+                                decision)) {
+                    boolean changed =
+                            decision.isAccepted()
+                                    ? PendingMeasurementStore.selectCandidate(
+                                            prefs,
+                                            decision.measurementId,
+                                            decision.profileId,
+                                            peer.deviceId)
+                                    : PendingMeasurementStore.rejectCandidate(
+                                            prefs,
+                                            decision.measurementId,
+                                            decision.profileId);
+
+                    PeerInboxDedupStore.mark(
+                            this,
+                            peer.deviceId,
+                            decision.messageId);
+
+                    if (changed) {
+                        EventLog.info(
+                                this,
+                                getString(
+                                        decision.isAccepted()
+                                                ? R.string.log_peer_decision_accepted
+                                                : R.string.log_peer_decision_rejected,
+                                        peer.label,
+                                        decision.measurementId));
+
+                        if (decision.isAccepted()) {
+                            resolvePendingDecision(
+                                    prefs,
+                                    decision.measurementId);
+                        } else {
+                            autoResolveSingleRemainingCandidate(
+                                    prefs,
+                                    decision.measurementId);
+                        }
+                    } else {
+                        EventLog.debug(
+                                this,
+                                getString(
+                                        R.string.log_peer_decision_ignored,
+                                        peer.label,
+                                        decision.measurementId));
+                    }
+
+                    updateAssignmentNotification();
+                } else {
+                    EventLog.warning(
+                            this,
+                            getString(
+                                    R.string.log_peer_decision_invalid,
+                                    peer.label,
+                                    decision.measurementId));
+                }
+            }
+
+            queuePeerAck(
+                    peer,
+                    decision.messageId);
 
             return;
         }
@@ -752,13 +912,115 @@ public final class ScaleScanService extends Service {
                 return;
             }
 
-            EventLog.info(
+            if (payload.targetProfileId.isBlank()) {
+                EventLog.info(
+                        this,
+                        getString(
+                                R.string.log_peer_measurement_received,
+                                peer.label,
+                                payload.weightKg));
+                return;
+            }
+
+            handleIncomingRoutedMeasurement(
+                    peer,
+                    payload);
+        }
+    }
+
+    private void handleIncomingRoutedMeasurement(
+            PeerTrustStore.Peer peer,
+            PeerMeasurementPayload payload) {
+        if (peer == null
+                || payload == null
+                || payload.requiresClaim
+                || !UserProfile.isValidHouseholdProfileId(
+                        payload.targetProfileId)) {
+            return;
+        }
+
+        String ackId =
+                "route:"
+                        + payload.measurementId;
+
+        String dedupKey =
+                "routed-measurement:"
+                        + payload.measurementId;
+
+        if (PeerInboxDedupStore.contains(
+                this,
+                peer.deviceId,
+                dedupKey)) {
+            queuePeerAck(
+                    peer,
+                    ackId);
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        String configuredScaleMac =
+                prefs.getString(
+                        "mac",
+                        "");
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<UserProfile> localProfiles =
+                UserProfileStore.enabled(
+                        UserProfileStore.load(
+                                prefs));
+
+        UserProfile target =
+                UserProfileStore.findByHouseholdProfileId(
+                        localProfiles,
+                        payload.targetProfileId);
+
+        if (target == null
+                || !localDeviceId.equals(
+                        target.ownerDeviceId)
+                || !target.hasValidBodyData(
+                        payload.timestampMs)
+                || !S400GattProtocol.isValidMacAddress(
+                        configuredScaleMac)
+                || !configuredScaleMac.equalsIgnoreCase(
+                        payload.scaleMac)) {
+            EventLog.warning(
                     this,
                     getString(
-                            R.string.log_peer_measurement_received,
+                            R.string.log_peer_routed_measurement_rejected,
                             peer.label,
-                            payload.weightKg));
+                            payload.measurementId));
+            return;
         }
+
+        EventLog.info(
+                this,
+                getString(
+                        R.string.log_peer_routed_measurement_received,
+                        peer.label,
+                        target.name,
+                        payload.weightKg));
+
+        if (!processMeasurement(
+                payload.toMeasurement(),
+                target)) {
+            return;
+        }
+
+        PeerInboxDedupStore.mark(
+                this,
+                peer.deviceId,
+                dedupKey);
+
+        queuePeerAck(
+                peer,
+                ackId);
     }
 
     private void handleIncomingClaimRequest(
@@ -837,6 +1099,60 @@ public final class ScaleScanService extends Service {
                 100L);
     }
 
+    private boolean validIncomingDecision(
+            SharedPreferences prefs,
+            PeerTrustStore.Peer peer,
+            PendingMeasurementStore.Item pending,
+            PeerMeasurementDecisionPayload decision) {
+        if (prefs == null
+                || peer == null
+                || pending == null
+                || decision == null
+                || !decision.isValid()
+                || !pending.candidateProfileIds.contains(
+                        decision.profileId)) {
+            return false;
+        }
+
+        boolean ownedByPeer =
+                false;
+
+        for (HouseholdProfile profile :
+                HouseholdProfileStore.active(
+                        this)) {
+            if (decision.profileId.equals(
+                        profile.profileId)
+                    && peer.deviceId.equals(
+                            profile.ownerDeviceId)) {
+                ownedByPeer =
+                        true;
+                break;
+            }
+        }
+
+        if (!ownedByPeer) {
+            return false;
+        }
+
+        if (!decision.isAccepted()) {
+            return true;
+        }
+
+        for (PendingMeasurementStore.ClaimResponse response :
+                PendingMeasurementStore.claimResponses(
+                        prefs,
+                        pending.id)) {
+            if (peer.deviceId.equals(
+                        response.peerDeviceId)
+                    && response.profileIds.contains(
+                            decision.profileId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private boolean validIncomingClaim(
             PeerTrustStore.Peer peer,
             PendingMeasurementStore.Item pending,
@@ -879,6 +1195,76 @@ public final class ScaleScanService extends Service {
         }
 
         return true;
+    }
+
+    private boolean enqueueRoutedMeasurement(
+            PendingMeasurementStore.Item pending,
+            String targetProfileId,
+            String targetDeviceId) {
+        if (pending == null
+                || !UserProfile.isValidHouseholdProfileId(
+                        targetProfileId)
+                || !PeerTrustStore.isValidDeviceId(
+                        targetDeviceId)) {
+            return false;
+        }
+
+        PeerTrustStore.Peer peer =
+                PeerTrustStore.find(
+                        this,
+                        targetDeviceId);
+
+        if (peer == null) {
+            return false;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        String scaleMac =
+                prefs.getString(
+                        "mac",
+                        "");
+
+        if (!S400GattProtocol.isValidMacAddress(
+                scaleMac)) {
+            return false;
+        }
+
+        try {
+            PeerMeasurementPayload payload =
+                    PeerMeasurementPayload.forUniqueTarget(
+                            scaleMac,
+                            pending.toMeasurement(),
+                            targetProfileId);
+
+            PeerOutboxStore.enqueueMeasurement(
+                    this,
+                    targetDeviceId,
+                    payload);
+
+            EventLog.info(
+                    this,
+                    getString(
+                            R.string.log_peer_routed_measurement_queued,
+                            pending.id,
+                            peer.label));
+
+            schedulePeerSync(
+                    100L);
+
+            return true;
+        } catch (RuntimeException exception) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_peer_transport_error,
+                            exception.getClass()
+                                    .getSimpleName()));
+            return false;
+        }
     }
 
     private void enqueueHouseholdClaimRequests(
@@ -1298,6 +1684,373 @@ public final class ScaleScanService extends Service {
         EventLog.debug(this, getString(R.string.log_pending_measurement_saved, pending.id));
         updateMonitor(getString(R.string.service_user_assignment_required));
         updateAssignmentNotification();
+    }
+
+    private void selectPendingCandidate(
+            String pendingId,
+            String profileId,
+            String ownerDeviceId) {
+        if (pendingId == null
+                || pendingId.isBlank()
+                || !UserProfile.isValidHouseholdProfileId(
+                        profileId)
+                || !PeerTrustStore.isValidDeviceId(
+                        ownerDeviceId)) {
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pendingId);
+
+        if (pending == null
+                || !validSelectablePendingCandidate(
+                        prefs,
+                        pending,
+                        profileId,
+                        ownerDeviceId)) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_pending_candidate_invalid,
+                            pendingId));
+            updateAssignmentNotification();
+            return;
+        }
+
+        if (!PendingMeasurementStore.selectCandidate(
+                prefs,
+                pendingId,
+                profileId,
+                ownerDeviceId)) {
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_pending_candidate_already_decided,
+                            pendingId));
+            updateAssignmentNotification();
+            return;
+        }
+
+        EventLog.info(
+                this,
+                getString(
+                        R.string.log_pending_candidate_selected,
+                        pending.weightKg,
+                        pendingDisplayName(
+                                profileId)));
+
+        resolvePendingDecision(
+                prefs,
+                pendingId);
+    }
+
+    private void rejectPendingCandidate(
+            String pendingId,
+            String profileId) {
+        if (pendingId == null
+                || pendingId.isBlank()
+                || !UserProfile.isValidHouseholdProfileId(
+                        profileId)) {
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pendingId);
+
+        if (pending == null
+                || pending.isResolved()
+                || !pending.remainingCandidateProfileIds()
+                        .contains(
+                                profileId)) {
+            return;
+        }
+
+        if (PendingMeasurementStore.rejectCandidate(
+                prefs,
+                pendingId,
+                profileId)) {
+            EventLog.info(
+                    this,
+                    getString(
+                            R.string.log_pending_candidate_rejected,
+                            pending.weightKg,
+                            pendingDisplayName(
+                                    profileId)));
+
+            autoResolveSingleRemainingCandidate(
+                    prefs,
+                    pendingId);
+        }
+
+        updateAssignmentNotification();
+    }
+
+    private void discardPending(
+            String pendingId) {
+        if (pendingId == null
+                || pendingId.isBlank()) {
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pendingId);
+
+        if (pending == null
+                || pending.isResolved()) {
+            return;
+        }
+
+        PeerOutboxStore.removeMeasurement(
+                this,
+                pendingId);
+
+        PendingMeasurementStore.remove(
+                prefs,
+                pendingId);
+
+        EventLog.info(
+                this,
+                getString(
+                        R.string.pending_discarded_log,
+                        pending.weightKg));
+
+        updateAssignmentNotification();
+    }
+
+    private boolean validSelectablePendingCandidate(
+            SharedPreferences prefs,
+            PendingMeasurementStore.Item pending,
+            String profileId,
+            String ownerDeviceId) {
+        if (prefs == null
+                || pending == null
+                || pending.isResolved()
+                || !pending.remainingCandidateProfileIds()
+                        .contains(
+                                profileId)) {
+            return false;
+        }
+
+        HouseholdProfile householdProfile =
+                null;
+
+        for (HouseholdProfile profile :
+                HouseholdProfileStore.active(
+                        this)) {
+            if (profileId.equals(
+                        profile.profileId)
+                    && ownerDeviceId.equals(
+                            profile.ownerDeviceId)) {
+                householdProfile =
+                        profile;
+                break;
+            }
+        }
+
+        if (householdProfile == null) {
+            return false;
+        }
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        if (localDeviceId.equals(
+                ownerDeviceId)) {
+            UserProfile local =
+                    UserProfileStore.findByHouseholdProfileId(
+                            UserProfileStore.enabled(
+                                    UserProfileStore.load(
+                                            prefs)),
+                            profileId);
+
+            return local != null
+                    && local.hasValidBodyData(
+                            pending.timestampMs);
+        }
+
+        if (PeerTrustStore.find(
+                this,
+                ownerDeviceId) == null) {
+            return false;
+        }
+
+        for (PendingMeasurementStore.ClaimResponse response :
+                PendingMeasurementStore.claimResponses(
+                        prefs,
+                        pending.id)) {
+            if (ownerDeviceId.equals(
+                        response.peerDeviceId)
+                    && response.profileIds.contains(
+                            profileId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void autoResolveSingleRemainingCandidate(
+            SharedPreferences prefs,
+            String pendingId) {
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pendingId);
+
+        if (pending == null
+                || pending.isResolved()) {
+            return;
+        }
+
+        List<String> remaining =
+                pending.remainingCandidateProfileIds();
+
+        if (remaining.size() != 1) {
+            return;
+        }
+
+        String profileId =
+                remaining.get(0);
+
+        for (HouseholdProfile profile :
+                HouseholdProfileStore.active(
+                        this)) {
+            if (!profileId.equals(
+                    profile.profileId)) {
+                continue;
+            }
+
+            if (!validSelectablePendingCandidate(
+                    prefs,
+                    pending,
+                    profileId,
+                    profile.ownerDeviceId)) {
+                return;
+            }
+
+            if (PendingMeasurementStore.selectCandidate(
+                    prefs,
+                    pendingId,
+                    profileId,
+                    profile.ownerDeviceId)) {
+                EventLog.info(
+                        this,
+                        getString(
+                                R.string.log_pending_single_candidate,
+                                pending.weightKg,
+                                profile.name));
+
+                resolvePendingDecision(
+                        prefs,
+                        pendingId);
+            }
+
+            return;
+        }
+    }
+
+    private void resolvePendingDecision(
+            SharedPreferences prefs,
+            String pendingId) {
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pendingId);
+
+        if (pending == null
+                || !pending.isResolved()) {
+            return;
+        }
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        if (localDeviceId.equals(
+                pending.selectedOwnerDeviceId)) {
+            UserProfile target =
+                    UserProfileStore.findByHouseholdProfileId(
+                            UserProfileStore.enabled(
+                                    UserProfileStore.load(
+                                            prefs)),
+                            pending.selectedProfileId);
+
+            if (target == null
+                    || !target.hasValidBodyData(
+                            pending.timestampMs)) {
+                EventLog.error(
+                        this,
+                        getString(
+                                R.string.service_error_selected_profile));
+                return;
+            }
+
+            EventLog.info(
+                    this,
+                    getString(
+                            R.string.log_measurement_manually_assigned,
+                            pending.weightKg,
+                            target.name));
+
+            if (processMeasurement(
+                    pending.toMeasurement(),
+                    target)) {
+                PeerOutboxStore.removeMeasurement(
+                        this,
+                        pending.id);
+
+                PendingMeasurementStore.remove(
+                        prefs,
+                        pending.id);
+
+                updateAssignmentNotification();
+            }
+
+            return;
+        }
+
+        if (enqueueRoutedMeasurement(
+                pending,
+                pending.selectedProfileId,
+                pending.selectedOwnerDeviceId)) {
+            updateAssignmentNotification();
+        }
+    }
+
+    private String pendingDisplayName(
+            String profileId) {
+        for (HouseholdProfile profile :
+                HouseholdProfileStore.active(
+                        this)) {
+            if (profileId.equals(
+                    profile.profileId)) {
+                return profile.name;
+            }
+        }
+
+        return profileId;
     }
 
     private void assignPending(String pendingId, long userId) {

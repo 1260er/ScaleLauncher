@@ -141,6 +141,9 @@ final class PendingMeasurementStore {
         final long timestampMs;
         final String reason;
         final List<String> candidateProfileIds;
+        final List<String> rejectedProfileIds;
+        final String selectedProfileId;
+        final String selectedOwnerDeviceId;
 
         Item(String id,
              float weightKg,
@@ -150,7 +153,10 @@ final class PendingMeasurementStore {
              boolean timedOut,
              long timestampMs,
              String reason,
-             List<String> candidateProfileIds) {
+             List<String> candidateProfileIds,
+             List<String> rejectedProfileIds,
+             String selectedProfileId,
+             String selectedOwnerDeviceId) {
             this.id = id;
             this.weightKg = weightKg;
             this.impedanceHigh = impedanceHigh;
@@ -162,6 +168,47 @@ final class PendingMeasurementStore {
             this.candidateProfileIds =
                     sanitizeCandidateProfileIds(
                             candidateProfileIds);
+            this.rejectedProfileIds =
+                    sanitizeRejectedProfileIds(
+                            rejectedProfileIds,
+                            this.candidateProfileIds);
+            this.selectedProfileId =
+                    UserProfile.isValidHouseholdProfileId(
+                            selectedProfileId)
+                            && this.candidateProfileIds.contains(
+                                    selectedProfileId)
+                            && !this.rejectedProfileIds.contains(
+                                    selectedProfileId)
+                            ? selectedProfileId
+                            : "";
+            this.selectedOwnerDeviceId =
+                    !this.selectedProfileId.isBlank()
+                            && PeerTrustStore.isValidDeviceId(
+                                    selectedOwnerDeviceId)
+                            ? selectedOwnerDeviceId
+                            : "";
+        }
+
+        boolean isResolved() {
+            return !selectedProfileId.isBlank()
+                    && PeerTrustStore.isValidDeviceId(
+                            selectedOwnerDeviceId);
+        }
+
+        List<String> remainingCandidateProfileIds() {
+            List<String> result =
+                    new ArrayList<>();
+
+            for (String profileId :
+                    candidateProfileIds) {
+                if (!rejectedProfileIds.contains(
+                        profileId)) {
+                    result.add(
+                            profileId);
+                }
+            }
+
+            return result;
         }
 
         S400FinalMeasurement toMeasurement() {
@@ -202,6 +249,30 @@ final class PendingMeasurementStore {
                         candidateIds);
             }
 
+            if (!rejectedProfileIds.isEmpty()) {
+                JSONArray rejectedIds =
+                        new JSONArray();
+
+                for (String profileId :
+                        rejectedProfileIds) {
+                    rejectedIds.put(
+                            profileId);
+                }
+
+                object.put(
+                        "rejectedProfileIds",
+                        rejectedIds);
+            }
+
+            if (isResolved()) {
+                object.put(
+                        "selectedProfileId",
+                        selectedProfileId);
+                object.put(
+                        "selectedOwnerDeviceId",
+                        selectedOwnerDeviceId);
+            }
+
             return object;
         }
 
@@ -237,6 +308,29 @@ final class PendingMeasurementStore {
                 }
             }
 
+            List<String> rejectedProfileIds =
+                    new ArrayList<>();
+
+            JSONArray rejectedIds =
+                    object.optJSONArray(
+                            "rejectedProfileIds");
+
+            if (rejectedIds != null) {
+                for (int index = 0;
+                     index < rejectedIds.length();
+                     index++) {
+                    String profileId =
+                            rejectedIds.optString(
+                                    index,
+                                    "");
+
+                    if (!profileId.isBlank()) {
+                        rejectedProfileIds.add(
+                                profileId);
+                    }
+                }
+            }
+
             return new Item(
                     object.optString("id", ""),
                     (float) object.optDouble("weightKg", 0.0d),
@@ -246,7 +340,14 @@ final class PendingMeasurementStore {
                     object.optBoolean("timedOut", false),
                     object.optLong("timestampMs", System.currentTimeMillis()),
                     object.optString("reason", ""),
-                    candidateProfileIds);
+                    candidateProfileIds,
+                    rejectedProfileIds,
+                    object.optString(
+                            "selectedProfileId",
+                            ""),
+                    object.optString(
+                            "selectedOwnerDeviceId",
+                            ""));
         }
     }
 
@@ -262,6 +363,30 @@ final class PendingMeasurementStore {
                     candidateProfileIds) {
                 if (UserProfile.isValidHouseholdProfileId(
                         profileId)) {
+                    result.add(
+                            profileId);
+                }
+            }
+        }
+
+        return new ArrayList<>(
+                result);
+    }
+
+    private static List<String> sanitizeRejectedProfileIds(
+            List<String> rejectedProfileIds,
+            List<String> candidateProfileIds) {
+        Set<String> result =
+                new LinkedHashSet<>();
+
+        if (rejectedProfileIds != null
+                && candidateProfileIds != null) {
+            for (String profileId :
+                    rejectedProfileIds) {
+                if (UserProfile.isValidHouseholdProfileId(
+                            profileId)
+                        && candidateProfileIds.contains(
+                                profileId)) {
                     result.add(
                             profileId);
                 }
@@ -313,11 +438,149 @@ final class PendingMeasurementStore {
                 false,
                 measurement.timestampMs,
                 reason,
-                candidateProfileIds);
+                candidateProfileIds,
+                List.of(),
+                "",
+                "");
         items.add(item);
         while (items.size() > MAX_ITEMS) items.remove(0);
         save(prefs, items);
         return item;
+    }
+
+    static boolean selectCandidate(
+            SharedPreferences prefs,
+            String measurementId,
+            String profileId,
+            String ownerDeviceId) {
+        if (measurementId == null
+                || measurementId.isBlank()
+                || !UserProfile.isValidHouseholdProfileId(
+                        profileId)
+                || !PeerTrustStore.isValidDeviceId(
+                        ownerDeviceId)) {
+            return false;
+        }
+
+        List<Item> items =
+                load(
+                        prefs);
+
+        for (int index = 0;
+             index < items.size();
+             index++) {
+            Item item =
+                    items.get(
+                            index);
+
+            if (!measurementId.equals(
+                    item.id)) {
+                continue;
+            }
+
+            if (item.isResolved()
+                    || !item.candidateProfileIds.contains(
+                            profileId)
+                    || item.rejectedProfileIds.contains(
+                            profileId)) {
+                return false;
+            }
+
+            items.set(
+                    index,
+                    copyWithDecision(
+                            item,
+                            item.rejectedProfileIds,
+                            profileId,
+                            ownerDeviceId));
+
+            save(
+                    prefs,
+                    items);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    static boolean rejectCandidate(
+            SharedPreferences prefs,
+            String measurementId,
+            String profileId) {
+        if (measurementId == null
+                || measurementId.isBlank()
+                || !UserProfile.isValidHouseholdProfileId(
+                        profileId)) {
+            return false;
+        }
+
+        List<Item> items =
+                load(
+                        prefs);
+
+        for (int index = 0;
+             index < items.size();
+             index++) {
+            Item item =
+                    items.get(
+                            index);
+
+            if (!measurementId.equals(
+                    item.id)) {
+                continue;
+            }
+
+            if (item.isResolved()
+                    || !item.candidateProfileIds.contains(
+                            profileId)
+                    || item.rejectedProfileIds.contains(
+                            profileId)) {
+                return false;
+            }
+
+            List<String> rejected =
+                    new ArrayList<>(
+                            item.rejectedProfileIds);
+            rejected.add(
+                    profileId);
+
+            items.set(
+                    index,
+                    copyWithDecision(
+                            item,
+                            rejected,
+                            "",
+                            ""));
+
+            save(
+                    prefs,
+                    items);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Item copyWithDecision(
+            Item item,
+            List<String> rejectedProfileIds,
+            String selectedProfileId,
+            String selectedOwnerDeviceId) {
+        return new Item(
+                item.id,
+                item.weightKg,
+                item.impedanceHigh,
+                item.impedanceLow,
+                item.scaleProfileId,
+                item.timedOut,
+                item.timestampMs,
+                item.reason,
+                item.candidateProfileIds,
+                rejectedProfileIds,
+                selectedProfileId,
+                selectedOwnerDeviceId);
     }
 
     static void recordClaimResponse(

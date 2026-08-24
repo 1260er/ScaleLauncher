@@ -154,17 +154,25 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="@string/action_assign" />
+                    android:text="@string/action_my_measurement" />
 
                 <Button
-                    android:id="@+id/discardPending"
+                    android:id="@+id/rejectPending"
                     style="@style/UiPrimaryButton"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="@dimen/spacing_sm"
                     android:layout_weight="1"
-                    android:text="@string/action_discard" />
+                    android:text="@string/action_not_my_measurement" />
             </LinearLayout>
+
+            <Button
+                android:id="@+id/discardPending"
+                style="@style/UiPrimaryButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_sm"
+                android:text="@string/action_discard" />
 
             <LinearLayout
                 android:layout_width="match_parent"

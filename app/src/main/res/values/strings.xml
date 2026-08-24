@@ -498,4 +498,24 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="log_peer_claim_response_queued">CLAIM-Antwort für Messung %1$s an %2$s vorgemerkt (%3$d lokale Kandidaten)</string>
     <string name="log_peer_claim_received">CLAIM-Antwort von %1$s für Messung %2$s empfangen (%3$d Kandidaten)</string>
     <string name="log_peer_claim_rejected">Ungültige CLAIM-Antwort von %1$s für Messung %2$s verworfen</string>
+    <string name="log_peer_decision_accepted">„Meine Messung“ von %1$s für Messung %2$s empfangen</string>
+    <string name="log_peer_decision_rejected">„Nicht meine Messung“ von %1$s für Messung %2$s empfangen</string>
+    <string name="log_peer_decision_ignored">Entscheidung von %1$s für Messung %2$s ignoriert – bereits entschieden oder Kandidat bereits ausgeschlossen</string>
+    <string name="log_peer_decision_invalid">Ungültige Entscheidung von %1$s für Messung %2$s verworfen</string>
+    <string name="log_peer_routed_measurement_queued">Endgültige Messung %1$s zur Verarbeitung an %2$s vorgemerkt</string>
+    <string name="log_peer_routed_measurement_received">Endgültige Messung von %1$s für %2$s empfangen: %3$.1f kg</string>
+    <string name="log_peer_routed_measurement_rejected">Endgültige Messung von %1$s (%2$s) verworfen – Zielprofil oder Waage ungültig</string>
+    <string name="log_peer_routed_measurement_confirmed">Verarbeitung von Messung %2$s durch %1$s bestätigt</string>
+    <string name="action_my_measurement">Meine Messung</string>
+    <string name="action_not_my_measurement">Nicht meine Messung</string>
+    <string name="pending_candidate_local">(lokal)</string>
+    <string name="pending_candidate_remote">(remote)</string>
+    <string name="pending_status_resolved">%1$.1f kg – Zuordnung zu %2$s wird abgeschlossen</string>
+    <string name="pending_my_measurement_toast">%1$.1f kg wird %2$s zugeordnet</string>
+    <string name="pending_not_my_measurement_toast">%1$s wurde als Kandidat ausgeschlossen</string>
+    <string name="log_pending_candidate_invalid">Ungültiger Kandidat für offene Messung %1$s</string>
+    <string name="log_pending_candidate_already_decided">Offene Messung %1$s wurde bereits entschieden</string>
+    <string name="log_pending_candidate_selected">%1$.1f kg wurde als „Meine Messung“ für %2$s bestätigt</string>
+    <string name="log_pending_candidate_rejected">%1$.1f kg wurde für %2$s als „Nicht meine Messung“ markiert</string>
+    <string name="log_pending_single_candidate">%1$.1f kg wird automatisch %2$s zugeordnet – einziger bestätigter Kandidat</string>
 </resources>

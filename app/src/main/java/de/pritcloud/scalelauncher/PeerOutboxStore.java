@@ -20,6 +20,9 @@ final class PeerOutboxStore {
     static final String KIND_CLAIM =
             "measurement_claim";
 
+    static final String KIND_DECISION =
+            "measurement_decision";
+
     private static final String PREFS =
             "peer_outbox_v1";
 
@@ -93,7 +96,9 @@ final class PeerOutboxStore {
         enqueue(
                 context,
                 new Item(
-                        payload.measurementId,
+                        payload.requiresClaim
+                                ? payload.measurementId
+                                : "route:" + payload.measurementId,
                         peerDeviceId,
                         KIND_MEASUREMENT,
                         payload.measurementId,
@@ -121,6 +126,32 @@ final class PeerOutboxStore {
                         peerDeviceId,
                         KIND_CLAIM,
                         payload.measurementId,
+                        payload.encode(),
+                        System.currentTimeMillis()),
+                true);
+    }
+
+    static void enqueueDecision(
+            Context context,
+            String peerDeviceId,
+            PeerMeasurementDecisionPayload payload) {
+        if (!PeerTrustStore.isValidDeviceId(
+                        peerDeviceId)
+                || payload == null
+                || !payload.isValid()) {
+            throw new IllegalArgumentException(
+                    "Invalid measurement decision outbox item");
+        }
+
+        enqueue(
+                context,
+                new Item(
+                        payload.messageId,
+                        peerDeviceId,
+                        KIND_DECISION,
+                        payload.measurementId
+                                + ":"
+                                + payload.profileId,
                         payload.encode(),
                         System.currentTimeMillis()),
                 true);
@@ -233,6 +264,39 @@ final class PeerOutboxStore {
         return load(context).size();
     }
 
+    static int removeMeasurement(
+            Context context,
+            String measurementId) {
+        if (measurementId == null
+                || measurementId.isBlank()) {
+            return 0;
+        }
+
+        List<Item> items =
+                load(context);
+
+        int before =
+                items.size();
+
+        items.removeIf(
+                item ->
+                        measurementId.equals(
+                                item.dedupKey)
+                                || item.dedupKey.startsWith(
+                                        measurementId + ":"));
+
+        int removed =
+                before - items.size();
+
+        if (removed > 0) {
+            save(
+                    context,
+                    items);
+        }
+
+        return removed;
+    }
+
     static int removePeer(
             Context context,
             String peerDeviceId) {
@@ -314,6 +378,8 @@ final class PeerOutboxStore {
                     || KIND_MEASUREMENT.equals(
                         item.kind)
                     || KIND_CLAIM.equals(
+                        item.kind)
+                    || KIND_DECISION.equals(
                         item.kind))
                 && item.dedupKey != null
                 && !item.dedupKey.isBlank()

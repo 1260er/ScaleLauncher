@@ -490,4 +490,24 @@ Both phones must show exactly the same code. If they match, press “Codes match
     <string name="log_peer_claim_response_queued">CLAIM response for measurement %1$s queued for %2$s (%3$d local candidates)</string>
     <string name="log_peer_claim_received">CLAIM response from %1$s for measurement %2$s received (%3$d candidates)</string>
     <string name="log_peer_claim_rejected">Invalid CLAIM response from %1$s for measurement %2$s rejected</string>
+    <string name="log_peer_decision_accepted">“My measurement” received from %1$s for measurement %2$s</string>
+    <string name="log_peer_decision_rejected">“Not my measurement” received from %1$s for measurement %2$s</string>
+    <string name="log_peer_decision_ignored">Decision from %1$s for measurement %2$s ignored – already resolved or candidate already rejected</string>
+    <string name="log_peer_decision_invalid">Invalid decision from %1$s for measurement %2$s discarded</string>
+    <string name="log_peer_routed_measurement_queued">Final measurement %1$s queued for processing on %2$s</string>
+    <string name="log_peer_routed_measurement_received">Final measurement from %1$s received for %2$s: %3$.1f kg</string>
+    <string name="log_peer_routed_measurement_rejected">Final measurement from %1$s (%2$s) discarded – invalid target profile or scale</string>
+    <string name="log_peer_routed_measurement_confirmed">Processing of measurement %2$s confirmed by %1$s</string>
+    <string name="action_my_measurement">My measurement</string>
+    <string name="action_not_my_measurement">Not my measurement</string>
+    <string name="pending_candidate_local">(local)</string>
+    <string name="pending_candidate_remote">(remote)</string>
+    <string name="pending_status_resolved">%1$.1f kg – assignment to %2$s is being completed</string>
+    <string name="pending_my_measurement_toast">%1$.1f kg will be assigned to %2$s</string>
+    <string name="pending_not_my_measurement_toast">%1$s was removed as a candidate</string>
+    <string name="log_pending_candidate_invalid">Invalid candidate for pending measurement %1$s</string>
+    <string name="log_pending_candidate_already_decided">Pending measurement %1$s has already been decided</string>
+    <string name="log_pending_candidate_selected">%1$.1f kg confirmed as “My measurement” for %2$s</string>
+    <string name="log_pending_candidate_rejected">%1$.1f kg marked as “Not my measurement” for %2$s</string>
+    <string name="log_pending_single_candidate">%1$.1f kg automatically assigned to %2$s – only confirmed candidate remaining</string>
 </resources>
