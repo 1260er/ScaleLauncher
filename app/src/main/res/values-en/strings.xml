@@ -485,4 +485,5 @@ Confirm only when both codes are identical.</string>
 Both phones must show exactly the same code. If they match, press “Codes match” on both phones.</string>
     <string name="peer_pair_code_log">Secure BLE key exchange successful – security code ready</string>
 
+    <string name="log_household_match">Household match: %1$s | %2$d candidates</string>
 </resources>

@@ -7,7 +7,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 final class PendingMeasurementStore {
     private static final String KEY = "pending_measurements_json";
@@ -22,6 +24,7 @@ final class PendingMeasurementStore {
         final boolean timedOut;
         final long timestampMs;
         final String reason;
+        final List<String> candidateProfileIds;
 
         Item(String id,
              float weightKg,
@@ -30,7 +33,8 @@ final class PendingMeasurementStore {
              Integer scaleProfileId,
              boolean timedOut,
              long timestampMs,
-             String reason) {
+             String reason,
+             List<String> candidateProfileIds) {
             this.id = id;
             this.weightKg = weightKg;
             this.impedanceHigh = impedanceHigh;
@@ -39,6 +43,9 @@ final class PendingMeasurementStore {
             this.timedOut = timedOut;
             this.timestampMs = timestampMs;
             this.reason = reason;
+            this.candidateProfileIds =
+                    sanitizeCandidateProfileIds(
+                            candidateProfileIds);
         }
 
         S400FinalMeasurement toMeasurement() {
@@ -63,6 +70,22 @@ final class PendingMeasurementStore {
             object.put("timedOut", timedOut);
             object.put("timestampMs", timestampMs);
             object.put("reason", reason);
+
+            if (!candidateProfileIds.isEmpty()) {
+                JSONArray candidateIds =
+                        new JSONArray();
+
+                for (String profileId :
+                        candidateProfileIds) {
+                    candidateIds.put(
+                            profileId);
+                }
+
+                object.put(
+                        "candidateProfileIds",
+                        candidateIds);
+            }
+
             return object;
         }
 
@@ -75,6 +98,29 @@ final class PendingMeasurementStore {
                             && !object.isNull("scaleProfileId")
                             ? object.optInt("scaleProfileId")
                             : null;
+            List<String> candidateProfileIds =
+                    new ArrayList<>();
+
+            JSONArray candidateIds =
+                    object.optJSONArray(
+                            "candidateProfileIds");
+
+            if (candidateIds != null) {
+                for (int index = 0;
+                     index < candidateIds.length();
+                     index++) {
+                    String profileId =
+                            candidateIds.optString(
+                                    index,
+                                    "");
+
+                    if (!profileId.isBlank()) {
+                        candidateProfileIds.add(
+                                profileId);
+                    }
+                }
+            }
+
             return new Item(
                     object.optString("id", ""),
                     (float) object.optDouble("weightKg", 0.0d),
@@ -83,11 +129,32 @@ final class PendingMeasurementStore {
                     scaleProfileId,
                     object.optBoolean("timedOut", false),
                     object.optLong("timestampMs", System.currentTimeMillis()),
-                    object.optString("reason", ""));
+                    object.optString("reason", ""),
+                    candidateProfileIds);
         }
     }
 
     private PendingMeasurementStore() {}
+
+    private static List<String> sanitizeCandidateProfileIds(
+            List<String> candidateProfileIds) {
+        Set<String> result =
+                new LinkedHashSet<>();
+
+        if (candidateProfileIds != null) {
+            for (String profileId :
+                    candidateProfileIds) {
+                if (UserProfile.isValidHouseholdProfileId(
+                        profileId)) {
+                    result.add(
+                            profileId);
+                }
+            }
+        }
+
+        return new ArrayList<>(
+                result);
+    }
 
     static List<Item> load(SharedPreferences prefs) {
         List<Item> items = new ArrayList<>();
@@ -109,6 +176,17 @@ final class PendingMeasurementStore {
     static Item add(SharedPreferences prefs,
                     S400FinalMeasurement measurement,
                     String reason) {
+        return add(
+                prefs,
+                measurement,
+                reason,
+                List.of());
+    }
+
+    static Item add(SharedPreferences prefs,
+                    S400FinalMeasurement measurement,
+                    String reason,
+                    List<String> candidateProfileIds) {
         List<Item> items = load(prefs);
         Item item = new Item(
                 measurement.measurementId,
@@ -118,7 +196,8 @@ final class PendingMeasurementStore {
                 measurement.scaleProfileId,
                 false,
                 measurement.timestampMs,
-                reason);
+                reason,
+                candidateProfileIds);
         items.add(item);
         while (items.size() > MAX_ITEMS) items.remove(0);
         save(prefs, items);

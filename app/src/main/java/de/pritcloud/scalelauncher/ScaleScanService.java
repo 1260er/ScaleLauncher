@@ -911,6 +911,34 @@ public final class ScaleScanService extends Service {
 
     private void routeMeasurement(S400FinalMeasurement measurement) {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+
+        HouseholdMeasurementRouter.Result householdMatch =
+                HouseholdMeasurementRouter.match(
+                        HouseholdProfileStore.active(
+                                this),
+                        measurement.weightKg);
+
+        List<String> householdCandidateProfileIds =
+                new java.util.ArrayList<>();
+
+        for (HouseholdMeasurementRouter.Candidate candidate :
+                householdMatch.candidates) {
+            if (candidate != null
+                    && candidate.profile != null
+                    && UserProfile.isValidHouseholdProfileId(
+                            candidate.profile.profileId)) {
+                householdCandidateProfileIds.add(
+                        candidate.profile.profileId);
+            }
+        }
+
+        EventLog.debug(
+                this,
+                getString(
+                        R.string.log_household_match,
+                        householdMatch.status.name(),
+                        householdCandidateProfileIds.size()));
+
         List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
         UserMatcher.Result match = UserMatcher.match(profiles, measurement.weightKg);
         EventLog.debug(this, getString(
@@ -936,7 +964,8 @@ public final class ScaleScanService extends Service {
         PendingMeasurementStore.Item pending = PendingMeasurementStore.add(
                 prefs,
                 measurement,
-                reason);
+                reason,
+                householdCandidateProfileIds);
         EventLog.warning(this, getString(
                 R.string.log_measurement_unassigned,
                 measurement.weightKg,

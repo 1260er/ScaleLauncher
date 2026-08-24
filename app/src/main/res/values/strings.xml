@@ -493,4 +493,5 @@ Nur bestätigen, wenn beide Codes identisch sind.</string>
 Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf beiden Handys „Codes stimmen überein“ drücken.</string>
     <string name="peer_pair_code_log">Sicherer BLE-Schlüsselaustausch erfolgreich – Sicherheitscode bereit</string>
 
+    <string name="log_household_match">Haushaltsabgleich: %1$s | %2$d Kandidaten</string>
 </resources>
