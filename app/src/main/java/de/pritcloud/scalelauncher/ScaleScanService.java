@@ -105,10 +105,27 @@ public final class ScaleScanService extends Service {
                                         && direct.messageId.equals(
                                                 messageId)) {
                                     peerDirectQueue.poll();
+
+                                    /*
+                                     * Direct messages are ACKs. They are not
+                                     * persisted and may be followed by the
+                                     * next queued message immediately.
+                                     */
+                                    schedulePeerSync(
+                                            250L);
+                                    return;
                                 }
 
+                                /*
+                                 * Persistent outbox messages stay queued until
+                                 * their application-level ACK arrives. Do not
+                                 * resend them immediately after a successful
+                                 * transport write; wait for the normal retry
+                                 * interval. Receiving the ACK schedules the
+                                 * next outbox item immediately.
+                                 */
                                 schedulePeerSync(
-                                        250L);
+                                        PEER_SYNC_RETRY_MS);
                             }
 
                             @Override
