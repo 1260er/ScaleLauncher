@@ -328,38 +328,51 @@ public final class PeerPairingActivity extends Activity {
 
     private String assignedUsersText(
             String deviceId) {
-        if (!PeerTrustStore.isValidDeviceId(
-                deviceId)) {
-            return getString(
-                    R.string.peer_assigned_users_none);
-        }
-
-        List<HouseholdProfile> profiles =
-                HouseholdProfileStore.load(
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
                         this);
-
-        java.util.HashSet<String> seenProfileIds =
-                new java.util.HashSet<>();
 
         StringBuilder names =
                 new StringBuilder();
 
-        for (HouseholdProfile profile : profiles) {
-            if (profile == null
-                    || !profile.isValid()
-                    || !deviceId.equals(
-                            profile.ownerDeviceId)
-                    || !seenProfileIds.add(
-                            profile.profileId)) {
-                continue;
-            }
+        if (localDeviceId.equals(
+                deviceId)) {
+            List<UserProfile> profiles =
+                    UserProfileStore.load(
+                            getSharedPreferences(
+                                    "prefs",
+                                    MODE_PRIVATE));
 
-            if (names.length() > 0) {
-                names.append(", ");
-            }
+            for (UserProfile profile :
+                    profiles) {
+                if (!profile.enabled) {
+                    continue;
+                }
 
-            names.append(
-                    profile.name);
+                if (names.length() > 0) {
+                    names.append(", ");
+                }
+
+                names.append(
+                        profile.name);
+            }
+        } else {
+            for (HouseholdProfile profile :
+                    HouseholdProfileStore.load(
+                            this)) {
+                if (!profile.active
+                        || !deviceId.equals(
+                                profile.ownerDeviceId)) {
+                    continue;
+                }
+
+                if (names.length() > 0) {
+                    names.append(", ");
+                }
+
+                names.append(
+                        profile.name);
+            }
         }
 
         if (names.length() == 0) {

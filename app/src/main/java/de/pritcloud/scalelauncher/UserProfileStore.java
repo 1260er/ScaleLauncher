@@ -35,12 +35,17 @@ final class UserProfileStore {
     }
 
     static List<UserProfile> synchronize(SharedPreferences prefs,
-                                         List<OpenScaleProvider.User> users) {
+                                         List<OpenScaleProvider.User> users,
+                                         String localDeviceId) {
         Map<Long, UserProfile> byId = new LinkedHashMap<>();
         for (UserProfile profile : load(prefs)) byId.put(profile.userId, profile);
 
         boolean migrateLegacy = byId.isEmpty();
         long oldUserId = prefs.getLong("openscale_user_id", -1L);
+        long now = System.currentTimeMillis();
+        boolean validLocalDeviceId =
+                PeerTrustStore.isValidDeviceId(localDeviceId);
+
         for (OpenScaleProvider.User user : users) {
             UserProfile profile = byId.get(user.id);
             if (profile == null) {
@@ -55,6 +60,50 @@ final class UserProfileStore {
             }
             profile.name = user.name;
             profile.enabled = true;
+
+            /*
+             * openScale users are local users.
+             *
+             * The former UI allowed assigning a local openScale profile to
+             * another phone. That produced ambiguous ownership once remote
+             * household profiles were synchronized. From now on a profile
+             * that exists in local openScale is always owned by this phone.
+             */
+            if (validLocalDeviceId) {
+                boolean previousOwnerWasRemote =
+                        PeerTrustStore.isValidDeviceId(
+                                profile.ownerDeviceId)
+                                && !localDeviceId.equals(
+                                        profile.ownerDeviceId);
+
+                if (!localDeviceId.equals(
+                        profile.ownerDeviceId)) {
+                    profile.ownerDeviceId =
+                            localDeviceId;
+
+                    /*
+                     * If this local openScale entry previously borrowed the
+                     * identity of a remote-owned household user, give the
+                     * local entry its own identity. Names are never identity.
+                     */
+                    if (previousOwnerWasRemote) {
+                        profile.householdProfileId = "";
+                    }
+
+                    profile.householdUpdatedAtMs =
+                            now;
+                }
+
+                if (!UserProfile.isValidHouseholdProfileId(
+                        profile.householdProfileId)) {
+                    profile.ensureHouseholdProfileId();
+                    profile.householdUpdatedAtMs =
+                            now;
+                } else if (profile.householdUpdatedAtMs <= 0L) {
+                    profile.householdUpdatedAtMs =
+                            now;
+                }
+            }
         }
 
         List<UserProfile> synchronizedProfiles = new ArrayList<>();

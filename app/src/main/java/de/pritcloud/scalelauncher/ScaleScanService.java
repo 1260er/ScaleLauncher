@@ -888,7 +888,10 @@ public final class ScaleScanService extends Service {
             List<OpenScaleProvider.User> currentUsers =
                     OpenScaleProvider.loadUsers(this, authority);
             List<UserProfile> synchronizedProfiles =
-                    UserProfileStore.synchronize(prefs, currentUsers);
+                    UserProfileStore.synchronize(
+                            prefs,
+                            currentUsers,
+                            PeerTrustStore.localDeviceId(this));
 
             if (previousCount != synchronizedProfiles.size()) {
                 EventLog.info(this, getString(
