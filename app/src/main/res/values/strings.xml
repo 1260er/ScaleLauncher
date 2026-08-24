@@ -507,7 +507,7 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="log_peer_routed_measurement_rejected">Endgültige Messung von %1$s (%2$s) verworfen – Zielprofil oder Waage ungültig</string>
     <string name="log_peer_routed_measurement_confirmed">Verarbeitung von Messung %2$s durch %1$s bestätigt</string>
     <string name="action_my_measurement">Meine Messung</string>
-    <string name="action_not_my_measurement">Nicht meine Messung</string>
+    <string name="action_not_my_measurement">Nicht meins</string>
     <string name="pending_candidate_local">(lokal)</string>
     <string name="pending_candidate_remote">(remote)</string>
     <string name="pending_status_resolved">%1$.1f kg – Zuordnung zu %2$s wird abgeschlossen</string>

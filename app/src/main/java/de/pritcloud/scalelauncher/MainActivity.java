@@ -1560,6 +1560,28 @@ public final class MainActivity extends Activity {
         PendingMeasurementStore.Item item =
                 pendingMeasurements.get(0);
 
+        pendingCandidates =
+                new ArrayList<>();
+        pendingProfileSignature =
+                "";
+
+        pendingUserSpinner.setAdapter(
+                new ArrayAdapter<PendingCandidate>(
+                        this,
+                        android.R.layout.simple_spinner_item,
+                        pendingCandidates));
+        pendingUserSpinner.setEnabled(
+                false);
+
+        findViewById(
+                R.id.assignPending)
+                .setEnabled(
+                        false);
+        findViewById(
+                R.id.rejectPending)
+                .setEnabled(
+                        false);
+
         startForegroundService(
                 new Intent(
                         this,

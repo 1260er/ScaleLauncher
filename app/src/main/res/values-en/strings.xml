@@ -499,7 +499,7 @@ Both phones must show exactly the same code. If they match, press “Codes match
     <string name="log_peer_routed_measurement_rejected">Final measurement from %1$s (%2$s) discarded – invalid target profile or scale</string>
     <string name="log_peer_routed_measurement_confirmed">Processing of measurement %2$s confirmed by %1$s</string>
     <string name="action_my_measurement">My measurement</string>
-    <string name="action_not_my_measurement">Not my measurement</string>
+    <string name="action_not_my_measurement">Not mine</string>
     <string name="pending_candidate_local">(local)</string>
     <string name="pending_candidate_remote">(remote)</string>
     <string name="pending_status_resolved">%1$.1f kg – assignment to %2$s is being completed</string>
