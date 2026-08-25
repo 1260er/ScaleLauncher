@@ -714,6 +714,58 @@ public final class ScaleScanService extends Service {
             return;
         }
 
+        if (PeerMeasurementClosedPayload.TYPE.equals(
+                type)) {
+            PeerMeasurementClosedPayload closed =
+                    PeerMeasurementClosedPayload.decode(
+                            encoded);
+
+            if (closed == null) {
+                return;
+            }
+
+            boolean duplicate =
+                    PeerInboxDedupStore.contains(
+                            this,
+                            peer.deviceId,
+                            closed.messageId);
+
+            if (!duplicate) {
+                RemotePendingMeasurementStore.Item remote =
+                        RemotePendingMeasurementStore.find(
+                                this,
+                                closed.measurementId);
+
+                boolean removed =
+                        remote != null
+                                && peer.deviceId.equals(
+                                        remote.collectorDeviceId)
+                                && RemotePendingMeasurementStore.remove(
+                                        this,
+                                        closed.measurementId);
+
+                PeerInboxDedupStore.mark(
+                        this,
+                        peer.deviceId,
+                        closed.messageId);
+
+                if (removed) {
+                    EventLog.info(
+                            this,
+                            getString(
+                                    R.string.log_remote_pending_closed,
+                                    remote.weightKg,
+                                    peer.label));
+                }
+            }
+
+            queuePeerAck(
+                    peer,
+                    closed.messageId);
+
+            return;
+        }
+
         if (PeerMeasurementDecisionPayload.TYPE.equals(
                 type)) {
             PeerMeasurementDecisionPayload decision =
@@ -1349,6 +1401,9 @@ public final class ScaleScanService extends Service {
                 this,
                 pendingId);
 
+        broadcastMeasurementClosed(
+                pendingId);
+
         PendingMeasurementStore.remove(
                 prefs,
                 pendingId);
@@ -1525,6 +1580,53 @@ public final class ScaleScanService extends Service {
                             exception.getClass()
                                     .getSimpleName()));
             return false;
+        }
+    }
+
+    private void broadcastMeasurementClosed(
+            String measurementId) {
+        if (measurementId == null
+                || measurementId.isBlank()) {
+            return;
+        }
+
+        int queued =
+                0;
+
+        for (PeerTrustStore.Peer peer :
+                PeerTrustStore.load(
+                        this)) {
+            try {
+                PeerMeasurementClosedPayload payload =
+                        PeerMeasurementClosedPayload.create(
+                                measurementId);
+
+                PeerOutboxStore.enqueueClosed(
+                        this,
+                        peer.deviceId,
+                        payload);
+
+                queued++;
+            } catch (RuntimeException exception) {
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_peer_transport_error,
+                                exception.getClass()
+                                        .getSimpleName()));
+            }
+        }
+
+        if (queued > 0) {
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_measurement_closed_queued,
+                            measurementId,
+                            queued));
+
+            schedulePeerSync(
+                    100L);
         }
     }
 
@@ -2153,6 +2255,9 @@ public final class ScaleScanService extends Service {
                 this,
                 pendingId);
 
+        broadcastMeasurementClosed(
+                pendingId);
+
         PendingMeasurementStore.remove(
                 prefs,
                 pendingId);
@@ -2358,6 +2463,9 @@ public final class ScaleScanService extends Service {
                         this,
                         pending.id);
 
+                broadcastMeasurementClosed(
+                        pending.id);
+
                 PendingMeasurementStore.remove(
                         prefs,
                         pending.id);
@@ -2372,6 +2480,9 @@ public final class ScaleScanService extends Service {
                 pending,
                 pending.selectedProfileId,
                 pending.selectedOwnerDeviceId)) {
+            broadcastMeasurementClosed(
+                    pending.id);
+
             updateAssignmentNotification();
         }
     }
@@ -2410,7 +2521,17 @@ public final class ScaleScanService extends Service {
                 pending.weightKg,
                 profile.name));
         if (processMeasurement(pending.toMeasurement(), profile)) {
-            PendingMeasurementStore.remove(prefs, pending.id);
+            PeerOutboxStore.removeMeasurement(
+                    this,
+                    pending.id);
+
+            broadcastMeasurementClosed(
+                    pending.id);
+
+            PendingMeasurementStore.remove(
+                    prefs,
+                    pending.id);
+
             updateAssignmentNotification();
         }
     }

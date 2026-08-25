@@ -23,6 +23,9 @@ final class PeerOutboxStore {
     static final String KIND_DECISION =
             "measurement_decision";
 
+    static final String KIND_CLOSED =
+            "measurement_closed";
+
     private static final String PREFS =
             "peer_outbox_v1";
 
@@ -152,6 +155,30 @@ final class PeerOutboxStore {
                         payload.measurementId
                                 + ":"
                                 + payload.profileId,
+                        payload.encode(),
+                        System.currentTimeMillis()),
+                true);
+    }
+
+    static void enqueueClosed(
+            Context context,
+            String peerDeviceId,
+            PeerMeasurementClosedPayload payload) {
+        if (!PeerTrustStore.isValidDeviceId(
+                        peerDeviceId)
+                || payload == null
+                || !payload.isValid()) {
+            throw new IllegalArgumentException(
+                    "Invalid closed measurement outbox item");
+        }
+
+        enqueue(
+                context,
+                new Item(
+                        payload.messageId,
+                        peerDeviceId,
+                        KIND_CLOSED,
+                        payload.measurementId,
                         payload.encode(),
                         System.currentTimeMillis()),
                 true);
@@ -380,6 +407,8 @@ final class PeerOutboxStore {
                     || KIND_CLAIM.equals(
                         item.kind)
                     || KIND_DECISION.equals(
+                        item.kind)
+                    || KIND_CLOSED.equals(
                         item.kind))
                 && item.dedupKey != null
                 && !item.dedupKey.isBlank()

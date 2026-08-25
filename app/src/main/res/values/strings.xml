@@ -527,4 +527,6 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="pending_remote_accept_toast">%1$.1f kg → %2$s an Collector gesendet</string>
     <string name="log_remote_pending_accept_queued">%1$.1f kg → %2$s: Zustimmung an %3$s vorgemerkt</string>
     <string name="log_remote_pending_reject_queued">%1$.1f kg: dieses Handy ausgeschlossen (%2$d Kandidaten) – Antwort an %3$s vorgemerkt</string>
+    <string name="log_remote_pending_closed">%1$.1f kg: Remote-Anfrage durch %2$s erledigt</string>
+    <string name="log_measurement_closed_queued">Erledigt-Signal für Messung %1$s an %2$d gekoppelte Geräte vorgemerkt</string>
 </resources>

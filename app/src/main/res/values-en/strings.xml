@@ -519,4 +519,6 @@ Both phones must show exactly the same code. If they match, press “Codes match
     <string name="pending_remote_accept_toast">%1$.1f kg → %2$s sent to Collector</string>
     <string name="log_remote_pending_accept_queued">%1$.1f kg → %2$s: acceptance queued for %3$s</string>
     <string name="log_remote_pending_reject_queued">%1$.1f kg: this phone excluded (%2$d candidates) – response queued for %3$s</string>
+    <string name="log_remote_pending_closed">%1$.1f kg: remote request closed by %2$s</string>
+    <string name="log_measurement_closed_queued">Queued close signal for measurement %1$s to %2$d paired devices</string>
 </resources>
