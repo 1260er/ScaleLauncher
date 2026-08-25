@@ -65,7 +65,7 @@ final class PeerMeasurementTransport {
     private static final int FRAME_START = 1;
     private static final int FRAME_CONTINUE = 2;
     private static final int MAX_MESSAGE_BYTES = 8192;
-    private static final long SEND_TIMEOUT_MS = 20_000L;
+    private static final long SEND_TIMEOUT_MS = 15_000L;
 
     private final Context context;
     private final Listener listener;

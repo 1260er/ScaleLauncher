@@ -51,6 +51,8 @@ public final class ScaleScanService extends Service {
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
     private static final long PEER_SYNC_RETRY_MS = 30_000L;
+    private static final long PEER_SYNC_ERROR_RETRY_BASE_MS = 2_000L;
+    private static final long PEER_SYNC_ERROR_RETRY_SPAN_MS = 4_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable watchdogRunnable = this::runWatchdog;
@@ -149,7 +151,7 @@ public final class ScaleScanService extends Service {
                                                 message));
 
                                 schedulePeerSync(
-                                        PEER_SYNC_RETRY_MS);
+                                        peerErrorRetryDelayMs());
                             }
                         });
 
@@ -1854,6 +1856,25 @@ public final class ScaleScanService extends Service {
                 100L);
     }
 
+    private long peerErrorRetryDelayMs() {
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        int hash =
+                localDeviceId == null
+                        ? 0
+                        : localDeviceId.hashCode();
+
+        long offset =
+                Math.floorMod(
+                        hash,
+                        (int) PEER_SYNC_ERROR_RETRY_SPAN_MS);
+
+        return PEER_SYNC_ERROR_RETRY_BASE_MS
+                + offset;
+    }
+
     private void schedulePeerSync(
             long delayMs) {
         if (explicitStop) {
@@ -1868,6 +1889,47 @@ public final class ScaleScanService extends Service {
                 Math.max(
                         0L,
                         delayMs));
+    }
+
+    private int peerOutboxPriority(
+            PeerOutboxStore.Item item) {
+        if (item == null) {
+            return 100;
+        }
+
+        if (PeerOutboxStore.KIND_DECISION.equals(
+                item.kind)) {
+            return 0;
+        }
+
+        if (PeerOutboxStore.KIND_MEASUREMENT.equals(
+                    item.kind)
+                && item.messageId.startsWith(
+                        "route:")) {
+            return 1;
+        }
+
+        if (PeerOutboxStore.KIND_CLOSED.equals(
+                item.kind)) {
+            return 2;
+        }
+
+        if (PeerOutboxStore.KIND_CLAIM.equals(
+                item.kind)) {
+            return 3;
+        }
+
+        if (PeerOutboxStore.KIND_MEASUREMENT.equals(
+                item.kind)) {
+            return 4;
+        }
+
+        if (PeerOutboxStore.KIND_PROFILE.equals(
+                item.kind)) {
+            return 5;
+        }
+
+        return 50;
     }
 
     private void dispatchPeerOutbox() {
@@ -1913,6 +1975,24 @@ public final class ScaleScanService extends Service {
         List<PeerOutboxStore.Item> items =
                 PeerOutboxStore.load(
                         this);
+
+        items.sort(
+                (left, right) -> {
+                    int priority =
+                            Integer.compare(
+                                    peerOutboxPriority(
+                                            left),
+                                    peerOutboxPriority(
+                                            right));
+
+                    if (priority != 0) {
+                        return priority;
+                    }
+
+                    return Long.compare(
+                            left.createdAtMs,
+                            right.createdAtMs);
+                });
 
         for (PeerOutboxStore.Item item :
                 items) {
