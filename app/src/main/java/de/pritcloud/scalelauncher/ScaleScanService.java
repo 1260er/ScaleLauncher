@@ -29,6 +29,8 @@ public final class ScaleScanService extends Service {
     public static final String ACTION_REFRESH_PENDING = "de.pritcloud.scalelauncher.REFRESH_PENDING";
     public static final String ACTION_SELECT_PENDING = "de.pritcloud.scalelauncher.SELECT_PENDING";
     public static final String ACTION_REJECT_PENDING = "de.pritcloud.scalelauncher.REJECT_PENDING";
+    public static final String ACTION_ACCEPT_REMOTE_PENDING = "de.pritcloud.scalelauncher.ACCEPT_REMOTE_PENDING";
+    public static final String ACTION_REJECT_REMOTE_PENDING = "de.pritcloud.scalelauncher.REJECT_REMOTE_PENDING";
     public static final String ACTION_DISCARD_PENDING = "de.pritcloud.scalelauncher.DISCARD_PENDING";
     public static final String EXTRA_PENDING_ID = "pending_id";
     public static final String EXTRA_USER_ID = "user_id";
@@ -191,6 +193,20 @@ public final class ScaleScanService extends Service {
                 && ACTION_REJECT_PENDING.equals(
                         intent.getAction())) {
             rejectLocalPendingCandidates(
+                    intent.getStringExtra(
+                            EXTRA_PENDING_ID));
+        } else if (intent != null
+                && ACTION_ACCEPT_REMOTE_PENDING.equals(
+                        intent.getAction())) {
+            acceptRemotePending(
+                    intent.getStringExtra(
+                            EXTRA_PENDING_ID),
+                    intent.getStringExtra(
+                            EXTRA_PROFILE_ID));
+        } else if (intent != null
+                && ACTION_REJECT_REMOTE_PENDING.equals(
+                        intent.getAction())) {
+            rejectRemotePending(
                     intent.getStringExtra(
                             EXTRA_PENDING_ID));
         } else if (intent != null
@@ -1026,6 +1042,10 @@ public final class ScaleScanService extends Service {
             return;
         }
 
+        RemotePendingMeasurementStore.remove(
+                this,
+                payload.measurementId);
+
         PeerInboxDedupStore.mark(
                 this,
                 peer.deviceId,
@@ -1090,6 +1110,21 @@ public final class ScaleScanService extends Service {
             }
         }
 
+        if (!claimedProfileIds.isEmpty()) {
+            if (RemotePendingMeasurementStore.upsert(
+                    this,
+                    peer,
+                    payload,
+                    claimedProfileIds)) {
+                EventLog.debug(
+                        this,
+                        getString(
+                                R.string.log_remote_pending_saved,
+                                payload.measurementId,
+                                claimedProfileIds.size()));
+            }
+        }
+
         PeerClaimPayload claim =
                 PeerClaimPayload.create(
                         payload.measurementId,
@@ -1107,6 +1142,151 @@ public final class ScaleScanService extends Service {
                         payload.measurementId,
                         peer.label,
                         claimedProfileIds.size()));
+
+        schedulePeerSync(
+                100L);
+    }
+
+    private void acceptRemotePending(
+            String measurementId,
+            String profileId) {
+        if (measurementId == null
+                || measurementId.isBlank()
+                || !UserProfile.isValidHouseholdProfileId(
+                        profileId)) {
+            return;
+        }
+
+        RemotePendingMeasurementStore.Item pending =
+                RemotePendingMeasurementStore.find(
+                        this,
+                        measurementId);
+
+        if (pending == null
+                || !pending.candidateProfileIds.contains(
+                        profileId)) {
+            return;
+        }
+
+        PeerTrustStore.Peer collector =
+                PeerTrustStore.find(
+                        this,
+                        pending.collectorDeviceId);
+
+        if (collector == null) {
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        UserProfile local =
+                UserProfileStore.findByHouseholdProfileId(
+                        UserProfileStore.enabled(
+                                UserProfileStore.load(
+                                        prefs)),
+                        profileId);
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        if (local == null
+                || !localDeviceId.equals(
+                        local.ownerDeviceId)
+                || !local.hasValidBodyData(
+                        pending.timestampMs)) {
+            return;
+        }
+
+        PeerMeasurementDecisionPayload decision =
+                PeerMeasurementDecisionPayload.create(
+                        pending.measurementId,
+                        profileId,
+                        true);
+
+        PeerOutboxStore.enqueueDecision(
+                this,
+                collector.deviceId,
+                decision);
+
+        RemotePendingMeasurementStore.remove(
+                this,
+                pending.measurementId);
+
+        EventLog.info(
+                this,
+                getString(
+                        R.string.log_remote_pending_accept_queued,
+                        pending.weightKg,
+                        local.name,
+                        collector.label));
+
+        schedulePeerSync(
+                100L);
+    }
+
+    private void rejectRemotePending(
+            String measurementId) {
+        if (measurementId == null
+                || measurementId.isBlank()) {
+            return;
+        }
+
+        RemotePendingMeasurementStore.Item pending =
+                RemotePendingMeasurementStore.find(
+                        this,
+                        measurementId);
+
+        if (pending == null) {
+            return;
+        }
+
+        PeerTrustStore.Peer collector =
+                PeerTrustStore.find(
+                        this,
+                        pending.collectorDeviceId);
+
+        if (collector == null) {
+            return;
+        }
+
+        int queued =
+                0;
+
+        for (String profileId :
+                pending.candidateProfileIds) {
+            PeerMeasurementDecisionPayload decision =
+                    PeerMeasurementDecisionPayload.create(
+                            pending.measurementId,
+                            profileId,
+                            false);
+
+            PeerOutboxStore.enqueueDecision(
+                    this,
+                    collector.deviceId,
+                    decision);
+
+            queued++;
+        }
+
+        if (queued <= 0) {
+            return;
+        }
+
+        RemotePendingMeasurementStore.remove(
+                this,
+                pending.measurementId);
+
+        EventLog.info(
+                this,
+                getString(
+                        R.string.log_remote_pending_reject_queued,
+                        pending.weightKg,
+                        queued,
+                        collector.label));
 
         schedulePeerSync(
                 100L);

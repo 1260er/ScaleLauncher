@@ -84,6 +84,8 @@ public final class MainActivity extends Activity {
     private List<UserProfile> profiles = new ArrayList<>();
     private List<PendingCandidate> pendingCandidates = new ArrayList<>();
     private List<PendingMeasurementStore.Item> pendingMeasurements = new ArrayList<>();
+    private List<RemotePendingMeasurementStore.Item> remotePendingMeasurements =
+            new ArrayList<>();
      private LocalDate selectedBirthDate;
     private boolean loadingProfile;
     private String pendingProfileSignature = "";
@@ -1345,6 +1347,10 @@ public final class MainActivity extends Activity {
                 PendingMeasurementStore.load(
                         prefs);
 
+        remotePendingMeasurements =
+                RemotePendingMeasurementStore.load(
+                        this);
+
         pendingCandidates =
                 new ArrayList<>();
 
@@ -1417,10 +1423,62 @@ public final class MainActivity extends Activity {
                     }
                 }
             }
+        } else if (!remotePendingMeasurements.isEmpty()) {
+            RemotePendingMeasurementStore.Item item =
+                    remotePendingMeasurements.get(
+                            0);
+
+            String localDeviceId =
+                    PeerTrustStore.localDeviceId(
+                            this);
+
+            List<UserProfile> localProfiles =
+                    UserProfileStore.enabled(
+                            UserProfileStore.load(
+                                    prefs));
+
+            for (String profileId :
+                    item.candidateProfileIds) {
+                UserProfile local =
+                        UserProfileStore.findByHouseholdProfileId(
+                                localProfiles,
+                                profileId);
+
+                if (local == null
+                        || !localDeviceId.equals(
+                                local.ownerDeviceId)
+                        || !local.hasValidBodyData(
+                                item.timestampMs)) {
+                    continue;
+                }
+
+                pendingCandidates.add(
+                        new PendingCandidate(
+                                local.householdProfileId,
+                                local.ownerDeviceId,
+                                local.name,
+                                local.userId,
+                                false));
+            }
         }
 
         StringBuilder signatureBuilder =
                 new StringBuilder();
+
+        if (!pendingMeasurements.isEmpty()) {
+            signatureBuilder
+                    .append("collector:")
+                    .append(
+                            pendingMeasurements.get(0).id)
+                    .append('|');
+        } else if (!remotePendingMeasurements.isEmpty()) {
+            signatureBuilder
+                    .append("remote:")
+                    .append(
+                            remotePendingMeasurements.get(0)
+                                    .measurementId)
+                    .append('|');
+        }
 
         for (PendingCandidate candidate :
                 pendingCandidates) {
@@ -1463,35 +1521,60 @@ public final class MainActivity extends Activity {
                     signature;
         }
 
-        boolean hasPending =
+        boolean hasCollectorPending =
                 !pendingMeasurements.isEmpty();
 
+        boolean hasRemotePending =
+                !remotePendingMeasurements.isEmpty();
+
+        boolean hasPending =
+                hasCollectorPending
+                        || hasRemotePending;
+
         boolean resolved =
-                hasPending
+                hasCollectorPending
                         && pendingMeasurements.get(0)
                                 .isResolved();
 
-        boolean hasLocalCandidate =
+        boolean canAssign =
                 hasPending
                         && !resolved
                         && !pendingCandidates.isEmpty();
 
+        boolean canReject =
+                hasCollectorPending
+                        ? canAssign
+                        : hasRemotePending;
+
         findViewById(
                 R.id.assignPending)
                 .setEnabled(
-                        hasLocalCandidate);
+                        canAssign);
 
         findViewById(
                 R.id.rejectPending)
                 .setEnabled(
-                        hasLocalCandidate);
+                        canReject);
 
         pendingUserSpinner.setEnabled(
-                hasLocalCandidate);
+                canAssign);
 
         if (!hasPending) {
             pendingStatus.setText(
                     R.string.pending_none);
+            return;
+        }
+
+        if (!hasCollectorPending) {
+            RemotePendingMeasurementStore.Item remote =
+                    remotePendingMeasurements.get(
+                            0);
+
+            pendingStatus.setText(
+                    getString(
+                            R.string.pending_status_remote,
+                            remote.weightKg));
+
             return;
         }
 
@@ -1537,8 +1620,9 @@ public final class MainActivity extends Activity {
     }
 
     private void assignPendingMeasurement() {
-        if (pendingMeasurements.isEmpty()
-                || pendingCandidates.isEmpty()) {
+        if (pendingCandidates.isEmpty()
+                || (pendingMeasurements.isEmpty()
+                    && remotePendingMeasurements.isEmpty())) {
             return;
         }
 
@@ -1550,59 +1634,138 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        PendingMeasurementStore.Item item =
-                pendingMeasurements.get(0);
-
         PendingCandidate candidate =
                 pendingCandidates.get(
                         position);
 
-        Intent intent =
+        if (!pendingMeasurements.isEmpty()) {
+            PendingMeasurementStore.Item item =
+                    pendingMeasurements.get(0);
+
+            Intent intent =
+                    new Intent(
+                            this,
+                            ScaleScanService.class)
+                            .putExtra(
+                                    ScaleScanService.EXTRA_PENDING_ID,
+                                    item.id);
+
+            if (candidate.unrestricted) {
+                intent.setAction(
+                        ScaleScanService.ACTION_ASSIGN_PENDING)
+                        .putExtra(
+                                ScaleScanService.EXTRA_USER_ID,
+                                candidate.userId);
+            } else {
+                intent.setAction(
+                        ScaleScanService.ACTION_SELECT_PENDING)
+                        .putExtra(
+                                ScaleScanService.EXTRA_PROFILE_ID,
+                                candidate.profileId)
+                        .putExtra(
+                                ScaleScanService.EXTRA_OWNER_DEVICE_ID,
+                                candidate.ownerDeviceId);
+            }
+
+            startForegroundService(
+                    intent);
+
+            LoggedToast.makeText(
+                    this,
+                    getString(
+                            R.string.pending_assignment_toast,
+                            item.weightKg,
+                            candidate.name),
+                    Toast.LENGTH_SHORT).show();
+
+            return;
+        }
+
+        RemotePendingMeasurementStore.Item remote =
+                remotePendingMeasurements.get(
+                        0);
+
+        startForegroundService(
                 new Intent(
                         this,
                         ScaleScanService.class)
+                        .setAction(
+                                ScaleScanService.ACTION_ACCEPT_REMOTE_PENDING)
                         .putExtra(
                                 ScaleScanService.EXTRA_PENDING_ID,
-                                item.id);
+                                remote.measurementId)
+                        .putExtra(
+                                ScaleScanService.EXTRA_PROFILE_ID,
+                                candidate.profileId));
 
-        if (candidate.unrestricted) {
-            intent.setAction(
-                    ScaleScanService.ACTION_ASSIGN_PENDING)
-                    .putExtra(
-                            ScaleScanService.EXTRA_USER_ID,
-                            candidate.userId);
-        } else {
-            intent.setAction(
-                    ScaleScanService.ACTION_SELECT_PENDING)
-                    .putExtra(
-                            ScaleScanService.EXTRA_PROFILE_ID,
-                            candidate.profileId)
-                    .putExtra(
-                            ScaleScanService.EXTRA_OWNER_DEVICE_ID,
-                            candidate.ownerDeviceId);
-        }
-
-        startForegroundService(
-                intent);
+        clearPendingDecisionUi();
 
         LoggedToast.makeText(
                 this,
                 getString(
-                        R.string.pending_assignment_toast,
-                        item.weightKg,
+                        R.string.pending_remote_accept_toast,
+                        remote.weightKg,
                         candidate.name),
                 Toast.LENGTH_SHORT).show();
     }
 
     private void rejectPendingMeasurement() {
         if (pendingMeasurements.isEmpty()
-                || pendingCandidates.isEmpty()) {
+                && remotePendingMeasurements.isEmpty()) {
             return;
         }
 
-        PendingMeasurementStore.Item item =
-                pendingMeasurements.get(0);
+        if (!pendingMeasurements.isEmpty()) {
+            if (pendingCandidates.isEmpty()) {
+                return;
+            }
 
+            PendingMeasurementStore.Item item =
+                    pendingMeasurements.get(0);
+
+            clearPendingDecisionUi();
+
+            startForegroundService(
+                    new Intent(
+                            this,
+                            ScaleScanService.class)
+                            .setAction(
+                                    ScaleScanService.ACTION_REJECT_PENDING)
+                            .putExtra(
+                                    ScaleScanService.EXTRA_PENDING_ID,
+                                    item.id));
+
+            LoggedToast.makeText(
+                    this,
+                    R.string.pending_not_my_device_toast,
+                    Toast.LENGTH_SHORT).show();
+
+            return;
+        }
+
+        RemotePendingMeasurementStore.Item remote =
+                remotePendingMeasurements.get(
+                        0);
+
+        clearPendingDecisionUi();
+
+        startForegroundService(
+                new Intent(
+                        this,
+                        ScaleScanService.class)
+                        .setAction(
+                                ScaleScanService.ACTION_REJECT_REMOTE_PENDING)
+                        .putExtra(
+                                ScaleScanService.EXTRA_PENDING_ID,
+                                remote.measurementId));
+
+        LoggedToast.makeText(
+                this,
+                R.string.pending_not_my_device_toast,
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private void clearPendingDecisionUi() {
         pendingCandidates =
                 new ArrayList<>();
         pendingProfileSignature =
@@ -1613,6 +1776,7 @@ public final class MainActivity extends Activity {
                         this,
                         android.R.layout.simple_spinner_item,
                         pendingCandidates));
+
         pendingUserSpinner.setEnabled(
                 false);
 
@@ -1620,25 +1784,11 @@ public final class MainActivity extends Activity {
                 R.id.assignPending)
                 .setEnabled(
                         false);
+
         findViewById(
                 R.id.rejectPending)
                 .setEnabled(
                         false);
-
-        startForegroundService(
-                new Intent(
-                        this,
-                        ScaleScanService.class)
-                        .setAction(
-                                ScaleScanService.ACTION_REJECT_PENDING)
-                        .putExtra(
-                                ScaleScanService.EXTRA_PENDING_ID,
-                                item.id));
-
-        LoggedToast.makeText(
-                this,
-                R.string.pending_not_my_device_toast,
-                Toast.LENGTH_SHORT).show();
     }
 
     private final class PendingCandidate {

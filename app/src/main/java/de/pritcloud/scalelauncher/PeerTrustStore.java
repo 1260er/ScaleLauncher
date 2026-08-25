@@ -270,6 +270,10 @@ final class PeerTrustStore {
         HouseholdProfileStore.removeOwner(
                 context,
                 deviceId);
+
+        RemotePendingMeasurementStore.removeCollector(
+                context,
+                deviceId);
     }
 
     static byte[] newSharedSecret() {

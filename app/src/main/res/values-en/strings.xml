@@ -514,4 +514,9 @@ Both phones must show exactly the same code. If they match, press “Codes match
     <string name="log_pending_local_candidates_rejected">%1$.1f kg: %2$d local candidates excluded as “Not my measurement”</string>
     <string name="log_pending_no_candidates">%1$.1f kg discarded – no household candidate remains</string>
     <string name="log_peer_profiles_pruned">Removed %1$d stale profile(s) from %2$s</string>
+    <string name="log_remote_pending_saved">Persisted remote request %1$s (%2$d local candidates)</string>
+    <string name="pending_status_remote">%1$.1f kg · Confirm assignment on this phone</string>
+    <string name="pending_remote_accept_toast">%1$.1f kg → %2$s sent to Collector</string>
+    <string name="log_remote_pending_accept_queued">%1$.1f kg → %2$s: acceptance queued for %3$s</string>
+    <string name="log_remote_pending_reject_queued">%1$.1f kg: this phone excluded (%2$d candidates) – response queued for %3$s</string>
 </resources>

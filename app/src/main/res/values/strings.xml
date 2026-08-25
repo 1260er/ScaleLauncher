@@ -522,4 +522,9 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="log_pending_local_candidates_rejected">%1$.1f kg: %2$d lokale Kandidaten als „Nicht meine Messung“ ausgeschlossen</string>
     <string name="log_pending_no_candidates">%1$.1f kg verworfen – kein Haushaltskandidat bleibt übrig</string>
     <string name="log_peer_profiles_pruned">%1$d veraltete Profil(e) von %2$s entfernt</string>
+    <string name="log_remote_pending_saved">Remote-Anfrage %1$s dauerhaft gespeichert (%2$d lokale Kandidaten)</string>
+    <string name="pending_status_remote">%1$.1f kg · Zuordnung auf diesem Handy bestätigen</string>
+    <string name="pending_remote_accept_toast">%1$.1f kg → %2$s an Collector gesendet</string>
+    <string name="log_remote_pending_accept_queued">%1$.1f kg → %2$s: Zustimmung an %3$s vorgemerkt</string>
+    <string name="log_remote_pending_reject_queued">%1$.1f kg: dieses Handy ausgeschlossen (%2$d Kandidaten) – Antwort an %3$s vorgemerkt</string>
 </resources>
