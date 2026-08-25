@@ -766,6 +766,8 @@ public final class ScaleScanService extends Service {
                                     R.string.log_remote_pending_closed,
                                     remote.weightKg,
                                     peer.label));
+
+                    updateAssignmentNotification();
                 }
             }
 
@@ -1117,6 +1119,8 @@ public final class ScaleScanService extends Service {
                 this,
                 payload.measurementId);
 
+        updateAssignmentNotification();
+
         PeerInboxDedupStore.mark(
                 this,
                 peer.deviceId,
@@ -1202,6 +1206,8 @@ public final class ScaleScanService extends Service {
                                 R.string.log_remote_pending_saved,
                                 payload.measurementId,
                                 claimedProfileIds.size()));
+
+                updateAssignmentNotification();
             }
         }
 
@@ -1296,6 +1302,8 @@ public final class ScaleScanService extends Service {
                 this,
                 pending.measurementId);
 
+        updateAssignmentNotification();
+
         EventLog.info(
                 this,
                 getString(
@@ -1359,6 +1367,8 @@ public final class ScaleScanService extends Service {
         RemotePendingMeasurementStore.remove(
                 this,
                 pending.measurementId);
+
+        updateAssignmentNotification();
 
         EventLog.info(
                 this,
@@ -3440,17 +3450,80 @@ public final class ScaleScanService extends Service {
                 .build();
     }
 
+    private Notification remoteAssignmentNotification(
+            RemotePendingMeasurementStore.Item item,
+            int count) {
+        PendingIntent open = PendingIntent.getActivity(
+                this,
+                5,
+                new Intent(this, MainActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        String text = count > 1
+                ? getString(
+                        R.string.notification_remote_assignment_multiple,
+                        item.weightKg,
+                        count)
+                : getString(
+                        R.string.notification_remote_assignment_single,
+                        item.weightKg);
+
+        return new Notification.Builder(this, CHANNEL_RESULT)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(
+                        getString(
+                                R.string.notification_remote_assignment_title))
+                .setContentText(text)
+                .setStyle(
+                        new Notification.BigTextStyle()
+                                .bigText(text))
+                .setContentIntent(open)
+                .setAutoCancel(false)
+                .setOngoing(false)
+                .setOnlyAlertOnce(true)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setWhen(System.currentTimeMillis())
+                .setShowWhen(true)
+                .build();
+    }
+
     private void updateAssignmentNotification() {
-        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        List<PendingMeasurementStore.Item> pending = PendingMeasurementStore.load(
-                getSharedPreferences("prefs", MODE_PRIVATE));
-        if (pending.isEmpty()) {
-            manager.cancel(NOTIFICATION_ASSIGNMENT);
-        } else {
+        NotificationManager manager =
+                (NotificationManager) getSystemService(
+                        NOTIFICATION_SERVICE);
+
+        List<PendingMeasurementStore.Item> pending =
+                PendingMeasurementStore.load(
+                        getSharedPreferences(
+                                "prefs",
+                                MODE_PRIVATE));
+
+        List<RemotePendingMeasurementStore.Item> remotePending =
+                RemotePendingMeasurementStore.load(
+                        this);
+
+        if (!pending.isEmpty()) {
             manager.notify(
                     NOTIFICATION_ASSIGNMENT,
-                    assignmentNotification(pending.get(0), pending.size()));
+                    assignmentNotification(
+                            pending.get(0),
+                            pending.size()));
+            return;
         }
+
+        if (!remotePending.isEmpty()) {
+            manager.notify(
+                    NOTIFICATION_ASSIGNMENT,
+                    remoteAssignmentNotification(
+                            remotePending.get(0),
+                            remotePending.size()));
+            return;
+        }
+
+        manager.cancel(
+                NOTIFICATION_ASSIGNMENT);
     }
 
     private void updateMonitor(String text) {

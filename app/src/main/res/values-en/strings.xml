@@ -366,6 +366,9 @@ UUIDs: %1$s</string>
     <string name="notification_assignment_title">Measurement cannot be assigned</string>
     <string name="notification_assignment_single">%1$.1f kg – select user</string>
     <string name="notification_assignment_multiple">%1$.1f kg – select user (%2$d pending)</string>
+    <string name="notification_remote_assignment_title">Measurement needs your decision</string>
+    <string name="notification_remote_assignment_single">%1$.1f kg – open ScaleLauncher to assign or choose “Not mine”</string>
+    <string name="notification_remote_assignment_multiple">%1$.1f kg – decision required (%2$d pending)</string>
     <string name="service_waiting_for_measurement">Waiting for S400 measurement</string>
     <string name="notification_channel_monitor">Scale monitoring</string>
     <string name="notification_channel_results">Measurement results</string>

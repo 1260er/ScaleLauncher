@@ -372,6 +372,9 @@ UUIDs: %1$s</string>
     <string name="notification_assignment_title">Messung kann nicht zugeordnet werden</string>
     <string name="notification_assignment_single">%1$.1f kg – Benutzer auswählen</string>
     <string name="notification_assignment_multiple">%1$.1f kg – Benutzer auswählen (%2$d offen)</string>
+    <string name="notification_remote_assignment_title">Messung wartet auf deine Entscheidung</string>
+    <string name="notification_remote_assignment_single">%1$.1f kg – in ScaleLauncher zuordnen oder „Nicht meins“ wählen</string>
+    <string name="notification_remote_assignment_multiple">%1$.1f kg – Entscheidung erforderlich (%2$d offen)</string>
     <string name="service_waiting_for_measurement">Warte auf S400-Messung</string>
     <string name="notification_channel_monitor">Waagenüberwachung</string>
     <string name="notification_channel_results">Messergebnisse</string>
