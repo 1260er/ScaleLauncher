@@ -62,37 +62,6 @@ final class PeerMeasurementPayload {
                                 candidateProfileIds);
     }
 
-    static PeerMeasurementPayload fromMeasurement(
-            String scaleMac,
-            S400FinalMeasurement measurement) {
-        if (measurement == null
-                || !measurement.isComplete()
-                || measurement.impedanceLow == null) {
-            throw new IllegalArgumentException(
-                    "Incomplete S400 measurement");
-        }
-
-        PeerMeasurementPayload payload =
-                new PeerMeasurementPayload(
-                        measurement.measurementId,
-                        normalizeMac(scaleMac),
-                        measurement.timestampMs,
-                        measurement.weightKg,
-                        measurement.impedanceHigh,
-                        measurement.impedanceLow,
-                        measurement.scaleProfileId,
-                        "",
-                        false,
-                        false,
-                        List.of());
-
-        if (!payload.isValid()) {
-            throw new IllegalArgumentException(
-                    "Invalid peer measurement payload");
-        }
-        return payload;
-    }
-
     static PeerMeasurementPayload forUniqueTarget(
             String scaleMac,
             S400FinalMeasurement measurement,

@@ -26,13 +26,11 @@ import java.util.Locale;
 public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
     public static final String ACTION_ASSIGN_PENDING = "de.pritcloud.scalelauncher.ASSIGN_PENDING";
-    public static final String ACTION_REFRESH_PENDING = "de.pritcloud.scalelauncher.REFRESH_PENDING";
     public static final String ACTION_SYNC_PEERS = "de.pritcloud.scalelauncher.SYNC_PEERS";
     public static final String ACTION_SELECT_PENDING = "de.pritcloud.scalelauncher.SELECT_PENDING";
     public static final String ACTION_REJECT_PENDING = "de.pritcloud.scalelauncher.REJECT_PENDING";
     public static final String ACTION_ACCEPT_REMOTE_PENDING = "de.pritcloud.scalelauncher.ACCEPT_REMOTE_PENDING";
     public static final String ACTION_REJECT_REMOTE_PENDING = "de.pritcloud.scalelauncher.REJECT_REMOTE_PENDING";
-    public static final String ACTION_DISCARD_PENDING = "de.pritcloud.scalelauncher.DISCARD_PENDING";
     public static final String EXTRA_PENDING_ID = "pending_id";
     public static final String EXTRA_USER_ID = "user_id";
     public static final String EXTRA_PROFILE_ID = "profile_id";
@@ -215,18 +213,10 @@ public final class ScaleScanService extends Service {
                     intent.getStringExtra(
                             EXTRA_PENDING_ID));
         } else if (intent != null
-                && ACTION_DISCARD_PENDING.equals(
-                        intent.getAction())) {
-            discardPending(
-                    intent.getStringExtra(
-                            EXTRA_PENDING_ID));
-        } else if (intent != null
                 && ACTION_SYNC_PEERS.equals(
                         intent.getAction())) {
             schedulePeerSync(
                     100L);
-        } else if (intent != null && ACTION_REFRESH_PENDING.equals(intent.getAction())) {
-            updateAssignmentNotification();
         } else {
             terminalError = false;
         }
@@ -2578,48 +2568,6 @@ public final class ScaleScanService extends Service {
         removePendingWithoutCandidates(
                 prefs,
                 pendingId);
-
-        updateAssignmentNotification();
-    }
-
-    private void discardPending(
-            String pendingId) {
-        if (pendingId == null
-                || pendingId.isBlank()) {
-            return;
-        }
-
-        SharedPreferences prefs =
-                getSharedPreferences(
-                        "prefs",
-                        MODE_PRIVATE);
-
-        PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
-                        pendingId);
-
-        if (pending == null
-                || pending.isResolved()) {
-            return;
-        }
-
-        PeerOutboxStore.removeMeasurement(
-                this,
-                pendingId);
-
-        broadcastMeasurementClosed(
-                pendingId);
-
-        PendingMeasurementStore.remove(
-                prefs,
-                pendingId);
-
-        EventLog.info(
-                this,
-                getString(
-                        R.string.pending_discarded_log,
-                        pending.weightKg));
 
         updateAssignmentNotification();
     }
