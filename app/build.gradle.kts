@@ -79,4 +79,5 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
 dependencies {
     implementation("androidx.drawerlayout:drawerlayout:1.2.0")
     implementation("org.bouncycastle:bcprov-jdk18on:1.80")
+    testImplementation("junit:junit:4.13.2")
 }

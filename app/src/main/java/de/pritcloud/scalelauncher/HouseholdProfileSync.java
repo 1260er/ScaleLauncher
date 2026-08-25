@@ -46,11 +46,6 @@ final class HouseholdProfileSync {
             return false;
         }
 
-        if (!UserProfile.isValidHouseholdProfileId(
-                profile.householdProfileId)) {
-            return false;
-        }
-
         return publishPrepared(
                 context,
                 profile,

@@ -2339,10 +2339,9 @@ public final class ScaleScanService extends Service {
                         householdMatch.status.name(),
                         householdCandidateProfileIds.size()));
 
-        if (householdMatch.status
-                == HouseholdMeasurementRouter.Status.AMBIGUOUS
-                && match.status
-                != UserMatcher.Status.NO_MATCH) {
+        if (MeasurementRoutingPolicy.shouldCreateHouseholdAmbiguousPending(
+                match.status,
+                householdMatch.status)) {
             String reason =
                     getString(
                             R.string.pending_reason_similar_users);
