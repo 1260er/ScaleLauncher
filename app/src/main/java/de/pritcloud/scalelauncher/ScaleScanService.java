@@ -1144,9 +1144,18 @@ public final class ScaleScanService extends Service {
             if (profile == null
                     || !localDeviceId.equals(
                             profile.ownerDeviceId)
-                    || !profile.hasValidMatchingData()
                     || !profile.hasValidBodyData(
                             payload.timestampMs)) {
+                continue;
+            }
+
+            if (payload.manualRescue) {
+                claimedProfileIds.add(
+                        profile.householdProfileId);
+                continue;
+            }
+
+            if (!profile.hasValidMatchingData()) {
                 continue;
             }
 
@@ -1630,6 +1639,95 @@ public final class ScaleScanService extends Service {
         }
     }
 
+    private void enqueueManualRescueRequests(
+            S400FinalMeasurement measurement,
+            List<String> candidateProfileIds) {
+        if (measurement == null
+                || candidateProfileIds == null
+                || candidateProfileIds.isEmpty()) {
+            return;
+        }
+
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        String scaleMac =
+                prefs.getString(
+                        "mac",
+                        "");
+
+        if (!S400GattProtocol.isValidMacAddress(
+                scaleMac)) {
+            return;
+        }
+
+        int queued =
+                0;
+
+        for (PeerTrustStore.Peer peer :
+                PeerTrustStore.load(
+                        this)) {
+            List<String> peerCandidateProfileIds =
+                    new java.util.ArrayList<>();
+
+            for (String profileId :
+                    candidateProfileIds) {
+                HouseholdProfile profile =
+                        HouseholdProfileStore.find(
+                                this,
+                                profileId);
+
+                if (profile != null
+                        && peer.deviceId.equals(
+                                profile.ownerDeviceId)) {
+                    peerCandidateProfileIds.add(
+                            profileId);
+                }
+            }
+
+            if (peerCandidateProfileIds.isEmpty()) {
+                continue;
+            }
+
+            try {
+                PeerMeasurementPayload payload =
+                        PeerMeasurementPayload.forManualRescue(
+                                scaleMac,
+                                measurement,
+                                peerCandidateProfileIds);
+
+                PeerOutboxStore.enqueueMeasurement(
+                        this,
+                        peer.deviceId,
+                        payload);
+
+                EventLog.debug(
+                        this,
+                        getString(
+                                R.string.log_peer_claim_request_queued,
+                                measurement.measurementId,
+                                peer.label,
+                                peerCandidateProfileIds.size()));
+
+                queued++;
+            } catch (RuntimeException exception) {
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_peer_transport_error,
+                                exception.getClass()
+                                        .getSimpleName()));
+            }
+        }
+
+        if (queued > 0) {
+            schedulePeerSync(
+                    100L);
+        }
+    }
+
     private void enqueueHouseholdClaimRequests(
             S400FinalMeasurement measurement,
             HouseholdMeasurementRouter.Result householdMatch) {
@@ -2074,7 +2172,8 @@ public final class ScaleScanService extends Service {
                 prefs,
                 measurement,
                 reason,
-                pendingCandidateProfileIds);
+                pendingCandidateProfileIds,
+                match.status == UserMatcher.Status.NO_MATCH);
         EventLog.warning(this, getString(
                 R.string.log_measurement_unassigned,
                 measurement.weightKg,
@@ -2082,6 +2181,13 @@ public final class ScaleScanService extends Service {
         EventLog.debug(this, getString(R.string.log_pending_measurement_saved, pending.id));
         updateMonitor(getString(R.string.service_user_assignment_required));
         updateAssignmentNotification();
+
+        if (match.status
+                == UserMatcher.Status.NO_MATCH) {
+            enqueueManualRescueRequests(
+                    measurement,
+                    pendingCandidateProfileIds);
+        }
     }
 
     private void selectPendingCandidate(
@@ -2353,7 +2459,8 @@ public final class ScaleScanService extends Service {
                         pendingId);
 
         if (pending == null
-                || pending.isResolved()) {
+                || pending.isResolved()
+                || pending.manualRescue) {
             return;
         }
 

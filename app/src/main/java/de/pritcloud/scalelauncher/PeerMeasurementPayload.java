@@ -28,6 +28,7 @@ final class PeerMeasurementPayload {
     final Integer scaleProfileId;
     final String targetProfileId;
     final boolean requiresClaim;
+    final boolean manualRescue;
     final List<String> candidateProfileIds;
 
     private PeerMeasurementPayload(String measurementId,
@@ -39,6 +40,7 @@ final class PeerMeasurementPayload {
                                    Integer scaleProfileId,
                                    String targetProfileId,
                                    boolean requiresClaim,
+                                   boolean manualRescue,
                                    List<String> candidateProfileIds) {
         this.measurementId = measurementId;
         this.scaleMac = scaleMac;
@@ -52,6 +54,7 @@ final class PeerMeasurementPayload {
                         ? ""
                         : targetProfileId;
         this.requiresClaim = requiresClaim;
+        this.manualRescue = manualRescue;
         this.candidateProfileIds =
                 candidateProfileIds == null
                         ? List.of()
@@ -79,6 +82,7 @@ final class PeerMeasurementPayload {
                         measurement.impedanceLow,
                         measurement.scaleProfileId,
                         "",
+                        false,
                         false,
                         List.of());
 
@@ -110,6 +114,7 @@ final class PeerMeasurementPayload {
                         measurement.scaleProfileId,
                         targetProfileId,
                         false,
+                        false,
                         List.of());
 
         if (!payload.isValid()) {
@@ -124,6 +129,29 @@ final class PeerMeasurementPayload {
             String scaleMac,
             S400FinalMeasurement measurement,
             List<String> candidateProfileIds) {
+        return forClaim(
+                scaleMac,
+                measurement,
+                candidateProfileIds,
+                false);
+    }
+
+    static PeerMeasurementPayload forManualRescue(
+            String scaleMac,
+            S400FinalMeasurement measurement,
+            List<String> candidateProfileIds) {
+        return forClaim(
+                scaleMac,
+                measurement,
+                candidateProfileIds,
+                true);
+    }
+
+    private static PeerMeasurementPayload forClaim(
+            String scaleMac,
+            S400FinalMeasurement measurement,
+            List<String> candidateProfileIds,
+            boolean manualRescue) {
         PeerMeasurementPayload payload =
                 new PeerMeasurementPayload(
                         measurement.measurementId,
@@ -135,6 +163,7 @@ final class PeerMeasurementPayload {
                         measurement.scaleProfileId,
                         "",
                         true,
+                        manualRescue,
                         candidateProfileIds);
 
         if (!payload.isValid()) {
@@ -175,6 +204,12 @@ final class PeerMeasurementPayload {
             object.put(
                     "requiresClaim",
                     requiresClaim);
+
+            if (manualRescue) {
+                object.put(
+                        "manualRescue",
+                        true);
+            }
 
             if (!candidateProfileIds.isEmpty()) {
                 JSONArray candidates =
@@ -261,6 +296,9 @@ final class PeerMeasurementPayload {
                             object.optBoolean(
                                     "requiresClaim",
                                     false),
+                            object.optBoolean(
+                                    "manualRescue",
+                                    false),
                             candidateProfileIds);
 
             return payload.isValid() ? payload : null;
@@ -300,6 +338,8 @@ final class PeerMeasurementPayload {
                             targetProfileId))
                 && validCandidateProfileIds(
                         candidateProfileIds)
+                && (!manualRescue
+                    || requiresClaim)
                 && (requiresClaim
                     ? targetProfileId.isBlank()
                         && !candidateProfileIds.isEmpty()

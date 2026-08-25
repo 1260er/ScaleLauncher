@@ -140,6 +140,7 @@ final class PendingMeasurementStore {
         final boolean timedOut;
         final long timestampMs;
         final String reason;
+        final boolean manualRescue;
         final List<String> candidateProfileIds;
         final List<String> rejectedProfileIds;
         final String selectedProfileId;
@@ -153,6 +154,7 @@ final class PendingMeasurementStore {
              boolean timedOut,
              long timestampMs,
              String reason,
+             boolean manualRescue,
              List<String> candidateProfileIds,
              List<String> rejectedProfileIds,
              String selectedProfileId,
@@ -165,6 +167,7 @@ final class PendingMeasurementStore {
             this.timedOut = timedOut;
             this.timestampMs = timestampMs;
             this.reason = reason;
+            this.manualRescue = manualRescue;
             this.candidateProfileIds =
                     sanitizeCandidateProfileIds(
                             candidateProfileIds);
@@ -233,6 +236,7 @@ final class PendingMeasurementStore {
             object.put("timedOut", timedOut);
             object.put("timestampMs", timestampMs);
             object.put("reason", reason);
+            object.put("manualRescue", manualRescue);
 
             if (!candidateProfileIds.isEmpty()) {
                 JSONArray candidateIds =
@@ -340,6 +344,7 @@ final class PendingMeasurementStore {
                     object.optBoolean("timedOut", false),
                     object.optLong("timestampMs", System.currentTimeMillis()),
                     object.optString("reason", ""),
+                    object.optBoolean("manualRescue", false),
                     candidateProfileIds,
                     rejectedProfileIds,
                     object.optString(
@@ -428,6 +433,19 @@ final class PendingMeasurementStore {
                     S400FinalMeasurement measurement,
                     String reason,
                     List<String> candidateProfileIds) {
+        return add(
+                prefs,
+                measurement,
+                reason,
+                candidateProfileIds,
+                false);
+    }
+
+    static Item add(SharedPreferences prefs,
+                    S400FinalMeasurement measurement,
+                    String reason,
+                    List<String> candidateProfileIds,
+                    boolean manualRescue) {
         List<Item> items = load(prefs);
         Item item = new Item(
                 measurement.measurementId,
@@ -438,6 +456,7 @@ final class PendingMeasurementStore {
                 false,
                 measurement.timestampMs,
                 reason,
+                manualRescue,
                 candidateProfileIds,
                 List.of(),
                 "",
@@ -577,6 +596,7 @@ final class PendingMeasurementStore {
                 item.timedOut,
                 item.timestampMs,
                 item.reason,
+                item.manualRescue,
                 item.candidateProfileIds,
                 rejectedProfileIds,
                 selectedProfileId,
