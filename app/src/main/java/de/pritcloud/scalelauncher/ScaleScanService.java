@@ -965,10 +965,7 @@ public final class ScaleScanService extends Service {
 
             if (payload.requiresClaim) {
                 String requestMessageId =
-                        payload.manualRescue
-                                ? "rescue:"
-                                    + payload.measurementId
-                                : payload.measurementId;
+                        payload.transportMessageId();
 
                 String dedupKey =
                         payload.manualRescue

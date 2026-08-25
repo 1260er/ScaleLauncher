@@ -307,6 +307,21 @@ final class PeerMeasurementPayload {
         }
     }
 
+    String transportMessageId() {
+        if (!isValid()) {
+            throw new IllegalStateException(
+                    "Invalid peer measurement payload");
+        }
+
+        if (requiresClaim) {
+            return manualRescue
+                    ? "rescue:" + measurementId
+                    : measurementId;
+        }
+
+        return "route:" + measurementId;
+    }
+
     S400FinalMeasurement toMeasurement() {
         if (!isValid()) {
             throw new IllegalStateException(

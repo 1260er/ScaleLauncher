@@ -99,11 +99,7 @@ final class PeerOutboxStore {
         enqueue(
                 context,
                 new Item(
-                        payload.requiresClaim
-                                ? (payload.manualRescue
-                                    ? "rescue:" + payload.measurementId
-                                    : payload.measurementId)
-                                : "route:" + payload.measurementId,
+                        payload.transportMessageId(),
                         peerDeviceId,
                         KIND_MEASUREMENT,
                         payload.measurementId,
