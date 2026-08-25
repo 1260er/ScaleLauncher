@@ -27,6 +27,7 @@ public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
     public static final String ACTION_ASSIGN_PENDING = "de.pritcloud.scalelauncher.ASSIGN_PENDING";
     public static final String ACTION_REFRESH_PENDING = "de.pritcloud.scalelauncher.REFRESH_PENDING";
+    public static final String ACTION_SYNC_PEERS = "de.pritcloud.scalelauncher.SYNC_PEERS";
     public static final String ACTION_SELECT_PENDING = "de.pritcloud.scalelauncher.SELECT_PENDING";
     public static final String ACTION_REJECT_PENDING = "de.pritcloud.scalelauncher.REJECT_PENDING";
     public static final String ACTION_ACCEPT_REMOTE_PENDING = "de.pritcloud.scalelauncher.ACCEPT_REMOTE_PENDING";
@@ -154,6 +155,8 @@ public final class ScaleScanService extends Service {
 
         peerTransport.start();
 
+        repairStaleAmbiguousPending();
+
         schedulePeerSync(
                 1_000L);
 
@@ -215,6 +218,11 @@ public final class ScaleScanService extends Service {
             discardPending(
                     intent.getStringExtra(
                             EXTRA_PENDING_ID));
+        } else if (intent != null
+                && ACTION_SYNC_PEERS.equals(
+                        intent.getAction())) {
+            schedulePeerSync(
+                    100L);
         } else if (intent != null && ACTION_REFRESH_PENDING.equals(intent.getAction())) {
             updateAssignmentNotification();
         } else {
@@ -952,9 +960,18 @@ public final class ScaleScanService extends Service {
             }
 
             if (payload.requiresClaim) {
+                String requestMessageId =
+                        payload.manualRescue
+                                ? "rescue:"
+                                    + payload.measurementId
+                                : payload.measurementId;
+
                 String dedupKey =
-                        "claim-request:"
-                                + payload.measurementId;
+                        payload.manualRescue
+                                ? "rescue-request:"
+                                    + payload.measurementId
+                                : "claim-request:"
+                                    + payload.measurementId;
 
                 boolean duplicate =
                         PeerInboxDedupStore.contains(
@@ -988,7 +1005,7 @@ public final class ScaleScanService extends Service {
 
                 queuePeerAck(
                         peer,
-                        payload.measurementId);
+                        requestMessageId);
 
                 return;
             }
@@ -2054,8 +2071,156 @@ public final class ScaleScanService extends Service {
         }
     }
 
+    private void repairStaleAmbiguousPending() {
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        List<PendingMeasurementStore.Item> snapshot =
+                new java.util.ArrayList<>(
+                        PendingMeasurementStore.load(
+                                prefs));
+
+        for (PendingMeasurementStore.Item pending :
+                snapshot) {
+            if (pending == null
+                    || pending.isResolved()
+                    || pending.manualRescue) {
+                continue;
+            }
+
+            boolean hasEmptyRemoteClaim =
+                    false;
+
+            for (PendingMeasurementStore.ClaimResponse response :
+                    PendingMeasurementStore.claimResponses(
+                            prefs,
+                            pending.id)) {
+                if (response.profileIds.isEmpty()) {
+                    hasEmptyRemoteClaim =
+                            true;
+                    break;
+                }
+            }
+
+            if (!hasEmptyRemoteClaim) {
+                continue;
+            }
+
+            List<UserProfile> localProfiles =
+                    UserProfileStore.enabled(
+                            UserProfileStore.load(
+                                    prefs));
+
+            UserMatcher.Result localMatch =
+                    UserMatcher.match(
+                            localProfiles,
+                            pending.weightKg);
+
+            if (localMatch.status
+                    != UserMatcher.Status.NO_MATCH) {
+                continue;
+            }
+
+            List<String> candidateProfileIds =
+                    new java.util.ArrayList<>();
+
+            for (HouseholdProfile profile :
+                    HouseholdProfileStore.active(
+                            this)) {
+                if (profile != null
+                        && UserProfile.isValidHouseholdProfileId(
+                                profile.profileId)
+                        && !candidateProfileIds.contains(
+                                profile.profileId)) {
+                    candidateProfileIds.add(
+                            profile.profileId);
+                }
+            }
+
+            for (UserProfile profile :
+                    localProfiles) {
+                if (profile != null
+                        && UserProfile.isValidHouseholdProfileId(
+                                profile.householdProfileId)
+                        && !candidateProfileIds.contains(
+                                profile.householdProfileId)) {
+                    candidateProfileIds.add(
+                            profile.householdProfileId);
+                }
+            }
+
+            if (candidateProfileIds.isEmpty()) {
+                continue;
+            }
+
+            /*
+             * Remove the obsolete normal CLAIM from the outbox before
+             * queuing CLOSED + the new rescue request.
+             */
+            PeerOutboxStore.removeMeasurement(
+                    this,
+                    pending.id);
+
+            broadcastMeasurementClosed(
+                    pending.id);
+
+            PendingMeasurementStore.remove(
+                    prefs,
+                    pending.id);
+
+            String reason =
+                    getString(
+                            R.string.pending_reason_no_weight_match);
+
+            PendingMeasurementStore.Item repaired =
+                    PendingMeasurementStore.add(
+                            prefs,
+                            pending.toMeasurement(),
+                            reason,
+                            candidateProfileIds,
+                            true);
+
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_measurement_unassigned,
+                            repaired.weightKg,
+                            reason));
+
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_pending_measurement_saved,
+                            repaired.id));
+
+            enqueueManualRescueRequests(
+                    repaired.toMeasurement(),
+                    candidateProfileIds);
+        }
+    }
+
     private void routeMeasurement(S400FinalMeasurement measurement) {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+
+        List<UserProfile> profiles =
+                UserProfileStore.enabled(
+                        UserProfileStore.load(
+                                prefs));
+
+        UserMatcher.Result match =
+                UserMatcher.match(
+                        profiles,
+                        measurement.weightKg);
+
+        EventLog.debug(
+                this,
+                getString(
+                        R.string.log_user_match,
+                        UserMatcher.diagnosticSummary(
+                                this,
+                                match)));
 
         HouseholdMeasurementRouter.Result householdMatch =
                 HouseholdMeasurementRouter.match(
@@ -2085,7 +2250,9 @@ public final class ScaleScanService extends Service {
                         householdCandidateProfileIds.size()));
 
         if (householdMatch.status
-                == HouseholdMeasurementRouter.Status.AMBIGUOUS) {
+                == HouseholdMeasurementRouter.Status.AMBIGUOUS
+                && match.status
+                != UserMatcher.Status.NO_MATCH) {
             String reason =
                     getString(
                             R.string.pending_reason_similar_users);
@@ -2127,12 +2294,6 @@ public final class ScaleScanService extends Service {
 
             return;
         }
-
-        List<UserProfile> profiles = UserProfileStore.enabled(UserProfileStore.load(prefs));
-        UserMatcher.Result match = UserMatcher.match(profiles, measurement.weightKg);
-        EventLog.debug(this, getString(
-                R.string.log_user_match,
-                UserMatcher.diagnosticSummary(this, match)));
 
         if (match.status == UserMatcher.Status.MATCHED && match.profile != null) {
             EventLog.info(this, getString(

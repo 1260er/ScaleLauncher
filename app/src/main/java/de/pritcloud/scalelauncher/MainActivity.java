@@ -656,10 +656,34 @@ public final class MainActivity extends Activity {
         editor.putLong("profile_editor_user_id", profile.userId).apply();
         UserProfileStore.save(prefs, profiles);
 
-        HouseholdProfileSync.publishProfile(
-                this,
-                prefs,
-                profile.userId);
+        boolean profilePublished =
+                HouseholdProfileSync.publishProfile(
+                        this,
+                        prefs,
+                        profile.userId);
+
+        if (profilePublished) {
+            ServiceState.Snapshot serviceState =
+                    ServiceState.read(
+                            this);
+
+            long now =
+                    System.currentTimeMillis();
+
+            if ((serviceState.mode
+                            == ServiceState.Mode.RUNNING
+                        || serviceState.mode
+                            == ServiceState.Mode.STARTING)
+                    && !serviceState.isStale(
+                            now)) {
+                startService(
+                        new Intent(
+                                this,
+                                ScaleScanService.class)
+                                .setAction(
+                                        ScaleScanService.ACTION_SYNC_PEERS));
+            }
+        }
 
         profiles =
                 UserProfileStore.load(prefs);

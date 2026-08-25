@@ -100,7 +100,9 @@ final class PeerOutboxStore {
                 context,
                 new Item(
                         payload.requiresClaim
-                                ? payload.measurementId
+                                ? (payload.manualRescue
+                                    ? "rescue:" + payload.measurementId
+                                    : payload.measurementId)
                                 : "route:" + payload.measurementId,
                         peerDeviceId,
                         KIND_MEASUREMENT,
