@@ -132,9 +132,24 @@ final class HouseholdProfileSync {
                             profile,
                             now,
                             false);
+        }
 
-            if (!UserProfile.isValidHouseholdProfileId(
-                    profile.householdProfileId)) {
+        if (changed) {
+            UserProfileStore.save(
+                    prefs,
+                    profiles);
+        }
+
+        List<String> ownerProfileIds =
+                currentOwnedProfileIds(
+                        context,
+                        profiles);
+
+        for (UserProfile profile :
+                profiles) {
+            if (!profile.hasValidMatchingData()
+                    || !ownerProfileIds.contains(
+                            profile.householdProfileId)) {
                 continue;
             }
 
@@ -154,7 +169,8 @@ final class HouseholdProfileSync {
                         context,
                         peer.deviceId,
                         PeerProfilePayload.fromProfile(
-                                household));
+                                household,
+                                ownerProfileIds));
 
                 queued++;
             } catch (RuntimeException exception) {
@@ -166,12 +182,6 @@ final class HouseholdProfileSync {
             }
         }
 
-        if (changed) {
-            UserProfileStore.save(
-                    prefs,
-                    profiles);
-        }
-
         return queued;
     }
 
@@ -179,7 +189,8 @@ final class HouseholdProfileSync {
             Context context,
             SharedPreferences prefs,
             PeerTrustStore.Peer peer,
-            HouseholdProfile incoming) {
+            HouseholdProfile incoming,
+            List<String> ownerProfileIds) {
         if (peer == null
                 || incoming == null
                 || !incoming.isValid()) {
@@ -239,6 +250,27 @@ final class HouseholdProfileSync {
                 context,
                 incoming);
 
+        if (senderIsOwner
+                && ownerProfileIds != null
+                && !ownerProfileIds.isEmpty()
+                && ownerProfileIds.contains(
+                        incoming.profileId)) {
+            int removed =
+                    HouseholdProfileStore.removeOwnerExcept(
+                            context,
+                            peer.deviceId,
+                            ownerProfileIds);
+
+            if (removed > 0) {
+                EventLog.info(
+                        context,
+                        context.getString(
+                                R.string.log_peer_profiles_pruned,
+                                removed,
+                                peer.label));
+            }
+        }
+
         return true;
     }
 
@@ -260,12 +292,24 @@ final class HouseholdProfileSync {
 
             int queued = 0;
 
+            List<UserProfile> currentProfiles =
+                    UserProfileStore.load(
+                            context.getSharedPreferences(
+                                    "prefs",
+                                    Context.MODE_PRIVATE));
+
+            List<String> ownerProfileIds =
+                    currentOwnedProfileIds(
+                            context,
+                            currentProfiles);
+
             if (onlyPeer != null) {
                 queued +=
                         enqueue(
                                 context,
                                 onlyPeer,
-                                household);
+                                household,
+                                ownerProfileIds);
             } else {
                 for (PeerTrustStore.Peer peer :
                         PeerTrustStore.load(context)) {
@@ -273,7 +317,8 @@ final class HouseholdProfileSync {
                             enqueue(
                                     context,
                                     peer,
-                                    household);
+                                    household,
+                                    ownerProfileIds);
                 }
             }
 
@@ -301,13 +346,15 @@ final class HouseholdProfileSync {
     private static int enqueue(
             Context context,
             PeerTrustStore.Peer peer,
-            HouseholdProfile profile) {
+            HouseholdProfile profile,
+            List<String> ownerProfileIds) {
         try {
             PeerOutboxStore.enqueueProfile(
                     context,
                     peer.deviceId,
                     PeerProfilePayload.fromProfile(
-                            profile));
+                            profile,
+                            ownerProfileIds));
 
             return 1;
         } catch (RuntimeException exception) {
@@ -319,6 +366,41 @@ final class HouseholdProfileSync {
 
             return 0;
         }
+    }
+
+    private static List<String> currentOwnedProfileIds(
+            Context context,
+            List<UserProfile> profiles) {
+        List<String> result =
+                new java.util.ArrayList<>();
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        context);
+
+        if (profiles == null) {
+            return result;
+        }
+
+        for (UserProfile profile :
+                profiles) {
+            if (profile == null
+                    || !profile.hasValidMatchingData()
+                    || !localDeviceId.equals(
+                            profile.ownerDeviceId)
+                    || !UserProfile.isValidHouseholdProfileId(
+                            profile.householdProfileId)) {
+                continue;
+            }
+
+            if (!result.contains(
+                    profile.householdProfileId)) {
+                result.add(
+                        profile.householdProfileId);
+            }
+        }
+
+        return result;
     }
 
     private static boolean prepareIdentity(

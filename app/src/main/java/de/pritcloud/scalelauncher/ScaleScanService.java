@@ -673,7 +673,8 @@ public final class ScaleScanService extends Service {
                         this,
                         prefs,
                         peer,
-                        payload.profile)) {
+                        payload.profile,
+                        payload.ownerProfileIds)) {
                     return;
                 }
 
@@ -1639,6 +1640,23 @@ public final class ScaleScanService extends Service {
                             prefs,
                             currentUsers,
                             PeerTrustStore.localDeviceId(this));
+
+            int queuedProfiles =
+                    0;
+
+            for (PeerTrustStore.Peer peer :
+                    PeerTrustStore.load(this)) {
+                queuedProfiles +=
+                        HouseholdProfileSync.enqueueAllProfilesForPeer(
+                                this,
+                                prefs,
+                                peer.deviceId);
+            }
+
+            if (queuedProfiles > 0) {
+                schedulePeerSync(
+                        100L);
+            }
 
             if (previousCount != synchronizedProfiles.size()) {
                 EventLog.info(this, getString(

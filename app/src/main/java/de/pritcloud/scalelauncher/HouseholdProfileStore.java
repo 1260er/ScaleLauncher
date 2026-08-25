@@ -143,6 +143,55 @@ final class HouseholdProfileStore {
         return removed;
     }
 
+    static int removeOwnerExcept(
+            Context context,
+            String ownerDeviceId,
+            List<String> retainedProfileIds) {
+        if (!PeerTrustStore.isValidDeviceId(
+                        ownerDeviceId)
+                || retainedProfileIds == null) {
+            return 0;
+        }
+
+        java.util.HashSet<String> retained =
+                new java.util.HashSet<>();
+
+        for (String profileId :
+                retainedProfileIds) {
+            if (!UserProfile.isValidHouseholdProfileId(
+                    profileId)) {
+                return 0;
+            }
+
+            retained.add(
+                    profileId);
+        }
+
+        List<HouseholdProfile> profiles =
+                load(context);
+
+        int before =
+                profiles.size();
+
+        profiles.removeIf(
+                profile ->
+                        ownerDeviceId.equals(
+                                profile.ownerDeviceId)
+                                && !retained.contains(
+                                        profile.profileId));
+
+        int removed =
+                before - profiles.size();
+
+        if (removed > 0) {
+            save(
+                    context,
+                    profiles);
+        }
+
+        return removed;
+    }
+
     static int removeOwner(
             Context context,
             String ownerDeviceId) {

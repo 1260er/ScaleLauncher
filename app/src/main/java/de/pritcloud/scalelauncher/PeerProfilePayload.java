@@ -1,8 +1,11 @@
 package de.pritcloud.scalelauncher;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 final class PeerProfilePayload {
@@ -12,20 +15,35 @@ final class PeerProfilePayload {
 
     final String messageId;
     final HouseholdProfile profile;
+    final List<String> ownerProfileIds;
 
     private PeerProfilePayload(
             String messageId,
-            HouseholdProfile profile) {
+            HouseholdProfile profile,
+            List<String> ownerProfileIds) {
         this.messageId = messageId;
         this.profile = profile;
+        this.ownerProfileIds =
+                ownerProfileIds == null
+                        ? List.of()
+                        : List.copyOf(ownerProfileIds);
     }
 
     static PeerProfilePayload fromProfile(
             HouseholdProfile profile) {
+        return fromProfile(
+                profile,
+                List.of());
+    }
+
+    static PeerProfilePayload fromProfile(
+            HouseholdProfile profile,
+            List<String> ownerProfileIds) {
         PeerProfilePayload payload =
                 new PeerProfilePayload(
                         UUID.randomUUID().toString(),
-                        profile);
+                        profile,
+                        ownerProfileIds);
 
         if (!payload.isValid()) {
             throw new IllegalArgumentException(
@@ -36,10 +54,36 @@ final class PeerProfilePayload {
     }
 
     boolean isValid() {
-        return UserProfile.isValidHouseholdProfileId(
+        if (!UserProfile.isValidHouseholdProfileId(
                         messageId)
-                && profile != null
-                && profile.isValid();
+                || profile == null
+                || !profile.isValid()
+                || ownerProfileIds.size() > 100) {
+            return false;
+        }
+
+        if (ownerProfileIds.isEmpty()) {
+            return true;
+        }
+
+        boolean containsProfile =
+                false;
+
+        for (String profileId :
+                ownerProfileIds) {
+            if (!UserProfile.isValidHouseholdProfileId(
+                    profileId)) {
+                return false;
+            }
+
+            if (profile.profileId.equals(
+                    profileId)) {
+                containsProfile =
+                        true;
+            }
+        }
+
+        return containsProfile;
     }
 
     String encode() {
@@ -64,6 +108,21 @@ final class PeerProfilePayload {
             object.put(
                     "profile",
                     profile.toJson());
+
+            if (!ownerProfileIds.isEmpty()) {
+                JSONArray ids =
+                        new JSONArray();
+
+                for (String profileId :
+                        ownerProfileIds) {
+                    ids.put(
+                            profileId);
+                }
+
+                object.put(
+                        "ownerProfileIds",
+                        ids);
+            }
 
             return object.toString();
         } catch (JSONException exception) {
@@ -94,6 +153,24 @@ final class PeerProfilePayload {
                 return null;
             }
 
+            List<String> ownerProfileIds =
+                    new ArrayList<>();
+
+            JSONArray ids =
+                    object.optJSONArray(
+                            "ownerProfileIds");
+
+            if (ids != null) {
+                for (int index = 0;
+                     index < ids.length();
+                     index++) {
+                    ownerProfileIds.add(
+                            ids.optString(
+                                    index,
+                                    ""));
+                }
+            }
+
             PeerProfilePayload payload =
                     new PeerProfilePayload(
                             object.optString(
@@ -101,7 +178,8 @@ final class PeerProfilePayload {
                                     ""),
                             HouseholdProfile.fromJson(
                                     object.optJSONObject(
-                                            "profile")));
+                                            "profile")),
+                            ownerProfileIds);
 
             return payload.isValid()
                     ? payload
