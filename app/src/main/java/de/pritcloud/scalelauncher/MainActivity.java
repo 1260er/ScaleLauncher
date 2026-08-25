@@ -500,6 +500,12 @@ public final class MainActivity extends Activity {
     }
 
     private void openUserDetail(long userId) {
+        profiles =
+                UserProfileStore.load(
+                        getSharedPreferences(
+                                "prefs",
+                                MODE_PRIVATE));
+
         for (int position = 0; position < users.size(); position++) {
             OpenScaleProvider.User user = users.get(position);
             if (user.id != userId) continue;
@@ -1355,32 +1361,60 @@ public final class MainActivity extends Activity {
                             UserProfileStore.load(
                                     prefs));
 
-            for (String profileId :
-                    item.remainingCandidateProfileIds()) {
-                HouseholdProfile household =
-                        HouseholdProfileStore.find(
-                                this,
-                                profileId);
+            boolean unrestrictedLocalAssignment =
+                    item.remainingCandidateProfileIds()
+                                    .isEmpty()
+                            && getString(
+                                    R.string.pending_reason_no_weight_match)
+                                    .equals(
+                                            item.reason);
 
-                if (household == null
-                        || !localDeviceId.equals(
-                                household.ownerDeviceId)) {
-                    continue;
-                }
+            if (unrestrictedLocalAssignment) {
+                for (UserProfile local :
+                        localProfiles) {
+                    if (!local.hasValidBodyData(
+                            item.timestampMs)) {
+                        continue;
+                    }
 
-                UserProfile local =
-                        UserProfileStore.findByHouseholdProfileId(
-                                localProfiles,
-                                profileId);
-
-                if (local != null
-                        && local.hasValidBodyData(
-                                item.timestampMs)) {
                     pendingCandidates.add(
                             new PendingCandidate(
-                                    household.profileId,
-                                    household.ownerDeviceId,
-                                    household.name));
+                                    local.householdProfileId,
+                                    local.ownerDeviceId,
+                                    local.name,
+                                    local.userId,
+                                    true));
+                }
+            } else {
+                for (String profileId :
+                        item.remainingCandidateProfileIds()) {
+                    HouseholdProfile household =
+                            HouseholdProfileStore.find(
+                                    this,
+                                    profileId);
+
+                    if (household == null
+                            || !localDeviceId.equals(
+                                    household.ownerDeviceId)) {
+                        continue;
+                    }
+
+                    UserProfile local =
+                            UserProfileStore.findByHouseholdProfileId(
+                                    localProfiles,
+                                    profileId);
+
+                    if (local != null
+                            && local.hasValidBodyData(
+                                    item.timestampMs)) {
+                        pendingCandidates.add(
+                                new PendingCandidate(
+                                        household.profileId,
+                                        household.ownerDeviceId,
+                                        household.name,
+                                        local.userId,
+                                        false));
+                    }
                 }
             }
         }
@@ -1527,17 +1561,26 @@ public final class MainActivity extends Activity {
                 new Intent(
                         this,
                         ScaleScanService.class)
-                        .setAction(
-                                ScaleScanService.ACTION_SELECT_PENDING)
                         .putExtra(
                                 ScaleScanService.EXTRA_PENDING_ID,
-                                item.id)
-                        .putExtra(
-                                ScaleScanService.EXTRA_PROFILE_ID,
-                                candidate.profileId)
-                        .putExtra(
-                                ScaleScanService.EXTRA_OWNER_DEVICE_ID,
-                                candidate.ownerDeviceId);
+                                item.id);
+
+        if (candidate.unrestricted) {
+            intent.setAction(
+                    ScaleScanService.ACTION_ASSIGN_PENDING)
+                    .putExtra(
+                            ScaleScanService.EXTRA_USER_ID,
+                            candidate.userId);
+        } else {
+            intent.setAction(
+                    ScaleScanService.ACTION_SELECT_PENDING)
+                    .putExtra(
+                            ScaleScanService.EXTRA_PROFILE_ID,
+                            candidate.profileId)
+                    .putExtra(
+                            ScaleScanService.EXTRA_OWNER_DEVICE_ID,
+                            candidate.ownerDeviceId);
+        }
 
         startForegroundService(
                 intent);
@@ -1602,11 +1645,15 @@ public final class MainActivity extends Activity {
         final String profileId;
         final String ownerDeviceId;
         final String name;
+        final long userId;
+        final boolean unrestricted;
 
         PendingCandidate(
                 String profileId,
                 String ownerDeviceId,
-                String name) {
+                String name,
+                long userId,
+                boolean unrestricted) {
             this.profileId =
                     profileId;
             this.ownerDeviceId =
@@ -1615,6 +1662,10 @@ public final class MainActivity extends Activity {
                     name == null
                             ? ""
                             : name;
+            this.userId =
+                    userId;
+            this.unrestricted =
+                    unrestricted;
         }
 
         @Override public String toString() {

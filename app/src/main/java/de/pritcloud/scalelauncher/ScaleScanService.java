@@ -1752,11 +1752,29 @@ public final class ScaleScanService extends Service {
                 match.status == UserMatcher.Status.AMBIGUOUS
                         ? R.string.pending_reason_similar_users
                         : R.string.pending_reason_no_weight_match);
+
+        List<String> pendingCandidateProfileIds =
+                new java.util.ArrayList<>(
+                        householdCandidateProfileIds);
+
+        if (match.status
+                == UserMatcher.Status.NO_MATCH) {
+            for (HouseholdProfile profile :
+                    HouseholdProfileStore.active(
+                            this)) {
+                if (UserProfile.isValidHouseholdProfileId(
+                        profile.profileId)) {
+                    pendingCandidateProfileIds.add(
+                            profile.profileId);
+                }
+            }
+        }
+
         PendingMeasurementStore.Item pending = PendingMeasurementStore.add(
                 prefs,
                 measurement,
                 reason,
-                householdCandidateProfileIds);
+                pendingCandidateProfileIds);
         EventLog.warning(this, getString(
                 R.string.log_measurement_unassigned,
                 measurement.weightKg,
@@ -2259,22 +2277,24 @@ public final class ScaleScanService extends Service {
                     composition);
             openScaleStored = logProviderResult(result, profile.name);
             if (openScaleStored) {
-                float average = OpenScaleProvider.readAverageRecentWeight(
-                        this,
-                        authority,
-                        profile.userId,
-                        5);
-                if (average > 0f) {
-                    HouseholdProfileSync.updateReferenceWeight(
-                            this,
-                            prefs,
-                            profile.userId,
-                            average);
+                boolean referenceUpdated =
+                        HouseholdProfileSync.updateReferenceWeight(
+                                this,
+                                prefs,
+                                profile.userId,
+                                measurement.weightKg);
+
+                if (referenceUpdated) {
+                    profile.referenceWeightKg =
+                            measurement.weightKg;
 
                     EventLog.debug(this, getString(
                             R.string.log_reference_weight_updated,
                             profile.name,
-                            average));
+                            measurement.weightKg));
+
+                    schedulePeerSync(
+                            100L);
                 }
             }
         } catch (SecurityException e) {
