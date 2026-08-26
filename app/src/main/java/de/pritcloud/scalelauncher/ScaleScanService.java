@@ -9,7 +9,10 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Handler;
@@ -70,6 +73,42 @@ public final class ScaleScanService extends Service {
     private final ArrayDeque<DirectPeerMessage> peerDirectQueue =
             new ArrayDeque<>();
 
+    private final BroadcastReceiver bluetoothStateReceiver =
+            new BroadcastReceiver() {
+                @Override public void onReceive(
+                        Context context,
+                        Intent intent) {
+                    if (intent == null
+                            || !BluetoothAdapter.ACTION_STATE_CHANGED.equals(
+                                    intent.getAction())) {
+                        return;
+                    }
+
+                    int state =
+                            intent.getIntExtra(
+                                    BluetoothAdapter.EXTRA_STATE,
+                                    BluetoothAdapter.ERROR);
+
+                    if (state == BluetoothAdapter.STATE_TURNING_OFF
+                            || state == BluetoothAdapter.STATE_OFF) {
+                        EventLog.debug(
+                                ScaleScanService.this,
+                                "Peer-Transport: Bluetooth aus – Transport wird angehalten");
+                        stopPeerTransport();
+                        return;
+                    }
+
+                    if (state == BluetoothAdapter.STATE_ON) {
+                        EventLog.debug(
+                                ScaleScanService.this,
+                                "Peer-Transport: Bluetooth aktiv – Transport wird neu gestartet");
+                        restartPeerTransport();
+                    }
+                }
+            };
+
+    private boolean bluetoothStateReceiverRegistered;
+
     private S400GattClient gattClient;
     private PeerMeasurementTransport peerTransport;
     private boolean peerSendInFlight;
@@ -86,74 +125,8 @@ public final class ScaleScanService extends Service {
         super.onCreate();
         createChannels();
 
-        peerTransport =
-                new PeerMeasurementTransport(
-                        this,
-                        new PeerMeasurementTransport.Listener() {
-                            @Override
-                            public void onMessageReceived(
-                                    PeerTrustStore.Peer peer,
-                                    String payload) {
-                                handlePeerMessage(
-                                        peer,
-                                        payload);
-                            }
-
-                            @Override
-                            public void onMessageSent(
-                                    PeerTrustStore.Peer peer,
-                                    String messageId) {
-                                peerSendInFlight =
-                                        false;
-
-                                DirectPeerMessage direct =
-                                        peerDirectQueue.peek();
-
-                                if (direct != null
-                                        && direct.messageId.equals(
-                                                messageId)) {
-                                    peerDirectQueue.poll();
-
-                                    /*
-                                     * Direct messages are ACKs. They are not
-                                     * persisted and may be followed by the
-                                     * next queued message immediately.
-                                     */
-                                    schedulePeerSync(
-                                            250L);
-                                    return;
-                                }
-
-                                /*
-                                 * Persistent outbox messages stay queued until
-                                 * their application-level ACK arrives. Do not
-                                 * resend them immediately after a successful
-                                 * transport write; wait for the normal retry
-                                 * interval. Receiving the ACK schedules the
-                                 * next outbox item immediately.
-                                 */
-                                schedulePeerSync(
-                                        PEER_SYNC_RETRY_MS);
-                            }
-
-                            @Override
-                            public void onError(
-                                    String message) {
-                                peerSendInFlight =
-                                        false;
-
-                                EventLog.warning(
-                                        ScaleScanService.this,
-                                        getString(
-                                                R.string.log_peer_transport_error,
-                                                message));
-
-                                schedulePeerSync(
-                                        peerErrorRetryDelayMs());
-                            }
-                        });
-
-        peerTransport.start();
+        registerBluetoothStateReceiver();
+        startPeerTransport();
 
         repairStaleAmbiguousPending();
 
@@ -222,6 +195,131 @@ public final class ScaleScanService extends Service {
         }
         if (!terminalError) startGattCollector();
         return START_STICKY;
+    }
+
+    private PeerMeasurementTransport.Listener createPeerTransportListener() {
+        return new PeerMeasurementTransport.Listener() {
+                            @Override
+                            public void onMessageReceived(
+                                    PeerTrustStore.Peer peer,
+                                    String payload) {
+                                handlePeerMessage(
+                                        peer,
+                                        payload);
+                            }
+
+                            @Override
+                            public void onMessageSent(
+                                    PeerTrustStore.Peer peer,
+                                    String messageId) {
+                                peerSendInFlight =
+                                        false;
+
+                                DirectPeerMessage direct =
+                                        peerDirectQueue.peek();
+
+                                if (direct != null
+                                        && direct.messageId.equals(
+                                                messageId)) {
+                                    peerDirectQueue.poll();
+
+                                    /*
+                                     * Direct messages are ACKs. They are not
+                                     * persisted and may be followed by the
+                                     * next queued message immediately.
+                                     */
+                                    schedulePeerSync(
+                                            250L);
+                                    return;
+                                }
+
+                                /*
+                                 * Persistent outbox messages stay queued until
+                                 * their application-level ACK arrives. Do not
+                                 * resend them immediately after a successful
+                                 * transport write; wait for the normal retry
+                                 * interval. Receiving the ACK schedules the
+                                 * next outbox item immediately.
+                                 */
+                                schedulePeerSync(
+                                        PEER_SYNC_RETRY_MS);
+                            }
+
+                            @Override
+                            public void onError(
+                                    String message) {
+                                peerSendInFlight =
+                                        false;
+
+                                EventLog.warning(
+                                        ScaleScanService.this,
+                                        getString(
+                                                R.string.log_peer_transport_error,
+                                                message));
+
+                                schedulePeerSync(
+                                        peerErrorRetryDelayMs());
+                            }
+                        };
+    }
+
+    private void registerBluetoothStateReceiver() {
+        if (bluetoothStateReceiverRegistered) {
+            return;
+        }
+
+        IntentFilter filter =
+                new IntentFilter(
+                        BluetoothAdapter.ACTION_STATE_CHANGED);
+
+        if (android.os.Build.VERSION.SDK_INT
+                >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                    bluetoothStateReceiver,
+                    filter,
+                    Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(
+                    bluetoothStateReceiver,
+                    filter);
+        }
+
+        bluetoothStateReceiverRegistered = true;
+    }
+
+    private void startPeerTransport() {
+        if (peerTransport != null
+                || explicitStop) {
+            return;
+        }
+
+        peerTransport =
+                new PeerMeasurementTransport(
+                        this,
+                        createPeerTransportListener());
+
+        peerTransport.start();
+    }
+
+    private void stopPeerTransport() {
+        if (peerTransport != null) {
+            peerTransport.stop();
+            peerTransport = null;
+        }
+
+        peerSendInFlight = false;
+    }
+
+    private void restartPeerTransport() {
+        stopPeerTransport();
+
+        if (explicitStop) {
+            return;
+        }
+
+        startPeerTransport();
+        schedulePeerSync(
+                100L);
     }
 
     private void runGattReconnect() {
@@ -3550,10 +3648,16 @@ public final class ScaleScanService extends Service {
     }
 
     @Override public void onDestroy() {
-        if (peerTransport != null) {
-            peerTransport.stop();
-            peerTransport = null;
+        if (bluetoothStateReceiverRegistered) {
+            try {
+                unregisterReceiver(
+                        bluetoothStateReceiver);
+            } catch (IllegalArgumentException ignored) {
+            }
+            bluetoothStateReceiverRegistered = false;
         }
+
+        stopPeerTransport();
 
         handler.removeCallbacksAndMessages(null);
         stopGattCollector();
