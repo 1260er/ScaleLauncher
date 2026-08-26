@@ -497,6 +497,7 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="peer_pair_code_log">Sicherer BLE-Schlüsselaustausch erfolgreich – Sicherheitscode bereit</string>
 
     <string name="log_household_match">Haushaltsabgleich: %1$s | %2$d Kandidaten</string>
+    <string name="log_household_candidate">Haushaltskandidat: %1$s | Besitzer %2$s | Profil %3$s | Referenz %4$.1f kg | Toleranz ±%5$.1f kg | Δ%6$.1f kg</string>
     <string name="log_peer_claim_request_queued">CLAIM-Anfrage für Messung %1$s an %2$s vorgemerkt (%3$d Kandidaten)</string>
     <string name="log_peer_claim_response_queued">CLAIM-Antwort für Messung %1$s an %2$s vorgemerkt (%3$d lokale Kandidaten)</string>
     <string name="log_peer_claim_received">CLAIM-Antwort von %1$s für Messung %2$s empfangen (%3$d Kandidaten)</string>

@@ -489,6 +489,7 @@ Both phones must show exactly the same code. If they match, press “Codes match
     <string name="peer_pair_code_log">Secure BLE key exchange successful – security code ready</string>
 
     <string name="log_household_match">Household match: %1$s | %2$d candidates</string>
+    <string name="log_household_candidate">Household candidate: %1$s | owner %2$s | profile %3$s | reference %4$.1f kg | tolerance ±%5$.1f kg | Δ%6$.1f kg</string>
     <string name="log_peer_claim_request_queued">CLAIM request for measurement %1$s queued for %2$s (%3$d candidates)</string>
     <string name="log_peer_claim_response_queued">CLAIM response for measurement %1$s queued for %2$s (%3$d local candidates)</string>
     <string name="log_peer_claim_received">CLAIM response from %1$s for measurement %2$s received (%3$d candidates)</string>

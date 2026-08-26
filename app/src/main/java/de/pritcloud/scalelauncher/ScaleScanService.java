@@ -2326,6 +2326,25 @@ public final class ScaleScanService extends Service {
                         householdMatch.status.name(),
                         householdCandidateProfileIds.size()));
 
+        for (HouseholdMeasurementRouter.Candidate candidate :
+                householdMatch.candidates) {
+            if (candidate == null
+                    || candidate.profile == null) {
+                continue;
+            }
+
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_household_candidate,
+                            candidate.profile.name,
+                            candidate.profile.ownerDeviceId,
+                            candidate.profile.profileId,
+                            candidate.profile.referenceWeightKg,
+                            candidate.profile.toleranceKg,
+                            candidate.differenceKg));
+        }
+
         if (MeasurementRoutingPolicy.shouldCreateHouseholdAmbiguousPending(
                 match.status,
                 householdMatch.status)) {
