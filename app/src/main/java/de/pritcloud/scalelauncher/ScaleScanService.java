@@ -3085,9 +3085,20 @@ public final class ScaleScanService extends Service {
                                 userName),
                         getString(R.string.notification_measurement_success_text),
                         false));
-        updateMonitor(getString(
-                R.string.service_measurement_saved_for,
-                userName));
+        String nextMonitorText =
+                gattCollectorOwned
+                                && gattClient != null
+                                && gattClient.isReady()
+                        ? getString(
+                                R.string.service_gatt_ready)
+                        : gattMonitoringActive
+                                ? getString(
+                                        R.string.service_gatt_standby)
+                                : getString(
+                                        R.string.service_waiting_for_measurement);
+
+        updateMonitor(
+                nextMonitorText);
     }
 
     private void notifyMeasurementFailure(String reason) {
