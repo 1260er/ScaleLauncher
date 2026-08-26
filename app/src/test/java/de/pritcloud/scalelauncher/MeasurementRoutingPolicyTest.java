@@ -44,6 +44,30 @@ public final class MeasurementRoutingPolicyTest {
     }
 
     @Test
+    public void normalPendingAutoResolvesWhenOneCandidateRemains() {
+        assertTrue(
+                MeasurementRoutingPolicy.shouldAutoResolveSingleRemainingCandidate(
+                        false,
+                        1));
+    }
+
+    @Test
+    public void normalPendingStaysOpenWhenMultipleCandidatesRemain() {
+        assertFalse(
+                MeasurementRoutingPolicy.shouldAutoResolveSingleRemainingCandidate(
+                        false,
+                        2));
+    }
+
+    @Test
+    public void manualRescueNeverAutoResolvesLastCandidate() {
+        assertFalse(
+                MeasurementRoutingPolicy.shouldAutoResolveSingleRemainingCandidate(
+                        true,
+                        1));
+    }
+
+    @Test
     public void userMatcherKeepsMatchedAmbiguousAndNoMatchSemantics() {
         UserProfile andre =
                 localProfile(

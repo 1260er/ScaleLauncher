@@ -12,4 +12,11 @@ final class MeasurementRoutingPolicy {
                 && localStatus
                 != UserMatcher.Status.NO_MATCH;
     }
+
+    static boolean shouldAutoResolveSingleRemainingCandidate(
+            boolean manualRescue,
+            int remainingCandidateCount) {
+        return !manualRescue
+                && remainingCandidateCount == 1;
+    }
 }

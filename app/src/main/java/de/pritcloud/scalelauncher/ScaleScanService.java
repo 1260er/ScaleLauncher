@@ -931,7 +931,7 @@ public final class ScaleScanService extends Service {
                                     prefs,
                                     decision.measurementId);
                         } else {
-                            autoResolveSingleRemainingRemoteCandidate(
+                            autoResolveSingleRemainingCandidate(
                                     prefs,
                                     decision.measurementId);
                         }
@@ -1005,7 +1005,7 @@ public final class ScaleScanService extends Service {
                             peer.deviceId,
                             claim.claimedProfileIds);
 
-                    autoResolveSingleRemainingRemoteCandidate(
+                    autoResolveSingleRemainingCandidate(
                             prefs,
                             claim.measurementId);
 
@@ -2682,7 +2682,7 @@ public final class ScaleScanService extends Service {
                             rejectedCount));
         }
 
-        autoResolveSingleRemainingRemoteCandidate(
+        autoResolveSingleRemainingCandidate(
                 prefs,
                 pendingId);
 
@@ -2766,7 +2766,7 @@ public final class ScaleScanService extends Service {
         return false;
     }
 
-    private void autoResolveSingleRemainingRemoteCandidate(
+    private void autoResolveSingleRemainingCandidate(
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
@@ -2775,24 +2775,22 @@ public final class ScaleScanService extends Service {
                         pendingId);
 
         if (pending == null
-                || pending.isResolved()
-                || pending.manualRescue) {
+                || pending.isResolved()) {
             return;
         }
 
         List<String> remaining =
                 pending.remainingCandidateProfileIds();
 
-        if (remaining.size() != 1) {
+        if (!MeasurementRoutingPolicy
+                .shouldAutoResolveSingleRemainingCandidate(
+                        pending.manualRescue,
+                        remaining.size())) {
             return;
         }
 
         String profileId =
                 remaining.get(0);
-
-        String localDeviceId =
-                PeerTrustStore.localDeviceId(
-                        this);
 
         for (HouseholdProfile profile :
                 HouseholdProfileStore.active(
@@ -2800,11 +2798,6 @@ public final class ScaleScanService extends Service {
             if (!profileId.equals(
                     profile.profileId)) {
                 continue;
-            }
-
-            if (localDeviceId.equals(
-                    profile.ownerDeviceId)) {
-                return;
             }
 
             if (!validSelectablePendingCandidate(
