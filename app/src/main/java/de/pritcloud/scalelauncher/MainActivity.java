@@ -1391,61 +1391,47 @@ public final class MainActivity extends Activity {
                             UserProfileStore.load(
                                     prefs));
 
-            boolean unrestrictedLocalAssignment =
-                    item.remainingCandidateProfileIds()
-                                    .isEmpty()
-                            && getString(
-                                    R.string.pending_reason_no_weight_match)
-                                    .equals(
-                                            item.reason);
+            List<String> remainingCandidateProfileIds =
+                    item.remainingCandidateProfileIds();
 
-            if (unrestrictedLocalAssignment) {
-                for (UserProfile local :
-                        localProfiles) {
-                    if (!local.hasValidBodyData(
-                            item.timestampMs)) {
-                        continue;
-                    }
-
-                    pendingCandidates.add(
-                            new PendingCandidate(
-                                    local.householdProfileId,
-                                    local.ownerDeviceId,
-                                    local.name,
-                                    local.userId,
-                                    true));
+            /*
+             * Weight matching decides automatic routing only. Once a
+             * measurement needs a human decision, the collector must always
+             * be able to assign it explicitly to any valid local user.
+             *
+             * Profiles that are still routing candidates keep the normal
+             * candidate-selection path. Other local profiles use the existing
+             * unrestricted manual assignment path.
+             */
+            for (UserProfile local :
+                    localProfiles) {
+                if (!local.hasValidBodyData(
+                        item.timestampMs)) {
+                    continue;
                 }
-            } else {
-                for (String profileId :
-                        item.remainingCandidateProfileIds()) {
-                    HouseholdProfile household =
-                            HouseholdProfileStore.find(
-                                    this,
-                                    profileId);
 
-                    if (household == null
-                            || !localDeviceId.equals(
-                                    household.ownerDeviceId)) {
-                        continue;
-                    }
+                HouseholdProfile household =
+                        remainingCandidateProfileIds.contains(
+                                local.householdProfileId)
+                                ? HouseholdProfileStore.find(
+                                        this,
+                                        local.householdProfileId)
+                                : null;
 
-                    UserProfile local =
-                            UserProfileStore.findByHouseholdProfileId(
-                                    localProfiles,
-                                    profileId);
+                boolean routingCandidate =
+                        household != null
+                                && localDeviceId.equals(
+                                        household.ownerDeviceId);
 
-                    if (local != null
-                            && local.hasValidBodyData(
-                                    item.timestampMs)) {
-                        pendingCandidates.add(
-                                new PendingCandidate(
-                                        household.profileId,
-                                        household.ownerDeviceId,
-                                        household.name,
-                                        local.userId,
-                                        false));
-                    }
-                }
+                pendingCandidates.add(
+                        new PendingCandidate(
+                                local.householdProfileId,
+                                routingCandidate
+                                        ? household.ownerDeviceId
+                                        : local.ownerDeviceId,
+                                local.name,
+                                local.userId,
+                                !routingCandidate));
             }
         } else if (!remotePendingMeasurements.isEmpty()) {
             RemotePendingMeasurementStore.Item item =
