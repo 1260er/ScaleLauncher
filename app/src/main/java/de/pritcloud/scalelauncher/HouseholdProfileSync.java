@@ -363,6 +363,33 @@ final class HouseholdProfileSync {
         }
     }
 
+    static int pruneStaleLocalProfiles(
+            Context context,
+            SharedPreferences prefs) {
+        if (context == null
+                || prefs == null) {
+            return 0;
+        }
+
+        List<UserProfile> profiles =
+                UserProfileStore.load(prefs);
+
+        List<String> ownerProfileIds =
+                currentOwnedProfileIds(
+                        context,
+                        profiles);
+
+        if (ownerProfileIds.isEmpty()) {
+            return 0;
+        }
+
+        return HouseholdProfileStore.removeOwnerExcept(
+                context,
+                PeerTrustStore.localDeviceId(
+                        context),
+                ownerProfileIds);
+    }
+
     private static List<String> currentOwnedProfileIds(
             Context context,
             List<UserProfile> profiles) {

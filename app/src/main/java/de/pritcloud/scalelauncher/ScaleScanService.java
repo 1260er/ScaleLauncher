@@ -2115,6 +2115,10 @@ public final class ScaleScanService extends Service {
                             currentUsers,
                             PeerTrustStore.localDeviceId(this));
 
+            HouseholdProfileSync.pruneStaleLocalProfiles(
+                    this,
+                    prefs);
+
             int queuedProfiles =
                     0;
 
