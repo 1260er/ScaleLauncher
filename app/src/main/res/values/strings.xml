@@ -393,8 +393,8 @@ UUIDs: %1$s</string>
     <string name="multiuser_title">Remotebenutzer</string>
     <string name="multiuser_description">Remotebenutzer können unterschiedlichen ScaleLauncher-Handys zugeordnet werden. Hier verwaltest du die sicheren Verbindungen zwischen diesen Handys.</string>
     <string name="peer_pair_phone">Mehrbenutzer verwalten</string>
-    <string name="peer_pairing_title">Remotebenutzer</string>
-    <string name="peer_pairing_intro">Verwalte hier die ScaleLauncher-Handys im Haushalt. Für ein weiteres Handy öffnest du diese Seite auf beiden Geräten und vergleichst anschließend den sechsstelligen Sicherheitscode.</string>
+    <string name="peer_pairing_title">Handykopplung</string>
+    <string name="peer_pairing_intro">Hier kannst du ein weiteres Handy zum Haushalt hinzufügen und somit dem Besitzer die Nutzung der Waage ermöglichen. Für ein weiteres Handy öffnest du diese Seite auf beiden Geräten und vergleichst anschließend den sechsstelligen Sicherheitscode.</string>
     <string name="peer_this_phone_title">Dieses Handy</string>
     <string name="peer_connected_phones_title">Verbundene Handys</string>
     <string name="peer_add_phone_title">Weiteres Handy</string>
@@ -434,7 +434,7 @@ Code auf beiden Handys:
 %2$s
 
 Nur bestätigen, wenn beide Codes identisch sind.</string>
-    <string name="peer_verify_accept">Codes stimmen überein</string>
+    <string name="peer_verify_accept">Sicherheitscode bestätigen</string>
     <string name="peer_verify_reject">Abbrechen</string>
     <string name="peer_pairing_success">Kopplung erfolgreich: %1$s</string>
     <string name="peer_pairing_failed">Kopplung wurde nicht abgeschlossen</string>

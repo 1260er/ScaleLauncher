@@ -385,8 +385,8 @@ UUIDs: %1$s</string>
     <string name="multiuser_title">Remote users</string>
     <string name="multiuser_description">Remote users can be assigned to different ScaleLauncher phones. Manage the secure connections between those phones here.</string>
     <string name="peer_pair_phone">Manage multi-user</string>
-    <string name="peer_pairing_title">Remote users</string>
-    <string name="peer_pairing_intro">Manage the ScaleLauncher phones in your household here. To add another phone, open this page on both devices and then compare the six-digit security code.</string>
+    <string name="peer_pairing_title">Phone pairing</string>
+    <string name="peer_pairing_intro">Here you can add another phone to the household and allow its owner to use the scale. To add another phone, open this page on both devices and then compare the six-digit security code.</string>
     <string name="peer_this_phone_title">This phone</string>
     <string name="peer_connected_phones_title">Connected phones</string>
     <string name="peer_add_phone_title">Add another phone</string>
@@ -426,7 +426,7 @@ Code on both phones:
 %2$s
 
 Confirm only when both codes are identical.</string>
-    <string name="peer_verify_accept">Codes match</string>
+    <string name="peer_verify_accept">Confirm security code</string>
     <string name="peer_verify_reject">Cancel</string>
     <string name="peer_pairing_success">Pairing successful: %1$s</string>
     <string name="peer_pairing_failed">Pairing was not completed</string>

@@ -231,7 +231,7 @@ public final class PeerPairingActivity extends Activity {
         clearPendingPairing();
 
         startButton.setText(
-                R.string.peer_pairing_start);
+                R.string.peer_verify_accept);
 
         if (adapter == null
                 || manager == null
@@ -877,7 +877,7 @@ public final class PeerPairingActivity extends Activity {
             status.setText(
                     R.string.peer_pairing_ready);
             startButton.setText(
-                    R.string.peer_pairing_start);
+                    R.string.peer_verify_accept);
             startButton.setEnabled(true);
             return;
         }
@@ -910,12 +910,14 @@ public final class PeerPairingActivity extends Activity {
 
             status.setText(message);
             startButton.setText(
-                    R.string.peer_pairing_start);
+                    R.string.peer_verify_accept);
             startButton.setEnabled(true);
 
             EventLog.info(
                     this,
                     message);
+
+            finish();
         } catch (RuntimeException exception) {
             fail(
                     getString(
@@ -987,7 +989,7 @@ public final class PeerPairingActivity extends Activity {
                 () -> {
                     status.setText(message);
                     startButton.setText(
-                            R.string.peer_pairing_start);
+                            R.string.peer_verify_accept);
                     startButton.setEnabled(true);
                 });
 

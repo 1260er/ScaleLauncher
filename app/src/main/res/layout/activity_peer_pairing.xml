@@ -45,7 +45,7 @@
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
+            android:layout_marginTop="@dimen/spacing_md"
             android:text="@string/peer_add_phone_title"
             android:textStyle="bold" />
 
@@ -63,7 +63,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_lg"
-            android:text="@string/peer_pairing_start" />
+            android:text="@string/peer_verify_accept" />
 
     </LinearLayout>
 </ScrollView>
