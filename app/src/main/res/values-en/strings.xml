@@ -86,7 +86,7 @@
     <string name="user_health_connect">Use Health Connect only for this user</string>
     <string name="user_profile_saved">User profile %1$s saved.</string>
     <string name="page_health_connect_title">Health Connect</string>
-    <string name="health_connect_page_description">Choose which measurements for the selected user are additionally written to Health Connect.</string>
+    <string name="health_connect_page_description">Choose which measurements for the selected user are additionally written to Health Connect. You define the primary user whose data should be transferred in the user settings.</string>
     <string name="health_connect_enabled">Transfer measurements for the selected user</string>
     <string name="health_connect_values_title">Values to transfer</string>
     <string name="health_connect_weight">Weight</string>

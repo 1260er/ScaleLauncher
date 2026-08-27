@@ -92,7 +92,7 @@
     <string name="user_health_connect">Health Connect nur für diesen Benutzer verwenden</string>
     <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
     <string name="page_health_connect_title">Health Connect</string>
-    <string name="health_connect_page_description">Hier bestimmst du, welche Messwerte des ausgewählten Benutzers zusätzlich an Health Connect übergeben werden.</string>
+    <string name="health_connect_page_description">Hier bestimmst du, welche Messwerte des ausgewählten Benutzers zusätzlich an Health Connect übergeben werden. Der Hauptbenutzer, an welchen die Daten übertragen werden sollen, legst du in den Benutzereinstellungen fest.</string>
     <string name="health_connect_enabled">Messungen des ausgewählten Benutzers übertragen</string>
     <string name="health_connect_values_title">Zu übertragende Werte</string>
     <string name="health_connect_weight">Gewicht</string>
