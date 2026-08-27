@@ -48,7 +48,7 @@
             style="@style/UiCheckBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
+            android:layout_marginTop="@dimen/spacing_md"
             android:buttonTint="@color/ui_text_primary"
             android:text="@string/health_connect_enabled" />
 
@@ -56,7 +56,7 @@
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_lg"
+            android:layout_marginTop="@dimen/spacing_md"
             android:text="@string/health_connect_values_title"
             android:textStyle="bold" />
 

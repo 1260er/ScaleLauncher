@@ -93,7 +93,7 @@
     <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
     <string name="page_health_connect_title">Health Connect</string>
     <string name="health_connect_page_description">Hier bestimmst du, welche Messwerte des ausgewählten Benutzers zusätzlich an Health Connect übergeben werden. Der Hauptbenutzer, an welchen die Daten übertragen werden sollen, legst du in den Benutzereinstellungen fest.</string>
-    <string name="health_connect_enabled">Messungen des ausgewählten Benutzers übertragen</string>
+    <string name="health_connect_enabled">Messungen übertragen</string>
     <string name="health_connect_values_title">Zu übertragende Werte</string>
     <string name="health_connect_weight">Gewicht</string>
     <string name="health_connect_body_fat">Körperfett</string>
@@ -101,7 +101,7 @@
     <string name="health_connect_bone_mass">Knochenmasse</string>
     <string name="health_connect_lean_body_mass">Fettfreie Masse</string>
     <string name="health_connect_bmr">Grundumsatz</string>
-    <string name="health_connect_bmi">BMI ermöglichen – Gewicht und Größe übertragen</string>
+    <string name="health_connect_bmi">Gewicht und Größe übertragen (BMI)</string>
     <string name="health_connect_permissions">Schreibrechte für ausgewählte Werte erlauben</string>
     <string name="health_connect_not_checked">Health Connect: noch nicht geprüft</string>
     <string name="health_connect_settings_saved">Health-Connect-Einstellungen gespeichert.</string>

@@ -87,7 +87,7 @@
     <string name="user_profile_saved">User profile %1$s saved.</string>
     <string name="page_health_connect_title">Health Connect</string>
     <string name="health_connect_page_description">Choose which measurements for the selected user are additionally written to Health Connect. You define the primary user whose data should be transferred in the user settings.</string>
-    <string name="health_connect_enabled">Transfer measurements for the selected user</string>
+    <string name="health_connect_enabled">Transfer measurements</string>
     <string name="health_connect_values_title">Values to transfer</string>
     <string name="health_connect_weight">Weight</string>
     <string name="health_connect_body_fat">Body fat</string>
@@ -95,7 +95,7 @@
     <string name="health_connect_bone_mass">Bone mass</string>
     <string name="health_connect_lean_body_mass">Lean body mass</string>
     <string name="health_connect_bmr">Basal metabolic rate</string>
-    <string name="health_connect_bmi">Enable BMI – transfer weight and height</string>
+    <string name="health_connect_bmi">Transfer weight and height (BMI)</string>
     <string name="health_connect_permissions">Allow write access for selected values</string>
     <string name="health_connect_not_checked">Health Connect: not checked yet</string>
     <string name="health_connect_settings_saved">Health Connect settings saved.</string>
