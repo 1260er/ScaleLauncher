@@ -9,9 +9,32 @@
   <strong>Datenschutzfreundliche Android-App für die Xiaomi Body Composition Scale S400, openScale und optional Health Connect.</strong>
 </p>
 
-> **Kurz erklärt:** ScaleLauncher verbindet sich direkt per Bluetooth mit der Xiaomi S400, authentifiziert sich mit dem Login-Token der Waage, empfängt vollständige Messungen, erkennt den passenden Benutzer und speichert die lokal berechneten Körperwerte in openScale.
+> ScaleLauncher verbindet sich direkt per Bluetooth mit der Xiaomi S400, authentifiziert sich mit dem Login-Token der Waage, empfängt vollständige Messungen, ordnet sie dem richtigen lokalen oder entfernten Haushaltsbenutzer zu und speichert die lokal berechneten Körperwerte in openScale.
 
-> **Stand dieser Anleitung: 24. August 2026**
+> **Stand dieser Dokumentation: 27. August 2026**
+
+## Status
+
+Der aktuelle technische Kern wurde mit mehreren realen Android-Handys praktisch abgenommen.
+
+Geprüft wurden unter anderem:
+
+- wiederholte S400-Erkennung ohne Neustart der Überwachung
+- lokale und entfernte Benutzerzuordnung
+- mehrdeutige Messungen und manuelle Entscheidungen
+- NO_MATCH und manuelles Rescue
+- persistente offene Messungen
+- sichere Weiterleitung zwischen mehreren Handys
+- Bluetooth-Ausfall und automatische Peer-Wiederherstellung
+- persistente Retries und Empfangs-Deduplizierung
+- ACK-basierter Abschluss
+- Wechsel der Collector-Rolle
+- Benachrichtigungen bei nicht geöffneter App
+- manuelle Zuordnung zu einem gültigen lokalen Benutzer außerhalb der automatischen Gewichtskandidaten
+
+Der vollständige Regressionstest und das dokumentierte Abnahmeergebnis stehen in [TESTPLAN.md](TESTPLAN.md).
+
+Nach dieser Abnahme gilt die technische BLE-, Routing- und Zuordnungslogik als eingefroren. Weitere Arbeiten vor der Freigabe sollen sich auf UI/UX und Dokumentation beschränken, solange kein reproduzierbarer technischer Fehler gefunden wird.
 
 ## Wozu dient ScaleLauncher?
 
@@ -23,67 +46,54 @@ Die App kann:
 - eine authentifizierte BLE-GATT-Verbindung zur Waage aufbauen
 - Gewicht sowie beide Impedanzwerte empfangen
 - Benutzer anhand von Referenzgewicht und Toleranz erkennen
-- Körperanalysewerte lokal berechnen
+- mehrdeutige oder unpassende Messungen für eine manuelle Entscheidung offenhalten
+- Körperanalysewerte lokal auf dem Besitzer-Handy berechnen
 - vollständige Messungen über openScale Provider API 2 speichern
 - ausgewählte Werte optional an Health Connect übergeben
 - mehrere ScaleLauncher-Handys eines Haushalts sicher miteinander verbinden
+- Messungen an das richtige Besitzer-Handy weiterleiten, auch wenn ein anderes Handy gerade Collector ist
 
 Für die tägliche Messung benötigt ScaleLauncher **keine Xiaomi-Cloud und keine Internetberechtigung**.
 
 ## Funktionsweise
 
-ScaleLauncher scannt die S400 nicht nur passiv. Die App baut eine authentifizierte **BLE-GATT-Verbindung** auf. Nach erfolgreicher Anmeldung liefert die Waage Live-Gewichte und anschließend einen finalen Datensatz mit Gewicht und Dual-Impedanz.
+Die S400 erlaubt nur einen aktiven authentifizierten Bluetooth-Client gleichzeitig. ScaleLauncher trennt deshalb das Handy mit der aktuellen Waagenverbindung vom Handy, das die Daten eines Benutzers besitzt.
 
 ```mermaid
 flowchart LR
-    A[Xiaomi S400] --> B[Authentifizierte BLE-GATT-Verbindung]
-    B --> C[Finale Messung]
-    C --> D[Benutzererkennung]
-    D --> E[Körperanalyse lokal]
-    E --> F[openScale Provider API 2]
-    E --> G[Health Connect optional]
+    A[Xiaomi S400] --> B[Collector-Handy]
+    B --> C[Benutzererkennung]
+    C -->|lokaler Benutzer| D[Lokale Verarbeitung]
+    C -->|Remote-Benutzer| E[Verschlüsselte Peer-Weiterleitung]
+    E --> F[Besitzer-Handy]
+    D --> G[openScale]
+    F --> H[openScale]
+    D --> I[Health Connect optional]
+    F --> J[Health Connect optional]
 ```
+
+Der **Collector** ist einfach das Handy, das aktuell die Verbindung zur S400 hält. Es gibt kein dauerhaftes Hauptgerät. Ein anderes gekoppeltes Handy kann die Rolle übernehmen, wenn sich Bluetooth oder die Verfügbarkeit ändert.
 
 ## Voraussetzungen
 
 | Voraussetzung | Hinweis |
 |---|---|
-| Xiaomi Body Composition Scale S400 | Getestet mit `yunmai.scales.ms104`. Weitere S400-Varianten könnten kompatibel sein, sind aber nicht getestet. |
-| Android 12 oder neuer | Mindestversion. |
-| openScale | Provider API 2 erforderlich. |
+| Xiaomi Body Composition Scale S400 | Praktisch getestet mit `yunmai.scales.ms104`. |
+| Android 12 oder neuer | `minSdk 31` |
+| openScale | Provider API 2 erforderlich |
 | S400 MAC-Adresse | Format `AA:BB:CC:DD:EE:FF` |
-| S400 Login-Token | Genau 24 Hex-Zeichen |
-| Bluetooth | Muss eingeschaltet sein. |
-| Benachrichtigungen | Für Hintergrundüberwachung und Messergebnisse. |
-| Health Connect, optional | Direkte Übertragung ab Android 14. |
+| S400 Login-Token | Genau 24 hexadezimale Zeichen |
+| Bluetooth | Erforderlich |
+| Benachrichtigungen | Für Hintergrundüberwachung und Zuordnungshinweise |
+| Health Connect, optional | Direkte Übertragung ab Android 14 |
 
-### Andere Xiaomi-Körperwaagen
+### Andere Xiaomi-Waagen
 
-ScaleLauncher ist derzeit praktisch mit der **Xiaomi Body Composition Scale S400 `yunmai.scales.ms104`** getestet.
+Praktisch verifiziert ist derzeit die **Xiaomi Body Composition Scale S400 `yunmai.scales.ms104`**.
 
-#### Nahe S400-Varianten
+Nahe S400-Varianten könnten kompatibel sein, wenn sie dasselbe authentifizierte GATT-Protokoll verwenden, werden derzeit aber nicht garantiert. Ältere Xiaomi-Waagen wie die Mi Body Composition Scale 2 verwenden eine andere Bluetooth-Architektur und sind nicht automatisch kompatibel.
 
-Technisch eng verwandt sind:
-
-- S400 `yunmai.scales.ms103`
-- S400 Blue `yunmai.scales.ms107`
-- S400 Pro `xiaomi.scales.ms110`
-
-Diese Modelle liefern ebenfalls Gewicht sowie Low-/High-Impedanz und gehören zur S400-Familie. Sie könnten mit ScaleLauncher kompatibel sein, wurden jedoch noch nicht praktisch getestet. Eine Kompatibilität wird deshalb derzeit nicht garantiert.
-
-#### Xiaomi S800
-
-Die **Xiaomi Mijia Eight-Electrode Body Fat Scale S800 `xiaomi.scales.ms116` / `MJTZC04YM`** verwendet ebenfalls verschlüsselte Xiaomi-Bluetooth-Kommunikation, besitzt jedoch eine andere Messarchitektur mit acht Elektroden und segmentaler Körperanalyse.
-
-Gewicht kann bei diesem Modell über verschlüsselte MiBeacon-Daten übertragen werden. Die vollständigen 8-Elektroden-Messwerte benötigen jedoch einen eigenen verschlüsselten GATT-Datenweg.
-
-Die S800 wird deshalb von der aktuellen ScaleLauncher-S400-Implementierung **nicht unterstützt**. Sie ist ein möglicher Kandidat für eine spätere Erweiterung, benötigt dafür aber eine eigene Protokollanalyse und reale Tests.
-
-#### Ältere Xiaomi-Waagen
-
-Ältere Modelle wie die **Mi Body Composition Scale 2** verwenden ein anderes Bluetooth-Verfahren mit passiven BLE-Werbepaketen. Sie sind nicht mit der aktuellen authentifizierten S400-GATT-Implementierung kompatibel.
-
-### Login-Token
+## Login-Token
 
 ScaleLauncher verwendet den **12-Byte Login-Token** der S400:
 
@@ -94,34 +104,32 @@ TOKEN: 00112233445566778899AABB
 
 Der Token besteht aus genau **24 hexadezimalen Zeichen**.
 
-> Der frühere 32-stellige BLE-Bind-Key wird von der aktuellen GATT-Anmeldung nicht als Eingabefeld verwendet.
+Der frühere 32-stellige BLE-Bind-Key wird von der aktuellen GATT-Anmeldung nicht als Zugangsdatenfeld verwendet.
 
-Der Token kann mit geeigneten Xiaomi-Token-Werkzeugen aus dem Xiaomi-Konto ausgelesen werden, nachdem die Waage in Xiaomi Home / Mi Home eingerichtet wurde.
+Ein Token kann nach dem Hinzufügen der Waage zu Xiaomi Home / Mi Home mit einem geeigneten Xiaomi-Token-Werkzeug ausgelesen werden, zum Beispiel:
 
-Referenz:
 - https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor
 
 Veröffentliche den Token niemals in Screenshots, Protokollen oder Fehlerberichten.
 
-### Wichtig: Xiaomi Home danach nicht parallel verwenden
+## Wichtig: Xiaomi Home danach nicht parallel verwenden
 
-Die S400 kann nur **eine aktive Bluetooth-Verbindung gleichzeitig** halten. Xiaomi Home und ScaleLauncher können die Waage deshalb nicht gleichzeitig zuverlässig verwenden.
+Die S400 kann nur **eine aktive Bluetooth-Verbindung gleichzeitig** halten.
 
-Für den ScaleLauncher-Betrieb wird folgende Reihenfolge empfohlen:
+Empfohlene Einrichtung:
 
 1. S400 zunächst in Xiaomi Home / Mi Home einrichten.
 2. MAC-Adresse und Login-Token auslesen.
-3. MAC-Adresse und Token in ScaleLauncher speichern.
-4. Die S400 anschließend in Xiaomi Home über **Gerät löschen** entfernen.
+3. Beide Werte in ScaleLauncher speichern.
+4. S400 anschließend in Xiaomi Home über **Gerät löschen** entfernen.
 5. Die Waage dabei **nicht auf Werkseinstellungen zurücksetzen**.
-6. Danach die Waage ausschließlich über ScaleLauncher überwachen.
+6. Danach ScaleLauncher für die laufende Überwachung verwenden.
 
-Ein Factory Reset oder ein erneutes Hinzufügen der Waage in Xiaomi Home kann einen neuen Login-Token erzeugen. Dann muss der aktuelle Token erneut ausgelesen und in ScaleLauncher eingetragen werden.
-
+Ein Factory Reset oder erneutes Hinzufügen zu Xiaomi Home kann einen neuen Token erzeugen.
 
 ## Installation
 
-Die aktuelle APK kann über die GitHub-Releases installiert werden:
+APK über die GitHub-Releases installieren:
 
 https://github.com/1260er/ScaleLauncher/releases
 
@@ -133,71 +141,39 @@ https://github.com/1260er/ScaleLauncher
 
 ## Ersteinrichtung
 
-Empfohlene Reihenfolge:
-
-1. openScale installieren und dort den oder die Benutzer anlegen, deren Messdaten auf diesem Handy lokal verwaltet werden sollen. Normalerweise verwendet jeder Benutzer sein eigenes Handy.
+1. openScale installieren und dort die Benutzer anlegen, deren Messungen auf diesem Handy lokal gespeichert werden sollen.
 2. Die S400 **nicht als Bluetooth-Waage in openScale koppeln**.
 3. S400 vorübergehend in Xiaomi Home einrichten.
 4. MAC-Adresse und Login-Token auslesen.
-5. Die S400 anschließend aus Xiaomi Home löschen, aber **nicht resetten**.
+5. Waage aus Xiaomi Home entfernen, ohne sie zurückzusetzen.
 6. Unter **Waage** MAC-Adresse und Login-Token speichern.
-7. Unter **Berechtigungen** die Anforderungen erfüllen.
-8. Unter **Benutzer** die Profile konfigurieren.
-9. Health Connect bei Bedarf einrichten.
-10. Überwachung starten.
+7. Unter **Berechtigungen** alle Anforderungen erfüllen.
+8. Jeden lokalen Benutzer unter **Benutzer** konfigurieren.
+9. Bei mehreren Handys diese unter **Benutzer → Mehrbenutzer** koppeln.
+10. Health Connect bei Bedarf konfigurieren.
+11. Überwachung starten.
 
-### openScale
+## openScale-Integration
 
-openScale wird zusammen mit ScaleLauncher **nicht direkt mit der S400 gekoppelt**.
-
-ScaleLauncher übernimmt die komplette Bluetooth-Verbindung zur Waage und schreibt die fertige Messung anschließend über die **openScale Provider API 2** in den passenden lokalen openScale-Benutzer.
+ScaleLauncher übernimmt die Bluetooth-Verbindung zur S400. openScale dient über **Provider API 2** als lokale Messdatenbank.
 
 Deshalb gilt:
 
-- Benutzer in openScale anlegen
-- ScaleLauncher den openScale-Zugriff erlauben
-- die S400 **nicht zusätzlich in openScale als Waage verbinden**
+- gewünschte Benutzer in openScale anlegen
+- ScaleLauncher den Provider-Zugriff erlauben
+- openScale selbst nicht zusätzlich per Bluetooth mit der S400 verbinden
 
-Eine zusätzliche Bluetooth-Verbindung durch openScale würde mit der exklusiven S400-Verbindung von ScaleLauncher konkurrieren.
+Ein zweiter Bluetooth-Client würde mit der exklusiven S400-Verbindung von ScaleLauncher konkurrieren.
 
-### Waage
+## Benutzererkennung
 
-Unter **Waage** werden MAC-Adresse und Login-Token hinterlegt.
-
-#### Waage wird nicht gefunden
-
-Die S400 kann praktisch nur von **einem aktiven authentifizierten Bluetooth-Client gleichzeitig** verwendet werden.
-
-Wird die Waage nicht gefunden:
-
-1. Prüfen, ob ein anderes ScaleLauncher-Handy die Waage bereits verwendet.
-2. Prüfen, ob die S400 noch in Xiaomi Home aktiv ist. Für ScaleLauncher sollte sie dort nach dem Auslesen des Tokens entfernt sein.
-3. Prüfen, ob openScale selbst mit der S400 gekoppelt wurde. Diese Kopplung ist für ScaleLauncher nicht erforderlich und sollte entfernt werden.
-4. Gegebenenfalls Bluetooth auf dem anderen Handy kurz ausschalten.
-5. Die Waage kurz betreten und aufwecken.
-6. Suche erneut starten.
-
-### Berechtigungen
-
-Besonders wichtig sind:
-
-- Bluetooth
-- Benachrichtigungen
-- Akkuoptimierung für ScaleLauncher deaktivieren
-- Verwaltung bei Nichtnutzung deaktivieren
-
-Diese Einstellungen helfen dabei, dass Android die dauerhafte Überwachung nicht im Hintergrund beendet.
-
-## Benutzer und automatische Zuordnung
-
-ScaleLauncher verwendet pro Benutzer unter anderem:
+Ein ScaleLauncher-Benutzerprofil enthält die für lokale Berechnung und Zuordnung notwendigen Daten, darunter:
 
 - Geburtstag
 - Größe
 - Geschlecht
 - Referenzgewicht
 - Gewichtstoleranz
-- Ziel- beziehungsweise Besitzer-Handy
 
 Die automatische Erkennung erfolgt primär über:
 
@@ -205,53 +181,33 @@ Die automatische Erkennung erfolgt primär über:
 Referenzgewicht ± Toleranz
 ```
 
-Passt genau ein Benutzer, kann die Messung automatisch zugeordnet werden. Passen mehrere Benutzer, bleibt die Messung zur manuellen Zuordnung offen. Liegt das Gewicht außerhalb aller Toleranzen, bleibt sie ebenfalls unzugeordnet.
+Passt genau ein gültiges Haushaltsprofil, kann ScaleLauncher die Messung automatisch weiterleiten.
 
-### Doppelte Namen
+Passen mehrere Profile, bleibt die Messung zur Entscheidung offen.
 
-Namen sind **keine Identität**. Zwei Benutzer dürfen denselben Namen besitzen.
+Passt kein Profil, bleibt die Messung unzugeordnet und kann manuell behandelt werden.
 
-Intern besitzt jedes Haushaltsprofil eine eindeutige `householdProfileId`.
-
-```text
-Anna → Profil-ID A
-Anna → Profil-ID B
-```
-
-Diese Profile bleiben vollständig getrennt.
+Das Gewicht begrenzt nur die **automatische** Kandidatenerkennung. Wenn eine menschliche Entscheidung erforderlich ist, kann der Collector eine offene Messung auch einem anderen gültigen lokalen Benutzer zuordnen, selbst wenn dessen Referenzgewicht außerhalb der automatischen Kandidaten lag.
 
 ## Mehrbenutzer und mehrere Handys
 
-Unter **Benutzer → Mehrbenutzer** können die ScaleLauncher-Handys eines Haushalts zu einem gemeinsamen Verbund gekoppelt werden.
+### Besitzer-Handy und Collector
 
-### Warum ist der Mehrbenutzerbetrieb notwendig?
+Jeder Benutzer gehört zu einem **Besitzer-Handy**. Dort liegen die persönlichen Körperdaten und dort erfolgen:
 
-Die S400 erlaubt nur **eine aktive authentifizierte Bluetooth-Verbindung gleichzeitig**.
+- Körperanalyse
+- Speicherung in openScale
+- optional Health-Connect-Übertragung
 
-Deshalb kann immer nur ein ScaleLauncher-Handy direkt mit der Waage verbunden sein. Dieses Handy übernimmt die **Collector-Rolle** und empfängt die vollständige Messung.
+Das Handy mit der aktuellen S400-Verbindung ist der **Collector**.
 
-Der Mehrbenutzerbetrieb trennt die aktuelle Waagenverbindung vom Besitzer einer Messung:
+Jedes gekoppelte ScaleLauncher-Handy kann Collector werden. Die Rolle kann automatisch wechseln und ändert nichts an der Benutzerzuordnung.
 
-1. Ein beliebiges ScaleLauncher-Handy im Haushalt verbindet sich als Collector mit der S400.
-2. Der Collector empfängt die vollständige Messung.
-3. Anhand der synchronisierten Haushaltsprofile wird geprüft, welcher Benutzer zur Messung passt.
-4. Die Messung wird verschlüsselt an das Besitzer-Handy des passenden Benutzers weitergeleitet.
-5. Erst auf diesem Besitzer-Handy werden die persönlichen Körperdaten verwendet und die Körperanalyse berechnet.
-6. Dort wird die Messung anschließend in openScale und optional in Health Connect gespeichert.
+### Alle beteiligten Handys direkt koppeln
 
-Dadurch kann jeder Benutzer im Haushalt die gemeinsame Waage verwenden, **unabhängig davon, welches ScaleLauncher-Handy gerade die exklusive Verbindung zur S400 hält**.
+Für zuverlässigen Betrieb sollten alle beteiligten ScaleLauncher-Handys direkt miteinander gekoppelt werden.
 
-Bei einer eindeutigen Benutzererkennung muss nur das zuständige Besitzer-Handy erreicht werden.
-
-Sind mehrere Benutzer aufgrund ihrer Gewichtstoleranzen möglich, muss der Collector die Messung an alle infrage kommenden Besitzer-Handys übertragen können, damit die Zuordnung dort korrekt abgeschlossen werden kann.
-
-### Alle Handys müssen miteinander gekoppelt sein
-
-Für einen zuverlässigen Mehrbenutzerbetrieb müssen **alle beteiligten ScaleLauncher-Handys direkt miteinander gekoppelt sein**.
-
-Es reicht nicht aus, die Geräte nur in einer Kette zu verbinden.
-
-Beispiel mit drei Handys:
+Bei drei Handys:
 
 ```text
 Handy A ↔ Handy B
@@ -259,89 +215,50 @@ Handy A ↔ Handy C
 Handy B ↔ Handy C
 ```
 
-Der Grund dafür ist die Collector-Rolle:
-
-**Jedes Handy kann zum Collector werden und muss anschließend jedes mögliche Besitzer-Handy direkt erreichen können.**
-
-Es gibt deshalb kein festes Haupt-Handy und kein dauerhaft festgelegtes Collector-Handy.
-
-Das Koppeln erfolgt immer zwischen zwei Handys. Bei mehr als zwei Geräten wird der Kopplungsvorgang so oft wiederholt, bis jedes Handy mit jedem anderen Handy verbunden ist.
-
-### Collector und Standby
-
-Nur ein Handy kann die S400 gleichzeitig aktiv verwenden. Dieses Handy ist der **Collector**.
-
-Alle anderen ScaleLauncher-Handys warten im **Standby**.
-
-Wird die Waage frei oder der bisherige Collector ist nicht mehr verfügbar, kann ein anderes Handy die Verbindung übernehmen.
-
-Welches Handy gerade Collector ist, ist für die Benutzerzuordnung nicht entscheidend. Wichtig ist, dass der Collector jedes mögliche Besitzer-Handy direkt erreichen kann.
+Jedes Handy kann Collector werden und muss deshalb jedes mögliche Besitzer-Handy erreichen können.
 
 ### Sicheres Koppeln
 
-Für jedes noch nicht verbundene Handypaar:
-
 1. Auf beiden Geräten **Benutzer → Mehrbenutzer** öffnen.
-2. Kopplung auf beiden Geräten starten.
-3. Die Geräte führen einen lokalen kryptografischen Schlüsselaustausch durch.
-4. Auf beiden Geräten erscheint ein sechsstelliger Sicherheitscode.
+2. Kopplung auf beiden Handys starten.
+3. ScaleLauncher führt einen lokalen kryptografischen Schlüsselaustausch durch.
+4. Beide Geräte zeigen einen sechsstelligen Sicherheitscode.
 5. Nur bestätigen, wenn beide Codes identisch sind.
-6. Den Vorgang mit den übrigen Handypaaren wiederholen.
 
-### Welche Daten werden geteilt?
+### Geteilte Haushaltsdaten
 
-Für die gemeinsame Benutzererkennung werden nur notwendige Profildaten synchronisiert:
+Zwischen gekoppelten Handys werden nur notwendige Erkennungsdaten synchronisiert:
 
 - eindeutige Haushalts-Profil-ID
 - Name
 - Besitzer-Handy
 - Referenzgewicht
-- Gewichtstoleranz
+- Toleranz
 - Aktiv-Status
 - Änderungszeitpunkt
 
-Nicht als gemeinsames Haushaltsprofil synchronisiert werden insbesondere:
+Persönliche Profildaten wie Geburtstag, Größe, Geschlecht, lokale openScale-Benutzer-ID und berechnete Körperanalysewerte bleiben auf dem Besitzer-Handy.
 
-- Geburtstag
-- Größe
-- Geschlecht
-- openScale-Benutzer-ID
-- berechnete Körperanalysewerte
+### Zuverlässige Zustellung
 
-Diese persönlichen Daten bleiben auf dem Besitzer-Handy.
+Die Peer-Weiterleitung verwendet:
 
-### Besitzer-Handy
-
-Jeder Benutzer besitzt ein Ziel- beziehungsweise **Besitzer-Handy**.
-
-Dort werden:
-
-- die persönlichen Profildaten vorgehalten
-- die Körperanalyse berechnet
-- die Messung in openScale gespeichert
-- optional Werte an Health Connect übertragen
-
-Die `householdProfileId` ist die eindeutige Identität eines Benutzers im Haushaltsverbund. Namen werden niemals zum automatischen Zusammenführen von Profilen verwendet.
-
-### Aktueller Entwicklungsstand
-
-Im Entwicklungszweig `ui-v1.2.0` sind bereits vorhanden:
-
-- sichere BLE-Kopplung
-- mehrere vertrauenswürdige Geräte
-- verschlüsselte Peer-Kommunikation
-- Haushalts-Profil-IDs
-- Profil-Synchronisierung
 - persistente Outbox
+- Retry nach vorübergehendem Bluetooth-Ausfall
 - Empfangs-Deduplizierung
-- ACK-Bestätigungen
-- Collector-/Standby-Grundfunktion
+- ACK-Bestätigung vor dem endgültigen Abschluss
 
-Die endgültige automatische Weiterleitung und Zuordnung der Messungen zwischen den Besitzer-Handys befindet sich noch in Entwicklung und wird vor der Freigabe mit mehreren realen Handys getestet.
+Dadurch geht eine Entscheidung bei einer vorübergehenden Funkunterbrechung nicht verloren und eine erneut gesendete Messung erzeugt keinen doppelten openScale-Eintrag.
+
+## Benachrichtigungen
+
+ScaleLauncher kann beteiligte Handys über eine unzugeordnete Messung informieren, auch wenn die App-Oberfläche nicht geöffnet ist.
+
+Die Überwachung muss weiter aktiv sein und Android muss Benachrichtigungen erlauben.
 
 ## Health Connect
 
-Health Connect ist optional. Für den ausgewählten Benutzer können unter anderem übertragen werden:
+Health Connect ist optional. Für den ausgewählten lokalen Benutzer kann ScaleLauncher unterstützte Werte schreiben, zum Beispiel:
 
 - Gewicht
 - Körperfett
@@ -349,84 +266,94 @@ Health Connect ist optional. Für den ausgewählten Benutzer können unter ander
 - Knochenmasse
 - fettfreie Masse
 - Grundumsatz
-- für BMI benötigte Werte
+- Werte für BMI
 
 ScaleLauncher liest keine Gesundheitsdaten aus Health Connect zurück.
 
 ## Tägliche Nutzung
 
-1. **Überwachen** starten.
-2. ScaleLauncher verbindet sich mit der S400 oder wartet im Standby.
-3. Auf die Waage steigen und die Messung vollständig durchführen.
+1. Auf den beteiligten Handys **Überwachen** starten.
+2. Ein Handy wird Collector, die anderen stehen als Peers bereit.
+3. Auf die S400 steigen und die Messung vollständig durchführen.
 4. ScaleLauncher empfängt den finalen Datensatz.
-5. Der Benutzer wird erkannt oder die Messung bleibt offen.
-6. Körperanalyse wird lokal berechnet.
-7. Vollständige Werte werden in openScale gespeichert.
-8. Optional werden ausgewählte Werte an Health Connect geschrieben.
+5. Der Benutzer wird automatisch erkannt oder die Messung bleibt offen.
+6. Falls nötig, die Zuordnung auf einem benachrichtigten Gerät entscheiden.
+7. Das Besitzer-Handy berechnet die Körperwerte.
+8. Die Messung wird genau einmal in openScale gespeichert.
+9. Ausgewählte Werte können optional an Health Connect geschrieben werden.
+
+Ein dauerhaft festgelegtes Haupthandy ist nicht erforderlich.
 
 ## Fehlerbehebung
 
 ### Waage wird nicht gefunden
 
-Mögliche Ursachen:
+Prüfen, ob:
 
-- anderes Handy hält bereits die S400-Verbindung
-- Xiaomi Home kommuniziert mit der Waage
-- Waage schläft
-- Bluetooth ist aus
-- Bluetooth-Berechtigung fehlt
+- ein anderes Handy bereits die S400-Verbindung hält
+- Xiaomi Home noch mit der Waage kommuniziert
+- openScale selbst mit der S400 gekoppelt wurde
+- Bluetooth ausgeschaltet ist
+- Bluetooth-Berechtigungen fehlen
+- die Waage schläft
 
-### Anmeldung an der Waage schlägt fehl
+Waage kurz aufwecken und erneut versuchen.
 
-Prüfe:
+### Authentifizierung schlägt fehl
 
-- MAC-Adresse korrekt
-- Token genau 24 Hex-Zeichen
-- Token gehört zu dieser S400
-- Waage wurde nach dem Auslesen nicht zurückgesetzt oder erneut in Xiaomi Home eingerichtet
+Prüfen:
 
-### Überwachung funktioniert erst nach Stoppen und erneutem Starten
+- MAC-Adresse
+- 24-stelligen Login-Token
+- ob der Token zu dieser S400 gehört
+- ob die Waage nach dem Auslesen zurückgesetzt oder erneut in Xiaomi Home hinzugefügt wurde
 
-Aktiviere das Diagnoseprotokoll und prüfe insbesondere GATT-Status, Standby, Neuverbindungsversuche und Authentifizierung.
+### Überwachung funktioniert erst nach Stop/Start
 
-### Messung wird nicht automatisch zugeordnet
+Das sollte im technisch abgenommenen Stand nicht erforderlich sein. Diagnoseprotokoll aktivieren und BLE-Scan, GATT, Collector/Standby und Peer-Transport prüfen.
 
-Prüfe Referenzgewicht und Toleranz. Liegen mehrere Profile gleichzeitig im Toleranzbereich, ist die Messung absichtlich mehrdeutig.
+### Remote-Zuordnung dauert etwas länger
 
-### openScale wird nicht beschrieben
+Bei vorübergehendem Bluetooth-Ausfall kann die Zustellung verzögert sein. ScaleLauncher hält Peer-Nachrichten persistent vor und versucht die Zustellung nach Rückkehr der Verbindung erneut. Die Zuordnung kann kurz als „wird abgeschlossen“ erscheinen, bis das Remote-ACK angekommen ist.
 
-Prüfe:
+### openScale erhält keine Messung
+
+Prüfen:
 
 - openScale installiert
-- Zugriff erlaubt
+- Provider-Zugriff erteilt
 - Provider API 2 verfügbar
-- Benutzer auf diesem Handy vorhanden
-- Benutzerprofil vollständig
+- Zielbenutzer auf dem Besitzer-Handy vorhanden
+- lokales ScaleLauncher-Benutzerprofil vollständig
 
 ## Datenschutz
 
 ScaleLauncher ist auf lokale Verarbeitung ausgelegt.
 
-- Kommunikation mit der Waage erfolgt direkt über Bluetooth.
-- Für normale Messungen ist keine Xiaomi-Cloud erforderlich.
+- Waagenkommunikation erfolgt direkt per Bluetooth.
+- Normale Messungen benötigen keine Xiaomi-Cloud.
 - ScaleLauncher besitzt keine Internetberechtigung.
-- Gekoppelte ScaleLauncher-Handys kommunizieren direkt über Bluetooth.
-- Peer-Nachrichten werden verschlüsselt übertragen.
-- Persönliche Körperdaten und lokale openScale-Benutzer-IDs bleiben auf dem Besitzer-Handy.
+- Gekoppelte ScaleLauncher-Handys kommunizieren direkt per Bluetooth.
+- Peer-Nachrichten sind verschlüsselt.
+- Persönliche Körperprofildaten und lokale openScale-Benutzer-IDs bleiben auf dem Besitzer-Handy.
 - Nur ausdrücklich ausgewählte Werte werden an Health Connect geschrieben.
 
-## Bekannte Einschränkungen
+## Technisch abgenommener Stand
 
-- Offiziell getestet ist derzeit die Xiaomi Body Composition Scale S400 `yunmai.scales.ms104`.
-- S400 `ms103`, S400 Blue `ms107` und S400 Pro `ms110` könnten aufgrund ihrer ähnlichen Architektur funktionieren, sind mit ScaleLauncher aber noch nicht getestet.
-- Ältere Xiaomi-Waagen wie die Mi Body Composition Scale 2 verwenden ein anderes Bluetooth-Protokoll und sind nicht automatisch kompatibel.
-- openScale Provider API 2 erforderlich.
-- Direkte Health-Connect-Übertragung benötigt Android 14 oder neuer.
-- Die S400 erlaubt nur eine aktive authentifizierte Verbindung gleichzeitig.
-- Mehrbenutzer-Messungsrouting befindet sich noch in der abschließenden Implementierungs- und Testphase.
-- Änderungen an Xiaomi-Firmware oder Mi-Home-Protokoll können die Kompatibilität beeinflussen.
+Die praktische Abnahme ist in [TESTPLAN.md](TESTPLAN.md) dokumentiert.
 
-## Projekt selbst bauen
+Abnahme-Build:
+
+```text
+VersionCode: 199
+Branch: ui-v1.2.0
+Funktionaler Basis-Commit: 0e01dab
+Abnahmedatum: 2026-08-27
+```
+
+Dieser Eintrag dokumentiert die getestete technische Basis. Spätere reine UI-Änderungen können neuere Commits verwenden, ohne das getestete Routingverhalten zu verändern.
+
+## Projekt bauen
 
 Voraussetzungen:
 
@@ -446,6 +373,7 @@ Aktuelle Android-Konfiguration:
 minSdk 31
 targetSdk 35
 compileSdk 35
+versionName 1.2.1
 ```
 
 ## Lizenz
@@ -454,11 +382,11 @@ ScaleLauncher steht unter der **GNU General Public License v3.0 only**.
 
 Siehe [LICENSE](LICENSE).
 
-## Danksagung
+## Credits
 
-Hilfreiche öffentliche Referenzen:
+Nützliche öffentliche Referenzen:
 
 - https://github.com/nokistin/xiaomi-s400-live
 - https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor
 
-ScaleLauncher ist ein unabhängiges Projekt und steht nicht in Verbindung mit Xiaomi oder openScale.
+ScaleLauncher ist ein unabhängiges Projekt und steht in keiner Verbindung zu Xiaomi oder openScale.
