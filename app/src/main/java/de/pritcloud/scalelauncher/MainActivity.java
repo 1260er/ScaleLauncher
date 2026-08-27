@@ -835,14 +835,6 @@ public final class MainActivity extends Activity {
                                             R.string.peer_remove_success,
                                             label);
 
-                            TextView pairingStatus =
-                                    findViewById(
-                                            R.id.inlinePeerPairingStatus);
-
-                            if (pairingStatus != null) {
-                                pairingStatus.setText(message);
-                            }
-
                             EventLog.info(this, message);
 
                             refreshInlinePeerSummary();

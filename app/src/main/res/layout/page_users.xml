@@ -104,22 +104,6 @@
             android:layout_marginTop="@dimen/spacing_sm"
             android:orientation="vertical" />
 
-        <TextView
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
-            android:text="@string/peer_add_phone_title"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/inlinePeerPairingStatus"
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_sm"
-            android:text="@string/peer_pairing_intro" />
-
         <Button
             android:id="@+id/pairPhone"
             style="@style/UiPrimaryButton"
