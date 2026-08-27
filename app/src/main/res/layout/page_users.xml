@@ -71,7 +71,7 @@
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
+            android:layout_marginTop="@dimen/spacing_md"
             android:text="@string/peer_this_phone_title"
             android:textStyle="bold" />
 
@@ -86,7 +86,7 @@
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
+            android:layout_marginTop="@dimen/spacing_md"
             android:text="@string/peer_connected_phones_title"
             android:textStyle="bold" />
 
@@ -108,7 +108,7 @@
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
+            android:layout_marginTop="@dimen/spacing_md"
             android:text="@string/peer_add_phone_title"
             android:textStyle="bold" />
 
