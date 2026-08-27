@@ -211,6 +211,8 @@ public final class PeerPairingActivity extends Activity {
         if (grantResults.length == 0) {
             status.setText(
                     R.string.peer_permission_missing);
+            startButton.setText(R.string.peer_pairing_retry);
+            startButton.setEnabled(true);
             return;
         }
 
@@ -219,6 +221,8 @@ public final class PeerPairingActivity extends Activity {
                     != PackageManager.PERMISSION_GRANTED) {
                 status.setText(
                         R.string.peer_permission_missing);
+                startButton.setText(R.string.peer_pairing_retry);
+                startButton.setEnabled(true);
                 return;
             }
         }
@@ -877,7 +881,7 @@ public final class PeerPairingActivity extends Activity {
             status.setText(
                     R.string.peer_pairing_ready);
             startButton.setText(
-                    R.string.peer_verify_accept);
+                    R.string.peer_pairing_retry);
             startButton.setEnabled(true);
             return;
         }
@@ -989,7 +993,7 @@ public final class PeerPairingActivity extends Activity {
                 () -> {
                     status.setText(message);
                     startButton.setText(
-                            R.string.peer_verify_accept);
+                            R.string.peer_pairing_retry);
                     startButton.setEnabled(true);
                 });
 

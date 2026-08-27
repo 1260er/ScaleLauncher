@@ -381,10 +381,8 @@ UUIDs: %1$s</string>
     <string name="help_link_error">The project page could not be opened.</string>
     <string name="support_link_error">The support link could not be opened.</string>
 
-    <string name="peer_section_title">Remote users</string>
     <string name="multiuser_title">Remote users</string>
     <string name="multiuser_description">Remote users can be assigned to different ScaleLauncher phones. Manage the secure connections between those phones here.</string>
-    <string name="peer_pair_phone">Manage multi-user</string>
     <string name="peer_pairing_title">Phone pairing</string>
     <string name="peer_pairing_intro">Here you can add another phone to the household and allow its owner to use the scale. To add another phone, open this page on both devices and then compare the six-digit security code.</string>
     <string name="peer_this_phone_title">This phone</string>
@@ -415,34 +413,15 @@ Pending data for this phone will be deleted. Users assigned to this phone remain
     <string name="log_peer_profile_received">Peer profile %1$s received from %2$s</string>
     <string name="log_peer_ack_received">Peer synchronization confirmed by %1$s</string>
     <string name="peer_pairing_start">Pair another phone</string>
-    <string name="peer_searching">Searching for ScaleLauncher phones …</string>
-    <string name="peer_found">Phone found: %1$s</string>
-    <string name="peer_request_sent">Connection request sent to %1$s</string>
-    <string name="peer_already_trusted">%1$s is already paired</string>
-    <string name="peer_verify_title">Compare security code</string>
-    <string name="peer_verify_message">Device: %1$s
-
-Code on both phones:
-%2$s
-
-Confirm only when both codes are identical.</string>
+    <string name="peer_pairing_retry">Try again</string>
     <string name="peer_verify_accept">Confirm security code</string>
-    <string name="peer_verify_reject">Cancel</string>
     <string name="peer_pairing_success">Pairing successful: %1$s</string>
-    <string name="peer_pairing_failed">Pairing was not completed</string>
-    <string name="peer_authentication_failed">Secure Nearby authentication is unavailable</string>
     <string name="peer_permission_missing">Nearby permissions were not fully granted</string>
-    <string name="peer_nearby_failed">Nearby error: %1$s</string>
-    <string name="peer_unknown_device">Unknown phone</string>
-    <string name="peer_unknown_error">Unknown error</string>
 
 
     <string name="peer_bluetooth_off">Bluetooth is turned off</string>
     <string name="peer_ble_unavailable">BLE advertising or scanning is not available</string>
-    <string name="peer_ble_test_started">BLE peer test started</string>
     <string name="peer_ble_advertising_active">BLE peer advertising active</string>
-    <string name="peer_ble_found">ScaleLauncher phone found: %1$s</string>
-    <string name="peer_ble_found_log">BLE peer found – ID %1$s</string>
     <string name="peer_ble_advertising_failed">BLE advertising failed: %1$s</string>
     <string name="peer_ble_scan_failed">BLE scan failed: %1$s</string>
     <string name="peer_ble_advertising_code">BLE advertising failed – code %1$d</string>
@@ -474,7 +453,6 @@ Confirm only when both codes are identical.</string>
     <string name="peer_pair_crypto_failed">Secure key exchange failed: %1$s</string>
     <string name="peer_pair_store_failed">Pairing could not be stored securely: %1$s</string>
     <string name="peer_pair_timeout">Secure key exchange did not complete within 45 seconds</string>
-    <string name="peer_pair_already_trusted">This phone is already stored as trusted</string>
     <string name="peer_pair_code_ready">Security code: %1$s
 
 Both phones must show exactly the same code. If they match, press “Codes match” on both phones.</string>

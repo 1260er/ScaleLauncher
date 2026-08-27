@@ -92,7 +92,7 @@
     <string name="user_health_connect">Health Connect nur für diesen Benutzer verwenden</string>
     <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
     <string name="page_health_connect_title">Health Connect</string>
-    <string name="health_connect_page_description">Hier bestimmst du, welche Messwerte des ausgewählten Benutzers zusätzlich an Health Connect übergeben werden. Der Hauptbenutzer, an welchen die Daten übertragen werden sollen, legst du in den Benutzereinstellungen fest.</string>
+    <string name="health_connect_page_description">Hier bestimmst du, welche Messwerte des ausgewählten Benutzers zusätzlich an Health Connect übergeben werden. Den Hauptbenutzer, an den die Daten übertragen werden sollen, legst du in den Benutzereinstellungen fest.</string>
     <string name="health_connect_enabled">Messungen übertragen</string>
     <string name="health_connect_values_title">Zu übertragende Werte</string>
     <string name="health_connect_weight">Gewicht</string>
@@ -389,10 +389,8 @@ UUIDs: %1$s</string>
     <string name="help_url" translatable="false">https://github.com/1260er/ScaleLauncher</string>
     <string name="support_url" translatable="false">https://ko-fi.com/1260er</string>
 
-    <string name="peer_section_title">Remotebenutzer</string>
     <string name="multiuser_title">Remotebenutzer</string>
     <string name="multiuser_description">Remotebenutzer können unterschiedlichen ScaleLauncher-Handys zugeordnet werden. Hier verwaltest du die sicheren Verbindungen zwischen diesen Handys.</string>
-    <string name="peer_pair_phone">Mehrbenutzer verwalten</string>
     <string name="peer_pairing_title">Handykopplung</string>
     <string name="peer_pairing_intro">Hier kannst du ein weiteres Handy zum Haushalt hinzufügen und somit dem Besitzer die Nutzung der Waage ermöglichen. Für ein weiteres Handy öffnest du diese Seite auf beiden Geräten und vergleichst anschließend den sechsstelligen Sicherheitscode.</string>
     <string name="peer_this_phone_title">Dieses Handy</string>
@@ -423,34 +421,15 @@ Noch nicht übertragene Daten für dieses Handy werden gelöscht. Benutzer, die 
     <string name="log_peer_profile_received">Peer-Profil %1$s von %2$s empfangen</string>
     <string name="log_peer_ack_received">Peer-Synchronisierung von %1$s bestätigt</string>
     <string name="peer_pairing_start">Weiteres Handy koppeln</string>
-    <string name="peer_searching">Suche nach ScaleLauncher-Handys …</string>
-    <string name="peer_found">Handy gefunden: %1$s</string>
-    <string name="peer_request_sent">Verbindungsanfrage an %1$s gesendet</string>
-    <string name="peer_already_trusted">%1$s ist bereits gekoppelt</string>
-    <string name="peer_verify_title">Sicherheitscode vergleichen</string>
-    <string name="peer_verify_message">Gerät: %1$s
-
-Code auf beiden Handys:
-%2$s
-
-Nur bestätigen, wenn beide Codes identisch sind.</string>
+    <string name="peer_pairing_retry">Erneut versuchen</string>
     <string name="peer_verify_accept">Sicherheitscode bestätigen</string>
-    <string name="peer_verify_reject">Abbrechen</string>
     <string name="peer_pairing_success">Kopplung erfolgreich: %1$s</string>
-    <string name="peer_pairing_failed">Kopplung wurde nicht abgeschlossen</string>
-    <string name="peer_authentication_failed">Sichere Nearby-Authentifizierung nicht verfügbar</string>
     <string name="peer_permission_missing">Nearby-Berechtigungen wurden nicht vollständig erteilt</string>
-    <string name="peer_nearby_failed">Nearby-Fehler: %1$s</string>
-    <string name="peer_unknown_device">Unbekanntes Handy</string>
-    <string name="peer_unknown_error">Unbekannter Fehler</string>
 
 
     <string name="peer_bluetooth_off">Bluetooth ist ausgeschaltet</string>
     <string name="peer_ble_unavailable">BLE-Advertising oder BLE-Scan ist nicht verfügbar</string>
-    <string name="peer_ble_test_started">BLE-Peer-Test gestartet</string>
     <string name="peer_ble_advertising_active">BLE-Peer-Advertising aktiv</string>
-    <string name="peer_ble_found">ScaleLauncher-Handy gefunden: %1$s</string>
-    <string name="peer_ble_found_log">BLE-Peer gefunden – Kennung %1$s</string>
     <string name="peer_ble_advertising_failed">BLE-Advertising fehlgeschlagen: %1$s</string>
     <string name="peer_ble_scan_failed">BLE-Scan fehlgeschlagen: %1$s</string>
     <string name="peer_ble_advertising_code">BLE-Advertising fehlgeschlagen – Code %1$d</string>
@@ -482,7 +461,6 @@ Nur bestätigen, wenn beide Codes identisch sind.</string>
     <string name="peer_pair_crypto_failed">Sicherer Schlüsselaustausch fehlgeschlagen: %1$s</string>
     <string name="peer_pair_store_failed">Kopplung konnte nicht sicher gespeichert werden: %1$s</string>
     <string name="peer_pair_timeout">Kein vollständiger sicherer Schlüsselaustausch innerhalb von 45 Sekunden</string>
-    <string name="peer_pair_already_trusted">Dieses Handy ist bereits als vertrauenswürdig gespeichert</string>
     <string name="peer_pair_code_ready">Sicherheitscode: %1$s
 
 Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf beiden Handys „Codes stimmen überein“ drücken.</string>
