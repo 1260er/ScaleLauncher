@@ -14,7 +14,6 @@
     <string name="status_scale_connected">Waage verbunden</string>
     <string name="status_scale_disconnected">Waage getrennt</string>
     <string name="status_waiting_for_measurement">Warte auf Messung</string>
-    <string name="status_scale_last_seen">Waage zuletzt gesehen: %1$s</string>
     <string name="page_scale_title">Waage</string>
     <string name="scale_page_description">Hier wird die Xiaomi S400 ausgewählt und der Login-Token für die sichere Verbindung hinterlegt.</string>
     <string name="scale_scan_connection_hint">Wird die Waage nicht gefunden, wird sie möglicherweise gerade von einem anderen Handy verwendet. Die S400 kann nur mit einem ScaleLauncher-Handy gleichzeitig verbunden sein. Beende dort die Überwachung oder schalte Bluetooth kurz aus und starte die Suche erneut.</string>
@@ -42,10 +41,10 @@
     <string name="log_gatt_reconnect">GATT-Neuverbindung: %1$s | neuer Versuch in %2$d s</string>
     <string name="log_gatt_standby">GATT-Standby aktiv – wartet auf freie Waage</string>
     <string name="service_gatt_connecting">GATT-Collector-Steuerung startet</string>
-    <string name="service_gatt_standby">Standby – wartet auf freie Waage</string>
+    <string name="service_gatt_standby">Wartet auf freie Waage</string>
     <string name="service_gatt_claiming">Waage verfügbar – Collector-Rolle wird übernommen</string>
-    <string name="service_gatt_ready">Collector aktiv – wartet auf Messung</string>
-    <string name="service_gatt_reconnecting">Standby – neuer Verbindungsversuch in %1$d s</string>
+    <string name="service_gatt_ready">Collector wartet auf Messung</string>
+    <string name="service_gatt_reconnecting">Wartet auf freie Waage</string>
     <string name="page_permissions_title">Berechtigungen</string>
     <string name="permissions_page_description">Diese Einstellungen sorgen dafür, dass ScaleLauncher zuverlässig auf die Waage warten und Messungen auch bei ausgeschaltetem Bildschirm verarbeiten kann.</string>
     <string name="action_allow_openscale_access">openScale-Zugriff erlauben\nund Benutzer laden</string>
@@ -62,8 +61,6 @@
     <string name="permissions_openscale_access_missing">✗ openScale: Zugriff nicht erlaubt</string>
     <string name="permissions_openscale_access_denied">✗ openScale: Zugriff verweigert</string>
     <string name="permissions_openscale_query_failed">✗ openScale: Abfrage fehlgeschlagen</string>
-    <string name="permissions_api_complete">✔ API %1$d: vollständige Messwerte</string>
-    <string name="permissions_api_incomplete">✗ API %1$d: nicht unterstützt – API 2 erforderlich</string>
     <string name="permissions_battery_ok">✔ Akkuoptimierung: aus / uneingeschränkt</string>
     <string name="permissions_battery_bad">✗ Akkuoptimierung: noch aktiv</string>
     <string name="permissions_unused_ok">✔ Verwaltung bei Nichtnutzung: deaktiviert</string>
@@ -72,7 +69,7 @@
     <string name="permissions_notifications_bad">✗ Benachrichtigung: nicht erlaubt</string>
     <string name="permissions_settings_saved">Berechtigungseinstellungen gespeichert.</string>
     <string name="page_users_title">Benutzer</string>
-    <string name="users_page_description">Hier legst du fest, wie Messungen für lokale Benutzer verwaltet werden. Referenzgewicht und Toleranz werden zur Benutzererkennung verwendet.</string>
+    <string name="users_page_description">Hier legst du fest, wie Messungen für lokale Benutzer verwaltet werden. Referenzgewicht und Toleranz werden zur Benutzererkennung verwendet. Größe und Alter werden für die Berechnung der Körperwerte verwendet.</string>
     <string name="users_empty">Keine openScale-Benutzer verfügbar</string>
     <string name="action_edit_user">Benutzer bearbeiten</string>
     <string name="action_delete_user">Benutzerprofil löschen</string>
@@ -183,7 +180,7 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="reliability_battery_required">Bitte ScaleLauncher zuerst von der Akkuoptimierung ausnehmen.</string>
     <string name="reliability_unused_app_required">Bitte „App bei Nichtnutzung verwalten“ für ScaleLauncher deaktivieren.</string>
     <string name="reliability_notifications_required">Benachrichtigungen müssen erlaubt sein, damit Messfehler zuverlässig angezeigt werden.</string>
-    <string name="status_prefix">Status: </string>
+    <string name="status_prefix">Status:</string>
     <string name="status_active">AKTIV</string>
     <string name="status_waiting">WARTET</string>
     <string name="status_starting">STARTET</string>
@@ -402,15 +399,10 @@ UUIDs: %1$s</string>
     <string name="peer_connected_phones_title">Verbundene Handys</string>
     <string name="peer_add_phone_title">Weiteres Handy</string>
     <string name="peer_local_device">Dieses Handy: %1$s</string>
-    <string name="peer_local_device_details">Dieses Handy: %1$s
-Eigene Kennung: %2$s
-%3$s</string>
+    <string name="peer_local_device_details">%1$s
+%2$s</string>
     <string name="peer_assigned_users">Zugeordnete Benutzer: %1$s</string>
     <string name="peer_assigned_users_none">Zugeordnete Benutzer: keine</string>
-    <plurals name="peer_trusted_count">
-        <item quantity="one">%1$d gekoppeltes Handy</item>
-        <item quantity="other">%1$d gekoppelte Handys</item>
-    </plurals>
     <string name="peer_pairing_ready">Bereit für ein weiteres Handy</string>
     <string name="peer_remove_button">Gekoppeltes Handy entfernen</string>
     <string name="peer_remove_title">Handy wirklich entfernen?</string>
@@ -422,8 +414,8 @@ Noch nicht übertragene Daten für dieses Handy werden gelöscht. Benutzer, die 
     <string name="peer_remove_confirm">Handy entfernen</string>
     <string name="peer_remove_success">%1$s wurde entfernt.</string>
     <plurals name="peer_outbox_pending">
-        <item quantity="one">%1$d Synchronisierung wartet auf Übertragung</item>
-        <item quantity="other">%1$d Synchronisierungen warten auf Übertragung</item>
+        <item quantity="one">%1$d Synchronisierung ausstehend</item>
+        <item quantity="other">%1$d Synchronisierungen ausstehend</item>
     </plurals>
     <string name="log_peer_profile_queued">Peer-Profil %1$s für %2$d Handy(s) vorgemerkt</string>
     <string name="log_peer_profile_queue_failed">Peer-Sync für %1$s konnte nicht vorgemerkt werden</string>

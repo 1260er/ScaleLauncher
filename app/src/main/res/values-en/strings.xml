@@ -11,7 +11,6 @@
     <string name="status_scale_connected">Scale connected</string>
     <string name="status_scale_disconnected">Scale disconnected</string>
     <string name="status_waiting_for_measurement">Waiting for measurement</string>
-    <string name="status_scale_last_seen">Scale last seen: %1$s</string>
     <string name="page_scale_title">Scale</string>
     <string name="scale_page_description">Select the Xiaomi S400 here and enter its login token for the secure connection.</string>
     <string name="scale_scan_connection_hint">If the scale cannot be found, another phone may currently be using it. The S400 can only be connected to one ScaleLauncher phone at a time. Stop monitoring there or briefly turn off Bluetooth, then search again.</string>
@@ -36,10 +35,10 @@
     <string name="log_gatt_reconnect">GATT reconnect: %1$s | retry in %2$d s</string>
     <string name="log_gatt_standby">GATT standby active – waiting for scale</string>
     <string name="service_gatt_connecting">GATT collector coordination starting</string>
-    <string name="service_gatt_standby">Standby – waiting for scale</string>
+    <string name="service_gatt_standby">Waiting for available scale</string>
     <string name="service_gatt_claiming">Scale available – acquiring collector role</string>
-    <string name="service_gatt_ready">Collector active – waiting for measurement</string>
-    <string name="service_gatt_reconnecting">Standby – retrying connection in %1$d s</string>
+    <string name="service_gatt_ready">Collector waiting for measurement</string>
+    <string name="service_gatt_reconnecting">Waiting for available scale</string>
     <string name="page_permissions_title">Permissions</string>
     <string name="permissions_page_description">These settings allow ScaleLauncher to reliably wait for the scale and process measurements even while the screen is off.</string>
     <string name="action_allow_openscale_access">Allow openScale access\nand load users</string>
@@ -56,8 +55,6 @@
     <string name="permissions_openscale_access_missing">✗ openScale: access not allowed</string>
     <string name="permissions_openscale_access_denied">✗ openScale: access denied</string>
     <string name="permissions_openscale_query_failed">✗ openScale: query failed</string>
-    <string name="permissions_api_complete">✔ API %1$d: complete measurements</string>
-    <string name="permissions_api_incomplete">✗ API %1$d: unsupported – API 2 required</string>
     <string name="permissions_battery_ok">✔ Battery optimization: off / unrestricted</string>
     <string name="permissions_battery_bad">✗ Battery optimization: still active</string>
     <string name="permissions_unused_ok">✔ Unused app management: disabled</string>
@@ -66,7 +63,7 @@
     <string name="permissions_notifications_bad">✗ Notifications: not allowed</string>
     <string name="permissions_settings_saved">Permission settings saved.</string>
     <string name="page_users_title">Users</string>
-    <string name="users_page_description">Here you define how measurements for local users are managed. Reference weight and tolerance are used for user recognition.</string>
+    <string name="users_page_description">Here you define how measurements for local users are managed. Reference weight and tolerance are used for user recognition. Height and age are used to calculate body metrics.</string>
     <string name="users_empty">No openScale users available</string>
     <string name="action_edit_user">Edit user</string>
     <string name="action_delete_user">Delete user profile</string>
@@ -177,7 +174,7 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="reliability_battery_required">Exclude ScaleLauncher from battery optimization first.</string>
     <string name="reliability_unused_app_required">Disable “Manage app if unused” for ScaleLauncher.</string>
     <string name="reliability_notifications_required">Notifications must be allowed so measurement errors can be displayed reliably.</string>
-    <string name="status_prefix">Status: </string>
+    <string name="status_prefix">Status:</string>
     <string name="status_active">ACTIVE</string>
     <string name="status_waiting">WAITING</string>
     <string name="status_starting">STARTING</string>
@@ -394,15 +391,10 @@ UUIDs: %1$s</string>
     <string name="peer_connected_phones_title">Connected phones</string>
     <string name="peer_add_phone_title">Add another phone</string>
     <string name="peer_local_device">This phone: %1$s</string>
-    <string name="peer_local_device_details">This phone: %1$s
-Own ID: %2$s
-%3$s</string>
+    <string name="peer_local_device_details">%1$s
+%2$s</string>
     <string name="peer_assigned_users">Assigned users: %1$s</string>
     <string name="peer_assigned_users_none">Assigned users: none</string>
-    <plurals name="peer_trusted_count">
-        <item quantity="one">%1$d paired phone</item>
-        <item quantity="other">%1$d paired phones</item>
-    </plurals>
     <string name="peer_pairing_ready">Ready for another phone</string>
     <string name="peer_remove_button">Remove paired phone</string>
     <string name="peer_remove_title">Remove this phone?</string>
@@ -414,8 +406,8 @@ Pending data for this phone will be deleted. Users assigned to this phone remain
     <string name="peer_remove_confirm">Remove phone</string>
     <string name="peer_remove_success">%1$s was removed.</string>
     <plurals name="peer_outbox_pending">
-        <item quantity="one">%1$d synchronization waiting for transfer</item>
-        <item quantity="other">%1$d synchronizations waiting for transfer</item>
+        <item quantity="one">%1$d synchronization pending</item>
+        <item quantity="other">%1$d synchronizations pending</item>
     </plurals>
     <string name="log_peer_profile_queued">Peer profile %1$s queued for %2$d phone(s)</string>
     <string name="log_peer_profile_queue_failed">Peer sync for %1$s could not be queued</string>

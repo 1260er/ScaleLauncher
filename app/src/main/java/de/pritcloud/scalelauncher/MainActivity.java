@@ -451,12 +451,7 @@ public final class MainActivity extends Activity {
                     : getString(
                             R.string.permissions_openscale_connected,
                             users.size());
-            String apiLine = getString(
-                    openScaleMeta.supportsGenericValues()
-                            ? R.string.permissions_api_complete
-                            : R.string.permissions_api_incomplete,
-                    openScaleMeta.apiVersion);
-            openScaleStatus.setText(openScaleLine + "\n" + apiLine);
+            openScaleStatus.setText(openScaleLine);
             updateProfileStatus();
             refreshPending();
         } catch (SecurityException e) {
@@ -719,18 +714,13 @@ public final class MainActivity extends Activity {
         localInfo.setText(
                 getString(
                         R.string.peer_local_device_details,
-                        localEndpoint.label,
                         PeerPairingActivity.peerLabel(localEndpoint.deviceId),
                         inlineAssignedUsersText(localEndpoint.deviceId)));
 
         List<PeerTrustStore.Peer> peers =
                 PeerTrustStore.load(this);
 
-        trustedInfo.setText(
-                getResources().getQuantityString(
-                        R.plurals.peer_trusted_count,
-                        peers.size(),
-                        peers.size()));
+        trustedInfo.setVisibility(View.GONE);
 
         trustedList.removeAllViews();
 
@@ -1916,13 +1906,10 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        StringBuilder text = new StringBuilder(getString(R.string.status_prefix));
+        StringBuilder text = new StringBuilder(getString(R.string.status_prefix)).append(" ");
         switch (snapshot.mode) {
             case RUNNING:
-                boolean scaleRecentlySeen = snapshot.lastScaleSeenMs > 0L
-                        && now - snapshot.lastScaleSeenMs
-                        <= ServiceState.SCALE_SEEN_RECENT_MS;
-                if (scaleRecentlySeen) {
+                if (snapshot.scanRunning) {
                     scaleStatusImage.setImageResource(R.drawable.scale_connected);
                     scaleStatusImage.setContentDescription(
                             getString(R.string.status_scale_connected));
@@ -1947,12 +1934,7 @@ public final class MainActivity extends Activity {
                 break;
         }
         if (snapshot.message != null && !snapshot.message.isBlank()) {
-            text.append(" – ").append(snapshot.message);
-        }
-        if (snapshot.lastScaleSeenMs > 0L && snapshot.mode == ServiceState.Mode.RUNNING) {
-            text.append("\n").append(getString(
-                    R.string.status_scale_last_seen,
-                    relativeTime(now - snapshot.lastScaleSeenMs)));
+            text.append("\n").append(snapshot.message);
         }
         if (snapshot.lastSuccessMs > 0L) {
             text.append("\n").append(getString(

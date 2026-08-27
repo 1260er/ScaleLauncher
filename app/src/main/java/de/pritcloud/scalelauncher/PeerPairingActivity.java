@@ -167,19 +167,13 @@ public final class PeerPairingActivity extends Activity {
         localInfo.setText(
                 getString(
                         R.string.peer_local_device_details,
-                        localEndpoint.label,
                         peerLabel(localDeviceId),
                         assignedUsersText(localDeviceId)));
 
         List<PeerTrustStore.Peer> peers =
                 PeerTrustStore.load(this);
 
-        trustedInfo.setText(
-                getResources()
-                        .getQuantityString(
-                                R.plurals.peer_trusted_count,
-                                peers.size(),
-                                peers.size()));
+        trustedInfo.setVisibility(View.GONE);
 
         trustedList.removeAllViews();
 
