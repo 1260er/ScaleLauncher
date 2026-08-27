@@ -6,11 +6,6 @@
         <item name="android:fontFamily">sans</item>
     </style>
 
-    <style name="UiSectionTitle">
-        <item name="android:textColor">@color/ui_text_primary</item>
-        <item name="android:textSize">@dimen/text_section</item>
-        <item name="android:textStyle">bold</item>
-    </style>
 
     <style name="UiBodyText">
         <item name="android:textColor">@color/ui_text_primary</item>

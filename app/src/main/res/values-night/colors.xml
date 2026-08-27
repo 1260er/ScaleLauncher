@@ -6,6 +6,4 @@
     <color name="ui_input_background">#FF25252F</color>
     <color name="ui_border">#FFB8B8C2</color>
     <color name="ui_accent">#FFE91E63</color>
-    <color name="ui_connected">#FF00E676</color>
-    <color name="ui_disconnected">#FFFF1744</color>
 </resources>

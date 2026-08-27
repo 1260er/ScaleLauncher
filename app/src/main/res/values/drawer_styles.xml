@@ -12,7 +12,4 @@
         <item name="android:textSize">@dimen/text_body</item>
     </style>
 
-    <style name="UiDrawerUserItem" parent="UiDrawerItem">
-        <item name="android:textColor">@color/ui_text_secondary</item>
-    </style>
 </resources>

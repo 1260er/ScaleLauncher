@@ -51,9 +51,6 @@
     <string name="action_disable_battery_optimization">Akkuoptimierung ausschalten</string>
     <string name="action_disable_unused_app_management">Verwaltung bei Nichtnutzung deaktivieren</string>
     <string name="action_open_notification_settings">Benachrichtigungseinstellungen öffnen</string>
-    <string name="permission_status_battery_optimization_off">Akkuoptimierung aus</string>
-    <string name="permission_status_unused_app_management">Verwaltung bei Nichtnutzung</string>
-    <string name="permission_status_notifications_allowed">Benachrichtigungen erlaubt</string>
     <string name="permission_auto_start_after_reboot">Nach Neustart automatisch starten</string>
     <string name="permissions_openscale_connected">✔ openScale: verbunden %1$d Benutzer</string>
     <string name="permissions_openscale_no_users">✗ openScale: verbunden, keine Benutzer</string>
@@ -72,10 +69,6 @@
     <string name="users_page_description">Hier legst du fest, wie Messungen für lokale Benutzer verwaltet werden. Referenzgewicht und Toleranz werden zur Benutzererkennung verwendet. Größe und Alter werden für die Berechnung der Körperwerte verwendet.</string>
     <string name="users_empty">Keine openScale-Benutzer verfügbar</string>
     <string name="action_edit_user">Benutzer bearbeiten</string>
-    <string name="action_delete_user">Benutzerprofil löschen</string>
-    <string name="user_profile_deleted">Benutzerprofil gelöscht</string>
-    <string name="page_user_title">%1$s</string>
-    <string name="user_auto_assign">Diesen Benutzer automatisch zuordnen</string>
     <string name="user_birth_date_hint">Geburtstag</string>
     <string name="user_birth_date_example">01.01.2000</string>
     <string name="user_height_hint">Größe in cm</string>
@@ -85,10 +78,6 @@
     <string name="user_reference_weight_hint">Gewicht in kg</string>
     <string name="user_reference_weight_example">50</string>
     <string name="user_weight_tolerance_hint">Zulässige Abweichung</string>
-    <string name="user_owner_device">Messungen speichern auf</string>
-    <string name="user_owner_device_local">Dieses Handy</string>
-    <string name="user_owner_device_peer">Gekoppeltes ScaleLauncher-Handy</string>
-    <string name="user_owner_device_unavailable">Zugeordnetes Handy nicht verfügbar</string>
     <string name="user_health_connect">Health Connect nur für diesen Benutzer verwenden</string>
     <string name="user_profile_saved">Benutzerprofil %1$s gespeichert.</string>
     <string name="page_health_connect_title">Health Connect</string>
@@ -112,13 +101,9 @@
     <string name="action_copy">Kopieren</string>
     <string name="action_clear">Leeren</string>
     <string name="log_copied">Protokoll kopiert</string>
-    <string name="log_cleared">Protokoll geleert</string>
-    <string name="home_description">Ordnet S400-Messungen anhand des Gewichts automatisch openScale-Benutzern zu. Unsichere Messungen bleiben gespeichert, bis ein Benutzer ausgewählt wurde.</string>
-    <string name="home_reference_info">Das Gewicht wird beim Laden aus den letzten fünf openScale-Messungen vorgeschlagen. Nach jeder eindeutig zugeordneten Messung wird es automatisch aktualisiert. Liegt eine Messung innerhalb der Toleranz mehrerer Benutzer, wird sie nicht automatisch zugeordnet.</string>
     <string name="pending_measurements_title">Nicht zugeordnete Messung</string>
     <string name="pending_none">Keine offene Messung</string>
     <string name="action_assign">Zuordnen</string>
-    <string name="action_discard">Verwerfen</string>
     <string name="action_save_start">Überwachen</string>
     <string name="action_stop_monitoring">Stoppen</string>
     <string name="home_users_loading">Benutzer werden geladen</string>
@@ -127,8 +112,6 @@
     <string name="home_health_connect_user_title">Health-Connect-Benutzer</string>
     <string name="home_health_connect_user_none">Nicht festgelegt</string>
     <string name="home_users_none">Keine Benutzer geladen</string>
-    <string name="home_users_expand">Benutzer anzeigen</string>
-    <string name="home_users_collapse">Benutzer ausblenden</string>
     <string name="home_user_local">(lokal)</string>
     <string name="home_user_remote">(remote)</string>
     <plurals name="home_user_count">
@@ -389,14 +372,12 @@ UUIDs: %1$s</string>
     <string name="help_url" translatable="false">https://github.com/1260er/ScaleLauncher</string>
     <string name="support_url" translatable="false">https://ko-fi.com/1260er</string>
 
-    <string name="multiuser_title">Remotebenutzer</string>
     <string name="multiuser_description">Remotebenutzer können unterschiedlichen ScaleLauncher-Handys zugeordnet werden. Hier verwaltest du die sicheren Verbindungen zwischen diesen Handys.</string>
     <string name="peer_pairing_title">Handykopplung</string>
     <string name="peer_pairing_intro">Hier kannst du ein weiteres Handy zum Haushalt hinzufügen und somit dem Besitzer die Nutzung der Waage ermöglichen. Für ein weiteres Handy öffnest du diese Seite auf beiden Geräten und vergleichst anschließend den sechsstelligen Sicherheitscode.</string>
     <string name="peer_this_phone_title">Dieses Handy</string>
     <string name="peer_connected_phones_title">Verbundene Handys</string>
     <string name="peer_add_phone_title">Weiteres Handy</string>
-    <string name="peer_local_device">Dieses Handy: %1$s</string>
     <string name="peer_local_device_details">%1$s
 %2$s</string>
     <string name="peer_assigned_users">Zugeordnete Benutzer: %1$s</string>
@@ -480,13 +461,8 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="log_peer_routed_measurement_received">Endgültige Messung von %1$s für %2$s empfangen: %3$.1f kg</string>
     <string name="log_peer_routed_measurement_rejected">Endgültige Messung von %1$s (%2$s) verworfen – Zielprofil oder Waage ungültig</string>
     <string name="log_peer_routed_measurement_confirmed">Verarbeitung von Messung %2$s durch %1$s bestätigt</string>
-    <string name="action_my_measurement">Meine Messung</string>
     <string name="action_not_my_measurement">Nicht meins</string>
-    <string name="pending_candidate_local">(lokal)</string>
-    <string name="pending_candidate_remote">(remote)</string>
     <string name="pending_status_resolved">%1$.1f kg – Zuordnung zu %2$s wird abgeschlossen</string>
-    <string name="pending_my_measurement_toast">%1$.1f kg wird %2$s zugeordnet</string>
-    <string name="pending_not_my_measurement_toast">%1$s wurde als Kandidat ausgeschlossen</string>
     <string name="log_pending_candidate_invalid">Ungültiger Kandidat für offene Messung %1$s</string>
     <string name="log_pending_candidate_already_decided">Offene Messung %1$s wurde bereits entschieden</string>
     <string name="log_pending_candidate_selected">%1$.1f kg wurde als „Meine Messung“ für %2$s bestätigt</string>
