@@ -47,7 +47,10 @@
         android:usesCleartextTraffic="false">
 
         <activity android:name=".DeviceScanActivity" android:exported="false" />
-        <activity android:name=".PeerPairingActivity" android:exported="false" />
+        <activity
+            android:name=".PeerPairingActivity"
+            android:exported="false"
+            android:theme="@style/PairingDialogTheme" />
 
         <activity
             android:name=".HealthPermissionsRationaleActivity"

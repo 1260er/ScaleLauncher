@@ -74,9 +74,6 @@ public final class PeerPairingActivity extends Activity {
     private PeerPairingCrypto.Session cryptoSession;
     private byte[] localFingerprint;
 
-    private TextView localInfo;
-    private TextView trustedInfo;
-    private LinearLayout trustedList;
     private TextView status;
     private Button startButton;
 
@@ -134,18 +131,6 @@ public final class PeerPairingActivity extends Activity {
                 fingerprint(
                         localEndpoint.deviceId);
 
-        localInfo =
-                findViewById(
-                        R.id.peerLocalInfo);
-
-        trustedInfo =
-                findViewById(
-                        R.id.peerTrustedInfo);
-
-        trustedList =
-                findViewById(
-                        R.id.peerTrustedList);
-
         status =
                 findViewById(
                         R.id.peerPairingStatus);
@@ -157,187 +142,8 @@ public final class PeerPairingActivity extends Activity {
         startButton.setOnClickListener(
                 view -> handlePrimaryAction());
 
-        refreshSummary();
-    }
+        handlePrimaryAction();
 
-    private void refreshSummary() {
-        String localDeviceId =
-                localEndpoint.deviceId;
-
-        localInfo.setText(
-                getString(
-                        R.string.peer_local_device_details,
-                        peerLabel(localDeviceId),
-                        assignedUsersText(localDeviceId)));
-
-        List<PeerTrustStore.Peer> peers =
-                PeerTrustStore.load(this);
-
-        trustedInfo.setVisibility(View.GONE);
-
-        trustedList.removeAllViews();
-
-        for (PeerTrustStore.Peer peer :
-                peers) {
-            addPeerRow(
-                    peer);
-        }
-
-    }
-
-    private void addPeerRow(
-            PeerTrustStore.Peer peer) {
-        if (peer == null) {
-            return;
-        }
-
-        View row =
-                getLayoutInflater()
-                        .inflate(
-                                R.layout.item_peer,
-                                trustedList,
-                                false);
-
-        TextView info =
-                row.findViewById(
-                        R.id.peerItemInfo);
-
-        ImageButton deleteButton =
-                row.findViewById(
-                        R.id.peerDelete);
-
-        info.setText(
-                peer.label
-                        + (char) 10
-                        + assignedUsersText(
-                                peer.deviceId));
-
-        deleteButton.setOnClickListener(
-                view -> {
-                    if (!pairingActive) {
-                        confirmRemovePeer(
-                                peer);
-                    }
-                });
-
-        trustedList.addView(
-                row);
-    }
-
-    private void confirmRemovePeer(
-            PeerTrustStore.Peer peer) {
-        if (peer == null
-                || pairingActive) {
-            return;
-        }
-
-        String assignments =
-                assignedUsersText(
-                        peer.deviceId);
-
-        new AlertDialog.Builder(this)
-                .setTitle(
-                        R.string.peer_remove_title)
-                .setMessage(
-                        getString(
-                                R.string.peer_remove_message,
-                                peer.label,
-                                assignments))
-                .setNegativeButton(
-                        android.R.string.cancel,
-                        null)
-                .setPositiveButton(
-                        R.string.peer_remove_confirm,
-                        (dialog, which) ->
-                                removePeer(peer))
-                .show();
-    }
-
-    private void removePeer(
-            PeerTrustStore.Peer peer) {
-        if (peer == null) {
-            return;
-        }
-
-        String label =
-                peer.label;
-
-        PeerTrustStore.remove(
-                this,
-                peer.deviceId);
-
-        String message =
-                getString(
-                        R.string.peer_remove_success,
-                        label);
-
-        status.setText(
-                message);
-
-        EventLog.info(
-                this,
-                message);
-
-        refreshSummary();
-    }
-
-    private String assignedUsersText(
-            String deviceId) {
-        String localDeviceId =
-                PeerTrustStore.localDeviceId(
-                        this);
-
-        StringBuilder names =
-                new StringBuilder();
-
-        if (localDeviceId.equals(
-                deviceId)) {
-            List<UserProfile> profiles =
-                    UserProfileStore.load(
-                            getSharedPreferences(
-                                    "prefs",
-                                    MODE_PRIVATE));
-
-            for (UserProfile profile :
-                    profiles) {
-                if (!profile.enabled) {
-                    continue;
-                }
-
-                if (names.length() > 0) {
-                    names.append(", ");
-                }
-
-                names.append(
-                        profile.name);
-            }
-        } else {
-            for (HouseholdProfile profile :
-                    HouseholdProfileStore.load(
-                            this)) {
-                if (!profile.active
-                        || !deviceId.equals(
-                                profile.ownerDeviceId)) {
-                    continue;
-                }
-
-                if (names.length() > 0) {
-                    names.append(", ");
-                }
-
-                names.append(
-                        profile.name);
-            }
-        }
-
-        if (names.length() == 0) {
-            return getString(
-                    R.string.peer_assigned_users_none);
-        }
-
-        return getString(
-                R.string.peer_assigned_users,
-                names.toString());
     }
 
     private void handlePrimaryAction() {
@@ -1096,7 +902,6 @@ public final class PeerPairingActivity extends Activity {
 
             stopBle();
             clearPendingPairing();
-            refreshSummary();
 
             String message =
                     getString(

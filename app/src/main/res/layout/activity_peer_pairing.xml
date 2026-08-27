@@ -46,42 +46,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_xl"
-            android:text="@string/peer_this_phone_title"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/peerLocalInfo"
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_sm" />
-
-        <TextView
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
-            android:text="@string/peer_connected_phones_title"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/peerTrustedInfo"
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_sm" />
-
-        <LinearLayout
-            android:id="@+id/peerTrustedList"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-
-        <TextView
-            style="@style/UiBodyText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_xl"
             android:text="@string/peer_add_phone_title"
             android:textStyle="bold" />
 
