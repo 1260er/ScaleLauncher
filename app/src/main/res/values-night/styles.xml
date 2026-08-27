@@ -10,9 +10,4 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
-    <style name="PairingDialogTheme" parent="AppTheme">
-        <item name="android:windowIsFloating">true</item>
-        <item name="android:windowCloseOnTouchOutside">false</item>
-        <item name="android:backgroundDimEnabled">true</item>
-    </style>
 </resources>
