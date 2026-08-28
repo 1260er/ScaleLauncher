@@ -1377,6 +1377,23 @@ public final class MainActivity extends Activity {
             List<String> remainingCandidateProfileIds =
                     item.remainingCandidateProfileIds();
 
+            boolean localUsersRejected = false;
+
+            for (String rejectedProfileId :
+                    item.rejectedProfileIds) {
+                HouseholdProfile rejectedProfile =
+                        HouseholdProfileStore.find(
+                                this,
+                                rejectedProfileId);
+
+                if (rejectedProfile != null
+                        && localDeviceId.equals(
+                                rejectedProfile.ownerDeviceId)) {
+                    localUsersRejected = true;
+                    break;
+                }
+            }
+
             /*
              * Weight matching decides automatic routing only. Once a
              * measurement needs a human decision, the collector must always
@@ -1388,8 +1405,9 @@ public final class MainActivity extends Activity {
              */
             for (UserProfile local :
                     localProfiles) {
-                if (!local.hasValidBodyData(
-                        item.timestampMs)) {
+                if (localUsersRejected
+                        || !local.hasValidBodyData(
+                                item.timestampMs)) {
                     continue;
                 }
 
