@@ -121,6 +121,18 @@ public final class ScaleScanService extends Service {
     private boolean terminalError;
     private String monitorText = "";
 
+    public static void clearTransientNotifications(Context context) {
+        NotificationManager manager =
+                (NotificationManager) context.getSystemService(
+                        Context.NOTIFICATION_SERVICE);
+
+        if (manager == null) return;
+
+        manager.cancel(NOTIFICATION_ASSIGNMENT);
+        manager.cancel(NOTIFICATION_RESULT);
+        manager.cancel(LEGACY_NOTIFICATION_TRANSFER_FAILURE);
+    }
+
     @Override public void onCreate() {
         super.onCreate();
         createChannels();
