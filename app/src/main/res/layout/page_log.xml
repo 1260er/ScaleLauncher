@@ -49,7 +49,7 @@
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
+            android:layout_marginTop="@dimen/spacing_sm"
             android:text="@string/log_diagnostic_description" />
 
         <LinearLayout
