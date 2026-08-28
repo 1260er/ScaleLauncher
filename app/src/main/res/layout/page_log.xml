@@ -55,7 +55,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
+            android:layout_marginTop="@dimen/spacing_sm"
             android:orientation="horizontal">
 
             <ImageButton
@@ -96,7 +96,7 @@
             style="@style/UiBodyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
+            android:layout_marginTop="@dimen/spacing_sm"
             android:fontFamily="monospace"
             android:minHeight="180dp"
             android:textIsSelectable="true" />
