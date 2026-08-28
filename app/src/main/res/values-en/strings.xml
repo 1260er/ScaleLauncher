@@ -149,7 +149,7 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="health_connect_status_unavailable">Health Connect: unavailable – direct transfer requires Android 14+</string>
     <string name="health_connect_main_user_missing">Main user missing</string>
     <string name="health_connect_user_name">User %1$s</string>
-    <string name="health_connect_status_ready">Health Connect ready – %1$s, %2$d values selected</string>
+    <string name="health_connect_status_ready">Health Connect ready\n%1$s, %2$d values selected</string>
     <string name="health_connect_status_permissions">Health Connect: %1$d/%2$d required permissions granted – %3$s</string>
     <string name="pending_status_summary">%1$d pending measurement(s) – next: %2$.1f kg (%3$s)</string>
     <string name="pending_assignment_toast">%1$.1f kg will be assigned to %2$s.</string>
