@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
@@ -33,8 +34,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 final class PeerMeasurementTransport {
@@ -58,6 +61,10 @@ final class PeerMeasurementTransport {
             UUID.fromString(
                     "62d58d1d-1d4e-4b7e-9d6d-8e6a9053c7a1");
 
+    private static final UUID CCCD_UUID =
+            UUID.fromString(
+                    "00002902-0000-1000-8000-00805f9b34fb");
+
     private static final ParcelUuid SERVICE_UUID =
             new ParcelUuid(
                     SERVICE_UUID_VALUE);
@@ -66,6 +73,7 @@ final class PeerMeasurementTransport {
     private static final int FRAME_CONTINUE = 2;
     private static final int MAX_MESSAGE_BYTES = 8192;
     private static final long SEND_TIMEOUT_MS = 15_000L;
+    private static final long REPLY_WAIT_TIMEOUT_MS = 5_000L;
 
     private final Context context;
     private final Listener listener;
@@ -74,6 +82,18 @@ final class PeerMeasurementTransport {
                     Looper.getMainLooper());
 
     private final Map<String, ReceiveState> receiveStates =
+            new HashMap<>();
+
+    private final Set<String> notificationSubscribers =
+            new HashSet<>();
+
+    private final Map<String, BluetoothDevice> replyDevices =
+            new HashMap<>();
+
+    private final Map<String, Integer> replyMtus =
+            new HashMap<>();
+
+    private final Map<String, ReplySendState> replyStates =
             new HashMap<>();
 
     private BluetoothManager manager;
@@ -92,6 +112,7 @@ final class PeerMeasurementTransport {
     private int sendMtu = 23;
     private boolean sendConnecting;
     private boolean sendLastChunkFinal;
+    private boolean sendAwaitingReply;
     private String sendStage = "idle";
 
     PeerMeasurementTransport(
@@ -158,8 +179,18 @@ final class PeerMeasurementTransport {
             BluetoothGattCharacteristic data =
                     new BluetoothGattCharacteristic(
                             DATA_UUID,
-                            BluetoothGattCharacteristic.PROPERTY_WRITE,
+                            BluetoothGattCharacteristic.PROPERTY_WRITE
+                                    | BluetoothGattCharacteristic.PROPERTY_NOTIFY,
                             BluetoothGattCharacteristic.PERMISSION_WRITE);
+
+            BluetoothGattDescriptor cccd =
+                    new BluetoothGattDescriptor(
+                            CCCD_UUID,
+                            BluetoothGattDescriptor.PERMISSION_READ
+                                    | BluetoothGattDescriptor.PERMISSION_WRITE);
+
+            data.addDescriptor(
+                    cccd);
 
             service.addCharacteristic(
                     data);
@@ -268,6 +299,95 @@ final class PeerMeasurementTransport {
         }
     }
 
+    boolean sendReply(
+            PeerTrustStore.Peer peer,
+            String messageId,
+            String payload) {
+        if (peer == null
+                || messageId == null
+                || messageId.isBlank()
+                || payload == null
+                || payload.isBlank()
+                || server == null) {
+            return false;
+        }
+
+        BluetoothDevice device =
+                replyDevices.get(
+                        peer.deviceId);
+
+        if (device == null
+                || !notificationSubscribers.contains(
+                        device.getAddress())
+                || replyStates.containsKey(
+                        device.getAddress())) {
+            return false;
+        }
+
+        BluetoothGattService service =
+                server.getService(
+                        SERVICE_UUID_VALUE);
+
+        BluetoothGattCharacteristic characteristic =
+                service == null
+                        ? null
+                        : service.getCharacteristic(
+                                DATA_UUID);
+
+        if (characteristic == null) {
+            return false;
+        }
+
+        try {
+            String localDeviceId =
+                    PeerTrustStore.localDeviceId(
+                            context);
+
+            String encrypted =
+                    PeerMeasurementCrypto.encrypt(
+                            localDeviceId,
+                            peer.sharedSecret,
+                            payload);
+
+            byte[] bytes =
+                    encrypted.getBytes(
+                            StandardCharsets.UTF_8);
+
+            if (bytes.length == 0
+                    || bytes.length > MAX_MESSAGE_BYTES) {
+                return false;
+            }
+
+            ReplySendState state =
+                    new ReplySendState(
+                            peer,
+                            messageId,
+                            device,
+                            characteristic,
+                            bytes,
+                            replyMtus.getOrDefault(
+                                    device.getAddress(),
+                                    23));
+
+            replyStates.put(
+                    device.getAddress(),
+                    state);
+
+            if (!writeNextReplyChunk(
+                    state)) {
+                replyStates.remove(
+                        device.getAddress());
+                return false;
+            }
+
+            return true;
+        } catch (RuntimeException exception) {
+            replyStates.remove(
+                    device.getAddress());
+            return false;
+        }
+    }
+
     void stop() {
         handler.removeCallbacks(
                 sendTimeoutTask);
@@ -305,6 +425,10 @@ final class PeerMeasurementTransport {
         }
 
         receiveStates.clear();
+        notificationSubscribers.clear();
+        replyDevices.clear();
+        replyMtus.clear();
+        replyStates.clear();
         clearSendState();
     }
 
@@ -365,6 +489,144 @@ final class PeerMeasurementTransport {
                                 response,
                                 offset,
                                 null);
+                    }
+                }
+
+                @Override
+                public void onDescriptorWriteRequest(
+                        BluetoothDevice device,
+                        int requestId,
+                        BluetoothGattDescriptor descriptor,
+                        boolean preparedWrite,
+                        boolean responseNeeded,
+                        int offset,
+                        byte[] value) {
+                    int response =
+                            BluetoothGatt.GATT_SUCCESS;
+
+                    BluetoothGattCharacteristic characteristic =
+                            descriptor == null
+                                    ? null
+                                    : descriptor.getCharacteristic();
+
+                    if (device == null
+                            || descriptor == null
+                            || !CCCD_UUID.equals(
+                                    descriptor.getUuid())
+                            || characteristic == null
+                            || !DATA_UUID.equals(
+                                    characteristic.getUuid())
+                            || preparedWrite
+                            || offset != 0
+                            || value == null) {
+                        response =
+                                BluetoothGatt.GATT_FAILURE;
+                    } else if (Arrays.equals(
+                            value,
+                            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) {
+                        notificationSubscribers.add(
+                                device.getAddress());
+                    } else if (Arrays.equals(
+                            value,
+                            BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
+                        notificationSubscribers.remove(
+                                device.getAddress());
+                    } else {
+                        response =
+                                BluetoothGatt.GATT_FAILURE;
+                    }
+
+                    if (responseNeeded
+                            && server != null
+                            && device != null) {
+                        server.sendResponse(
+                                device,
+                                requestId,
+                                response,
+                                offset,
+                                null);
+                    }
+                }
+
+                @Override
+                public void onConnectionStateChange(
+                        BluetoothDevice device,
+                        int status,
+                        int newState) {
+                    if (device != null
+                            && newState
+                            == BluetoothProfile.STATE_DISCONNECTED) {
+                        String address =
+                                device.getAddress();
+
+                        notificationSubscribers.remove(
+                                address);
+
+                        receiveStates.remove(
+                                address);
+
+                        replyMtus.remove(
+                                address);
+
+                        replyStates.remove(
+                                address);
+
+                        replyDevices.entrySet().removeIf(
+                                entry -> entry.getValue() != null
+                                        && address.equals(
+                                                entry.getValue().getAddress()));
+                    }
+                }
+
+                @Override
+                public void onMtuChanged(
+                        BluetoothDevice device,
+                        int mtu) {
+                    if (device != null
+                            && mtu >= 23) {
+                        replyMtus.put(
+                                device.getAddress(),
+                                mtu);
+                    }
+                }
+
+                @Override
+                public void onNotificationSent(
+                        BluetoothDevice device,
+                        int status) {
+                    if (device == null) {
+                        return;
+                    }
+
+                    String address =
+                            device.getAddress();
+
+                    ReplySendState state =
+                            replyStates.get(
+                                    address);
+
+                    if (state == null) {
+                        return;
+                    }
+
+                    if (status
+                            != BluetoothGatt.GATT_SUCCESS) {
+                        replyStates.remove(
+                                address);
+                        return;
+                    }
+
+                    if (state.offset
+                            >= state.bytes.length) {
+                        replyStates.remove(
+                                address);
+                        return;
+                    }
+
+                    if (!writeNextReplyChunk(
+                            state)) {
+                        replyStates.remove(
+                                address);
                     }
                 }
             };
@@ -582,6 +844,74 @@ final class PeerMeasurementTransport {
                         return;
                     }
 
+                    BluetoothGattDescriptor cccd =
+                            characteristic.getDescriptor(
+                                    CCCD_UUID);
+
+                    if (cccd == null
+                            || !gatt.setCharacteristicNotification(
+                                    characteristic,
+                                    true)) {
+                        failSend(
+                                "BLE-Peer-Rückkanal konnte nicht aktiviert werden");
+                        return;
+                    }
+
+                    sendStage = "subscribing";
+
+                    boolean queued;
+
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        queued =
+                                gatt.writeDescriptor(
+                                        cccd,
+                                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                                        == BluetoothStatusCodes.SUCCESS;
+                    } else {
+                        cccd.setValue(
+                                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+
+                        queued =
+                                gatt.writeDescriptor(
+                                        cccd);
+                    }
+
+                    if (!queued) {
+                        failSend(
+                                "BLE-Peer-Rückkanal konnte nicht eingereiht werden");
+                    }
+                }
+
+                @Override
+                public void onDescriptorWrite(
+                        BluetoothGatt gatt,
+                        BluetoothGattDescriptor descriptor,
+                        int status) {
+                    if (descriptor == null
+                            || !CCCD_UUID.equals(
+                                    descriptor.getUuid())) {
+                        return;
+                    }
+
+                    if (status
+                            != BluetoothGatt.GATT_SUCCESS) {
+                        failSend(
+                                "BLE-Peer-Rückkanal Status "
+                                        + status);
+                        return;
+                    }
+
+                    BluetoothGattCharacteristic characteristic =
+                            descriptor.getCharacteristic();
+
+                    if (characteristic == null
+                            || !DATA_UUID.equals(
+                                    characteristic.getUuid())) {
+                        failSend(
+                                "BLE-Peer-Messwertkanal fehlt");
+                        return;
+                    }
+
                     sendStage = "writing";
 
                     EventLog.debug(
@@ -592,6 +922,30 @@ final class PeerMeasurementTransport {
                     writeNextChunk(
                             gatt,
                             characteristic);
+                }
+
+                @Override
+                public void onCharacteristicChanged(
+                        BluetoothGatt gatt,
+                        BluetoothGattCharacteristic characteristic,
+                        byte[] value) {
+                    handleReplyNotification(
+                            gatt,
+                            characteristic,
+                            value);
+                }
+
+                @SuppressWarnings("deprecation")
+                @Override
+                public void onCharacteristicChanged(
+                        BluetoothGatt gatt,
+                        BluetoothGattCharacteristic characteristic) {
+                    handleReplyNotification(
+                            gatt,
+                            characteristic,
+                            characteristic == null
+                                    ? null
+                                    : characteristic.getValue());
                 }
 
                 @Override
@@ -617,6 +971,126 @@ final class PeerMeasurementTransport {
                             characteristic);
                 }
             };
+
+    private void handleReplyNotification(
+            BluetoothGatt gatt,
+            BluetoothGattCharacteristic characteristic,
+            byte[] value) {
+        if (gatt == null
+                || gatt != sendGatt
+                || !sendAwaitingReply
+                || characteristic == null
+                || !DATA_UUID.equals(
+                        characteristic.getUuid())
+                || value == null
+                || value.length == 0) {
+            return;
+        }
+
+        BluetoothDevice device =
+                gatt.getDevice();
+
+        if (!acceptFrame(
+                device,
+                value)) {
+            return;
+        }
+
+        if (!receiveStates.containsKey(
+                device.getAddress())) {
+            finishReplyWait();
+        }
+    }
+
+    private boolean writeNextReplyChunk(
+            ReplySendState state) {
+        if (state == null
+                || server == null
+                || state.offset >= state.bytes.length) {
+            return false;
+        }
+
+        int maxValueLength =
+                Math.min(
+                        512,
+                        Math.max(
+                                20,
+                                state.mtu - 3));
+
+        boolean first =
+                state.offset == 0;
+
+        int headerLength =
+                first ? 5 : 1;
+
+        int dataLength =
+                Math.min(
+                        maxValueLength - headerLength,
+                        state.bytes.length - state.offset);
+
+        if (dataLength <= 0) {
+            return false;
+        }
+
+        byte[] frame =
+                new byte[
+                        headerLength
+                                + dataLength];
+
+        frame[0] =
+                (byte) (first
+                        ? FRAME_START
+                        : FRAME_CONTINUE);
+
+        if (first) {
+            int total =
+                    state.bytes.length;
+
+            frame[1] =
+                    (byte) (total >>> 24);
+            frame[2] =
+                    (byte) (total >>> 16);
+            frame[3] =
+                    (byte) (total >>> 8);
+            frame[4] =
+                    (byte) total;
+        }
+
+        System.arraycopy(
+                state.bytes,
+                state.offset,
+                frame,
+                headerLength,
+                dataLength);
+
+        boolean queued;
+
+        if (Build.VERSION.SDK_INT >= 33) {
+            queued =
+                    server.notifyCharacteristicChanged(
+                            state.device,
+                            state.characteristic,
+                            false,
+                            frame)
+                            == BluetoothStatusCodes.SUCCESS;
+        } else {
+            state.characteristic.setValue(
+                    frame);
+
+            queued =
+                    server.notifyCharacteristicChanged(
+                            state.device,
+                            state.characteristic,
+                            false);
+        }
+
+        if (queued) {
+            state.offset +=
+                    dataLength;
+        }
+
+        return queued;
+    }
 
     private void writeNextChunk(
             BluetoothGatt gatt,
@@ -830,6 +1304,10 @@ final class PeerMeasurementTransport {
             return false;
         }
 
+        replyDevices.put(
+                peer.deviceId,
+                device);
+
         EventLog.debug(
                 context,
                 "Peer-Transport: Nachricht empfangen von "
@@ -850,8 +1328,15 @@ final class PeerMeasurementTransport {
         String messageId =
                 sendMessageId;
 
-        cleanupSendConnection();
-        clearSendState();
+        handler.removeCallbacks(
+                sendTimeoutTask);
+
+        sendAwaitingReply = true;
+        sendStage = "awaiting_reply";
+
+        handler.postDelayed(
+                replyWaitTimeoutTask,
+                REPLY_WAIT_TIMEOUT_MS);
 
         if (peer != null
                 && messageId != null) {
@@ -867,6 +1352,11 @@ final class PeerMeasurementTransport {
         }
     }
 
+    private void finishReplyWait() {
+        cleanupSendConnection();
+        clearSendState();
+    }
+
     private void failSend(
             String message) {
         cleanupSendConnection();
@@ -878,6 +1368,9 @@ final class PeerMeasurementTransport {
     private void cleanupSendConnection() {
         handler.removeCallbacks(
                 sendTimeoutTask);
+
+        handler.removeCallbacks(
+                replyWaitTimeoutTask);
 
         stopSendScan();
 
@@ -904,6 +1397,7 @@ final class PeerMeasurementTransport {
         sendMtu = 23;
         sendConnecting = false;
         sendLastChunkFinal = false;
+        sendAwaitingReply = false;
         sendStage = "idle";
     }
 
@@ -936,6 +1430,13 @@ final class PeerMeasurementTransport {
                         message));
     }
 
+    private final Runnable replyWaitTimeoutTask =
+            () -> {
+                if (sendAwaitingReply) {
+                    finishReplyWait();
+                }
+            };
+
     private final Runnable sendTimeoutTask =
             () -> {
                 if (sendPeer != null) {
@@ -963,6 +1464,34 @@ final class PeerMeasurementTransport {
             throw new IllegalStateException(
                     "Could not create peer fingerprint",
                     exception);
+        }
+    }
+
+    private static final class ReplySendState {
+        final PeerTrustStore.Peer peer;
+        final String messageId;
+        final BluetoothDevice device;
+        final BluetoothGattCharacteristic characteristic;
+        final byte[] bytes;
+        final int mtu;
+        int offset;
+
+        ReplySendState(
+                PeerTrustStore.Peer peer,
+                String messageId,
+                BluetoothDevice device,
+                BluetoothGattCharacteristic characteristic,
+                byte[] bytes,
+                int mtu) {
+            this.peer = peer;
+            this.messageId = messageId;
+            this.device = device;
+            this.characteristic = characteristic;
+            this.bytes = bytes;
+            this.mtu =
+                    Math.max(
+                            23,
+                            mtu);
         }
     }
 

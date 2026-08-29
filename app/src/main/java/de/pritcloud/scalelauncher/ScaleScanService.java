@@ -54,6 +54,7 @@ public final class ScaleScanService extends Service {
     private static final long PEER_SYNC_RETRY_MS = 30_000L;
     private static final long PEER_SYNC_ERROR_RETRY_BASE_MS = 2_000L;
     private static final long PEER_SYNC_ERROR_RETRY_SPAN_MS = 4_000L;
+    private static final boolean ENABLE_REVERSE_ACK_FALLBACK = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable watchdogRunnable = this::runWatchdog;
@@ -1961,6 +1962,32 @@ public final class ScaleScanService extends Service {
                 PeerAckPayload.create(
                         acknowledgedMessageId);
 
+        if (peerTransport != null
+                && peerTransport.sendReply(
+                        peer,
+                        ack.messageId,
+                        ack.encode())) {
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_peer_ack_session_started,
+                            peer.label));
+            return;
+        }
+
+        if (!ENABLE_REVERSE_ACK_FALLBACK) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_peer_ack_reverse_fallback_disabled,
+                            peer.label));
+            return;
+        }
+
+        /*
+         * Legacy reverse-connect fallback. Kept intact so it can be
+         * re-enabled immediately if the session reply proves unreliable.
+         */
         peerDirectQueue.add(
                 new DirectPeerMessage(
                         peer.deviceId,

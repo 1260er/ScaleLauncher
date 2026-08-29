@@ -477,4 +477,6 @@ Both phones must show exactly the same code. If they match, press “Codes match
     <string name="log_remote_pending_reject_queued">%1$.1f kg: this phone excluded (%2$d candidates) – response queued for %3$s</string>
     <string name="log_remote_pending_closed">%1$.1f kg: remote request closed by %2$s</string>
     <string name="log_measurement_closed_queued">Queued close signal for measurement %1$s to %2$d paired devices</string>
+    <string name="log_peer_ack_session_started">Peer ACK to %1$s started over existing connection</string>
+    <string name="log_peer_ack_reverse_fallback_disabled">Peer ACK to %1$s could not be started over the existing connection – reverse fallback disabled for test</string>
 </resources>
