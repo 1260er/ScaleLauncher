@@ -1589,6 +1589,10 @@ public final class ScaleScanService extends Service {
             return true;
         }
 
+        if (pending.manualRescue) {
+            return true;
+        }
+
         for (PendingMeasurementStore.ClaimResponse response :
                 PendingMeasurementStore.claimResponses(
                         prefs,
