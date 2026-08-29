@@ -3551,6 +3551,11 @@ public final class ScaleScanService extends Service {
             } else if (!gattMonitoringActive) {
                 startGattCollector();
             } else if (gattClient == null) {
+                ServiceState.heartbeat(
+                        this,
+                        false,
+                        monitorText);
+
                 if (!gattReconnectScheduled) {
                     connectGattCollector();
                 }
