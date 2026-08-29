@@ -946,6 +946,10 @@ public final class ScaleScanService extends Service {
                             autoResolveSingleRemainingCandidate(
                                     prefs,
                                     decision.measurementId);
+
+                            removePendingWithoutCandidates(
+                                    prefs,
+                                    decision.measurementId);
                         }
                     } else {
                         EventLog.debug(
