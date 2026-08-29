@@ -1907,6 +1907,14 @@ public final class MainActivity extends Activity {
         long now = System.currentTimeMillis();
         ServiceState.Snapshot snapshot = ServiceState.read(this);
 
+        boolean serviceActive =
+                !snapshot.isStale(now)
+                        && (snapshot.mode == ServiceState.Mode.STARTING
+                            || snapshot.mode == ServiceState.Mode.RUNNING);
+
+        findViewById(R.id.saveStart)
+                .setEnabled(!serviceActive);
+
         scaleStatusImage.setImageResource(R.drawable.scale_disconnected);
         scaleStatusImage.setContentDescription(
                 getString(R.string.status_scale_disconnected));
