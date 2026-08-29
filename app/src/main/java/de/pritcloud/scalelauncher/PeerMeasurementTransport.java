@@ -74,6 +74,7 @@ final class PeerMeasurementTransport {
     private static final int MAX_MESSAGE_BYTES = 8192;
     private static final long SEND_TIMEOUT_MS = 15_000L;
     private static final long REPLY_WAIT_TIMEOUT_MS = 5_000L;
+    private static final long SESSION_IDLE_TIMEOUT_MS = 3_000L;
 
     private final Context context;
     private final Listener listener;
@@ -103,6 +104,8 @@ final class PeerMeasurementTransport {
     private BluetoothGattServer server;
 
     private BluetoothGatt sendGatt;
+    private BluetoothGattCharacteristic sendCharacteristic;
+    private String sendSessionPeerDeviceId;
     private PeerTrustStore.Peer sendPeer;
     private String sendMessageId;
     private String sendPayload;
@@ -228,6 +231,16 @@ final class PeerMeasurementTransport {
             return false;
         }
 
+        boolean reuseSession =
+                canReuseSendSession(
+                        peer);
+
+        if (!reuseSession
+                && sendGatt != null) {
+            cleanupSendConnection();
+            clearSendState();
+        }
+
         try {
             String localDeviceId =
                     PeerTrustStore.localDeviceId(
@@ -239,25 +252,51 @@ final class PeerMeasurementTransport {
                             peer.sharedSecret,
                             payload);
 
-            sendBytes =
+            byte[] bytes =
                     encrypted.getBytes(
                             StandardCharsets.UTF_8);
 
-            if (sendBytes.length == 0
-                    || sendBytes.length > MAX_MESSAGE_BYTES) {
+            if (bytes.length == 0
+                    || bytes.length > MAX_MESSAGE_BYTES) {
                 reportError(
                         "BLE-Peer-Nachricht ist zu groß");
-                clearSendState();
                 return false;
             }
 
             sendPeer = peer;
             sendMessageId = messageId;
             sendPayload = payload;
+            sendBytes = bytes;
             sendOffset = 0;
-            sendMtu = 23;
             sendConnecting = false;
             sendLastChunkFinal = false;
+            sendAwaitingReply = false;
+
+            if (reuseSession) {
+                handler.removeCallbacks(
+                        sessionIdleTimeoutTask);
+
+                sendStage = "writing";
+
+                EventLog.debug(
+                        context,
+                        context.getString(
+                                R.string.log_peer_connection_reused,
+                                peer.label));
+
+                handler.postDelayed(
+                        sendTimeoutTask,
+                        SEND_TIMEOUT_MS);
+
+                writeNextChunk(
+                        sendGatt,
+                        sendCharacteristic);
+
+                return true;
+            }
+
+            sendMtu = 23;
+
             sendTargetFingerprint =
                     fingerprint(
                             peer.deviceId);
@@ -391,6 +430,12 @@ final class PeerMeasurementTransport {
     void stop() {
         handler.removeCallbacks(
                 sendTimeoutTask);
+
+        handler.removeCallbacks(
+                replyWaitTimeoutTask);
+
+        handler.removeCallbacks(
+                sessionIdleTimeoutTask);
 
         stopSendScan();
 
@@ -765,9 +810,14 @@ final class PeerMeasurementTransport {
                         int newState) {
                     if (status
                             != BluetoothGatt.GATT_SUCCESS) {
-                        failSend(
-                                "BLE-Peer-Verbindung Status "
-                                        + status);
+                        if (sendPeer != null) {
+                            failSend(
+                                    "BLE-Peer-Verbindung Status "
+                                            + status);
+                        } else if (gatt == sendGatt) {
+                            cleanupSendConnection();
+                            clearSendState();
+                        }
                         return;
                     }
 
@@ -785,10 +835,14 @@ final class PeerMeasurementTransport {
                             gatt.discoverServices();
                         }
                     } else if (newState
-                            == BluetoothProfile.STATE_DISCONNECTED
-                            && sendPeer != null) {
-                        failSend(
-                                "BLE-Peer-Verbindung getrennt");
+                            == BluetoothProfile.STATE_DISCONNECTED) {
+                        if (sendPeer != null) {
+                            failSend(
+                                    "BLE-Peer-Verbindung getrennt");
+                        } else if (gatt == sendGatt) {
+                            cleanupSendConnection();
+                            clearSendState();
+                        }
                     }
                 }
 
@@ -911,6 +965,14 @@ final class PeerMeasurementTransport {
                                 "BLE-Peer-Messwertkanal fehlt");
                         return;
                     }
+
+                    sendCharacteristic =
+                            characteristic;
+
+                    sendSessionPeerDeviceId =
+                            sendPeer == null
+                                    ? null
+                                    : sendPeer.deviceId;
 
                     sendStage = "writing";
 
@@ -1353,6 +1415,24 @@ final class PeerMeasurementTransport {
     }
 
     private void finishReplyWait() {
+        handler.removeCallbacks(
+                replyWaitTimeoutTask);
+
+        clearActiveSendState();
+
+        if (sendGatt != null
+                && sendCharacteristic != null
+                && sendSessionPeerDeviceId != null) {
+            handler.removeCallbacks(
+                    sessionIdleTimeoutTask);
+
+            handler.postDelayed(
+                    sessionIdleTimeoutTask,
+                    SESSION_IDLE_TIMEOUT_MS);
+
+            return;
+        }
+
         cleanupSendConnection();
         clearSendState();
     }
@@ -1372,12 +1452,17 @@ final class PeerMeasurementTransport {
         handler.removeCallbacks(
                 replyWaitTimeoutTask);
 
+        handler.removeCallbacks(
+                sessionIdleTimeoutTask);
+
         stopSendScan();
 
         BluetoothGatt gatt =
                 sendGatt;
 
         sendGatt = null;
+        sendCharacteristic = null;
+        sendSessionPeerDeviceId = null;
 
         if (gatt != null) {
             try {
@@ -1387,18 +1472,39 @@ final class PeerMeasurementTransport {
         }
     }
 
-    private void clearSendState() {
+    private void clearActiveSendState() {
         sendPeer = null;
         sendMessageId = null;
         sendPayload = null;
         sendBytes = null;
         sendTargetFingerprint = null;
         sendOffset = 0;
-        sendMtu = 23;
         sendConnecting = false;
         sendLastChunkFinal = false;
         sendAwaitingReply = false;
+        sendStage =
+                sendGatt == null
+                        ? "idle"
+                        : "session_idle";
+    }
+
+    private void clearSendState() {
+        clearActiveSendState();
+        sendMtu = 23;
+        sendCharacteristic = null;
+        sendSessionPeerDeviceId = null;
         sendStage = "idle";
+    }
+
+    private boolean canReuseSendSession(
+            PeerTrustStore.Peer peer) {
+        return peer != null
+                && sendPeer == null
+                && sendGatt != null
+                && sendCharacteristic != null
+                && sendSessionPeerDeviceId != null
+                && sendSessionPeerDeviceId.equals(
+                        peer.deviceId);
     }
 
     private void stopSendScan() {
@@ -1429,6 +1535,15 @@ final class PeerMeasurementTransport {
                 () -> listener.onError(
                         message));
     }
+
+    private final Runnable sessionIdleTimeoutTask =
+            () -> {
+                if (sendPeer == null
+                        && sendGatt != null) {
+                    cleanupSendConnection();
+                    clearSendState();
+                }
+            };
 
     private final Runnable replyWaitTimeoutTask =
             () -> {

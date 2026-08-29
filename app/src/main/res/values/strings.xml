@@ -487,4 +487,5 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="log_measurement_closed_queued">Erledigt-Signal für Messung %1$s an %2$d gekoppelte Geräte vorgemerkt</string>
     <string name="log_peer_ack_session_started">Peer-ACK an %1$s über bestehende Verbindung gestartet</string>
     <string name="log_peer_ack_reverse_fallback_disabled">Peer-ACK an %1$s konnte nicht über die bestehende Verbindung gestartet werden – Reverse-Fallback für Test deaktiviert</string>
+    <string name="log_peer_connection_reused">Peer-Transport: Bestehende Verbindung wiederverwendet – %1$s</string>
 </resources>

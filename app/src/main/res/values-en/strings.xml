@@ -479,4 +479,5 @@ Both phones must show exactly the same code. If they match, press “Codes match
     <string name="log_measurement_closed_queued">Queued close signal for measurement %1$s to %2$d paired devices</string>
     <string name="log_peer_ack_session_started">Peer ACK to %1$s started over existing connection</string>
     <string name="log_peer_ack_reverse_fallback_disabled">Peer ACK to %1$s could not be started over the existing connection – reverse fallback disabled for test</string>
+    <string name="log_peer_connection_reused">Peer transport: Existing connection reused – %1$s</string>
 </resources>
