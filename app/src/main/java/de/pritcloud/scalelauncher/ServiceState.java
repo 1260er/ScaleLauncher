@@ -2,6 +2,7 @@ package de.pritcloud.scalelauncher;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.SystemClock;
 
 /** Persisted single source of truth for the foreground service and the UI. */
 final class ServiceState {
@@ -44,9 +45,14 @@ final class ServiceState {
             this.lastFailureMs = lastFailureMs;
         }
 
-        boolean isStale(long nowMs) {
+        boolean isStale(long ignoredNowMs) {
+            long nowUptimeMs =
+                    SystemClock.uptimeMillis();
+
             return (mode == Mode.RUNNING || mode == Mode.STARTING)
-                    && (heartbeatMs <= 0L || nowMs - heartbeatMs > STALE_AFTER_MS);
+                    && (heartbeatMs <= 0L
+                        || heartbeatMs > nowUptimeMs
+                        || nowUptimeMs - heartbeatMs > STALE_AFTER_MS);
         }
     }
 
@@ -96,15 +102,20 @@ final class ServiceState {
                           boolean scanRunning,
                           String message,
                           boolean scaleConnected) {
-        long now = System.currentTimeMillis();
+        long nowWallClockMs =
+                System.currentTimeMillis();
+
+        long nowUptimeMs =
+                SystemClock.uptimeMillis();
+
         SharedPreferences.Editor editor =
                 context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                         .edit()
-                        .putLong(KEY_HEARTBEAT, now)
+                        .putLong(KEY_HEARTBEAT, nowUptimeMs)
                         .putBoolean(KEY_SCAN_RUNNING, scanRunning);
 
         if (scaleConnected) {
-            editor.putLong(KEY_LAST_SCALE_SEEN, now);
+            editor.putLong(KEY_LAST_SCALE_SEEN, nowWallClockMs);
         }
         if (message != null && !message.isBlank()) {
             editor.putString(KEY_MESSAGE, message);
@@ -115,21 +126,21 @@ final class ServiceState {
     static void scaleSeen(Context context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putLong(KEY_LAST_SCALE_SEEN, System.currentTimeMillis())
-                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
+                .putLong(KEY_HEARTBEAT, SystemClock.uptimeMillis())
                 .commit();
     }
 
     static void measurementSucceeded(Context context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putLong(KEY_LAST_SUCCESS, System.currentTimeMillis())
-                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
+                .putLong(KEY_HEARTBEAT, SystemClock.uptimeMillis())
                 .commit();
     }
 
     static void measurementFailed(Context context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putLong(KEY_LAST_FAILURE, System.currentTimeMillis())
-                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
+                .putLong(KEY_HEARTBEAT, SystemClock.uptimeMillis())
                 .commit();
     }
 
@@ -140,7 +151,7 @@ final class ServiceState {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString(KEY_MODE, mode.name())
                 .putString(KEY_MESSAGE, message == null ? "" : message)
-                .putLong(KEY_HEARTBEAT, System.currentTimeMillis())
+                .putLong(KEY_HEARTBEAT, SystemClock.uptimeMillis())
                 .putBoolean(KEY_SCAN_RUNNING, scanRunning)
                 .commit();
     }
