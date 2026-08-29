@@ -151,7 +151,13 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="health_connect_user_name">User %1$s</string>
     <string name="health_connect_status_ready">Health Connect ready\n%1$s, %2$d values selected</string>
     <string name="health_connect_status_permissions">Health Connect: %1$d/%2$d required permissions granted – %3$s</string>
-    <string name="pending_status_summary">%1$d pending measurement(s) – next: %2$.1f kg (%3$s)</string>
+    <plurals name="pending_status_count">
+        <item quantity="one">%1$d pending measurement %2$.1f kg</item>
+        <item quantity="other">%1$d pending measurements %2$.1f kg</item>
+    </plurals>
+    <string name="pending_candidates_match">%1$s match</string>
+    <string name="pending_candidate_separator">", "</string>
+    <string name="pending_candidate_last_separator">" and "</string>
     <string name="pending_assignment_toast">%1$.1f kg will be assigned to %2$s.</string>
     <string name="pending_discarded_log">Discarded unassigned measurement of %1$.1f kg</string>
     <string name="reliability_battery_required">Exclude ScaleLauncher from battery optimization first.</string>

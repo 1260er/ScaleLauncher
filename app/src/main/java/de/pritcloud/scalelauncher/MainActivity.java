@@ -1622,12 +1622,99 @@ public final class MainActivity extends Activity {
                                 R.string.pending_reason_ambiguous)
                         : item.reason;
 
-        pendingStatus.setText(
-                getString(
-                        R.string.pending_status_summary,
+        String candidateSummary =
+                pendingMatchingCandidateSummary(
+                        item);
+
+        String detail =
+                candidateSummary.isBlank()
+                        ? reason
+                        : candidateSummary;
+
+        String countLine =
+                getResources().getQuantityString(
+                        R.plurals.pending_status_count,
                         pendingMeasurements.size(),
-                        item.weightKg,
-                        reason));
+                        pendingMeasurements.size(),
+                        item.weightKg);
+
+        pendingStatus.setText(
+                countLine
+                        + "\n"
+                        + detail);
+    }
+
+    private String pendingMatchingCandidateSummary(
+            PendingMeasurementStore.Item item) {
+        if (item == null
+                || item.manualRescue) {
+            return "";
+        }
+
+        List<String> remaining =
+                item.remainingCandidateProfileIds();
+
+        if (remaining.size() < 2) {
+            return "";
+        }
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<String> labels =
+                new ArrayList<>();
+
+        for (String profileId :
+                remaining) {
+            HouseholdProfile profile =
+                    HouseholdProfileStore.find(
+                            this,
+                            profileId);
+
+            if (profile == null) {
+                continue;
+            }
+
+            String location =
+                    getString(
+                            localDeviceId.equals(
+                                    profile.ownerDeviceId)
+                                    ? R.string.home_user_local
+                                    : R.string.home_user_remote);
+
+            labels.add(
+                    profile.name
+                            + " "
+                            + location);
+        }
+
+        if (labels.size() < 2) {
+            return "";
+        }
+
+        StringBuilder names =
+                new StringBuilder();
+
+        for (int i = 0;
+                i < labels.size();
+                i++) {
+            if (i > 0) {
+                names.append(
+                        i == labels.size() - 1
+                                ? getString(
+                                        R.string.pending_candidate_last_separator)
+                                : getString(
+                                        R.string.pending_candidate_separator));
+            }
+
+            names.append(
+                    labels.get(i));
+        }
+
+        return getString(
+                R.string.pending_candidates_match,
+                names.toString());
     }
 
     private void assignPendingMeasurement() {
