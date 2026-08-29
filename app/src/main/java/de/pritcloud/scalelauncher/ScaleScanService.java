@@ -2698,11 +2698,158 @@ public final class ScaleScanService extends Service {
                 prefs,
                 pendingId);
 
-        removePendingWithoutCandidates(
-                prefs,
-                pendingId);
+        boolean remoteRescueStarted =
+                rejectedCount > 0
+                        && promoteRejectedLocalPendingToRemoteRescue(
+                                prefs,
+                                pendingId);
+
+        if (!remoteRescueStarted) {
+            removePendingWithoutCandidates(
+                    prefs,
+                    pendingId);
+        }
 
         updateAssignmentNotification();
+    }
+
+    private boolean promoteRejectedLocalPendingToRemoteRescue(
+            SharedPreferences prefs,
+            String pendingId) {
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pendingId);
+
+        if (pending == null
+                || pending.isResolved()
+                || pending.manualRescue
+                || !pending.remainingCandidateProfileIds().isEmpty()) {
+            return false;
+        }
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<String> rescueCandidateProfileIds =
+                new java.util.ArrayList<>();
+
+        /*
+         * Preserve the rejected local candidates so the collector continues
+         * to remember that all local users were explicitly excluded.
+         */
+        for (String profileId :
+                pending.candidateProfileIds) {
+            HouseholdProfile profile =
+                    HouseholdProfileStore.find(
+                            this,
+                            profileId);
+
+            if (profile != null
+                    && localDeviceId.equals(
+                            profile.ownerDeviceId)
+                    && !rescueCandidateProfileIds.contains(
+                            profileId)) {
+                rescueCandidateProfileIds.add(
+                        profileId);
+            }
+        }
+
+        boolean hasRemoteCandidate =
+                false;
+
+        /*
+         * After all local users were rejected, remote household users may
+         * claim the measurement manually even when they were outside their
+         * automatic weight tolerance. A remote user who already rejected the
+         * measurement must not be asked again.
+         */
+        for (HouseholdProfile profile :
+                HouseholdProfileStore.active(
+                        this)) {
+            if (profile == null
+                    || !UserProfile.isValidHouseholdProfileId(
+                            profile.profileId)
+                    || localDeviceId.equals(
+                            profile.ownerDeviceId)
+                    || pending.rejectedProfileIds.contains(
+                            profile.profileId)
+                    || PeerTrustStore.find(
+                            this,
+                            profile.ownerDeviceId) == null) {
+                continue;
+            }
+
+            if (!rescueCandidateProfileIds.contains(
+                    profile.profileId)) {
+                rescueCandidateProfileIds.add(
+                        profile.profileId);
+            }
+
+            hasRemoteCandidate =
+                    true;
+        }
+
+        if (!hasRemoteCandidate) {
+            return false;
+        }
+
+        S400FinalMeasurement measurement =
+                pending.toMeasurement();
+
+        PeerOutboxStore.removeMeasurement(
+                this,
+                pending.id);
+
+        broadcastMeasurementClosed(
+                pending.id);
+
+        PendingMeasurementStore.remove(
+                prefs,
+                pending.id);
+
+        String reason =
+                getString(
+                        R.string.pending_reason_no_weight_match);
+
+        PendingMeasurementStore.Item rescue =
+                PendingMeasurementStore.add(
+                        prefs,
+                        measurement,
+                        reason,
+                        rescueCandidateProfileIds,
+                        true);
+
+        for (String profileId :
+                new java.util.ArrayList<>(
+                        rescue.candidateProfileIds)) {
+            HouseholdProfile profile =
+                    HouseholdProfileStore.find(
+                            this,
+                            profileId);
+
+            if (profile != null
+                    && localDeviceId.equals(
+                            profile.ownerDeviceId)) {
+                PendingMeasurementStore.rejectCandidate(
+                        prefs,
+                        rescue.id,
+                        profileId);
+            }
+        }
+
+        EventLog.debug(
+                this,
+                getString(
+                        R.string.log_pending_measurement_saved,
+                        rescue.id));
+
+        enqueueManualRescueRequests(
+                rescue.toMeasurement(),
+                rescue.remainingCandidateProfileIds());
+
+        return true;
     }
 
     private boolean validSelectablePendingCandidate(
