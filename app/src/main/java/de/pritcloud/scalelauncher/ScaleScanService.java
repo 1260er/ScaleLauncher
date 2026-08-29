@@ -2494,6 +2494,49 @@ public final class ScaleScanService extends Service {
                             candidate.differenceKg));
         }
 
+        if (match.status
+                == UserMatcher.Status.NO_MATCH
+                && householdMatch.status
+                == HouseholdMeasurementRouter.Status.UNIQUE
+                && householdMatch.uniqueProfile != null) {
+            HouseholdProfile target =
+                    householdMatch.uniqueProfile;
+
+            String localDeviceId =
+                    PeerTrustStore.localDeviceId(
+                            this);
+
+            if (!localDeviceId.equals(
+                        target.ownerDeviceId)
+                    && PeerTrustStore.find(
+                            this,
+                            target.ownerDeviceId) != null) {
+                PendingMeasurementStore.Item pending =
+                        PendingMeasurementStore.add(
+                                prefs,
+                                measurement,
+                                getString(
+                                        R.string.pending_reason_no_weight_match),
+                                List.of(
+                                        target.profileId));
+
+                if (PendingMeasurementStore.selectCandidate(
+                        prefs,
+                        pending.id,
+                        target.profileId,
+                        target.ownerDeviceId)) {
+                    resolvePendingDecision(
+                            prefs,
+                            pending.id);
+                    return;
+                }
+
+                PendingMeasurementStore.remove(
+                        prefs,
+                        pending.id);
+            }
+        }
+
         if (MeasurementRoutingPolicy.shouldCreateHouseholdAmbiguousPending(
                 match.status,
                 householdMatch.status)) {
