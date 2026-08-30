@@ -38,7 +38,6 @@ final class PeerOutboxStore {
     private static final String KEY =
             "items";
 
-    private static final int MAX_ITEMS = 1000;
 
     static final class Item {
         final String messageId;
@@ -428,12 +427,6 @@ final class PeerOutboxStore {
                                     incoming.kind)
                                     && existing.dedupKey.equals(
                                     incoming.dedupKey));
-        }
-
-        if (items.size()
-                >= MAX_ITEMS) {
-            throw new IllegalStateException(
-                    "Peer outbox full");
         }
 
         items.add(
