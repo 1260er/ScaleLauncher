@@ -237,14 +237,19 @@ final class PeerOutboxStore {
 
     static List<Item> load(
             Context context) {
+        return load(
+                prefs(context));
+    }
+
+    static List<Item> load(
+            SharedPreferences preferences) {
         List<Item> result =
                 new ArrayList<>();
 
         String encoded =
-                prefs(context)
-                        .getString(
-                                KEY,
-                                "");
+                preferences.getString(
+                        KEY,
+                        "");
 
         if (encoded == null
                 || encoded.isBlank()) {
@@ -405,8 +410,18 @@ final class PeerOutboxStore {
             Context context,
             Item incoming,
             boolean coalesce) {
+        enqueue(
+                prefs(context),
+                incoming,
+                coalesce);
+    }
+
+    static void enqueue(
+            SharedPreferences preferences,
+            Item incoming,
+            boolean coalesce) {
         List<Item> items =
-                load(context);
+                load(preferences);
 
         for (Item existing :
                 items) {
@@ -433,7 +448,7 @@ final class PeerOutboxStore {
                 incoming);
 
         save(
-                context,
+                preferences,
                 items);
     }
 
@@ -470,6 +485,14 @@ final class PeerOutboxStore {
     private static void save(
             Context context,
             List<Item> items) {
+        save(
+                prefs(context),
+                items);
+    }
+
+    static void save(
+            SharedPreferences preferences,
+            List<Item> items) {
         JSONArray array =
                 new JSONArray();
 
@@ -503,8 +526,7 @@ final class PeerOutboxStore {
             }
         }
 
-        prefs(context)
-                .edit()
+        preferences.edit()
                 .putString(
                         KEY,
                         array.toString())
