@@ -127,6 +127,7 @@ public final class ScaleScanService extends Service {
                                 monitorText,
                                 false,
                                 collectorSource());
+                        notifyMonitor();
 
                         return;
                     }
@@ -319,6 +320,7 @@ public final class ScaleScanService extends Service {
                                             monitorText,
                                             false,
                                             currentSource);
+                                    notifyMonitor();
                                 }
                             }
 
@@ -3842,6 +3844,9 @@ public final class ScaleScanService extends Service {
     }
 
     private void expireRemoteCollectorPresence() {
+        ServiceState.CollectorSource previousSource =
+                collectorSource();
+
         long now =
                 SystemClock.elapsedRealtime();
 
@@ -3850,6 +3855,19 @@ public final class ScaleScanService extends Service {
                         entry ->
                                 now - entry.getValue()
                                         >= REMOTE_COLLECTOR_REACHABLE_MS);
+
+        ServiceState.CollectorSource currentSource =
+                collectorSource();
+
+        if (currentSource != previousSource) {
+            ServiceState.heartbeat(
+                    this,
+                    gattCollectorOwned,
+                    monitorText,
+                    false,
+                    currentSource);
+            notifyMonitor();
+        }
     }
 
     private void runWatchdog() {
@@ -3970,6 +3988,7 @@ public final class ScaleScanService extends Service {
     private Notification monitorNotification(String text) {
         ServiceState.Snapshot state = ServiceState.read(this);
         String title;
+        String notificationText = text;
         switch (state.mode) {
             case ERROR:
                 title = getString(R.string.notification_monitor_error_title);
@@ -3980,6 +3999,18 @@ public final class ScaleScanService extends Service {
             case RUNNING:
             default:
                 title = getString(R.string.notification_monitor_active_title);
+                switch (state.collectorSource) {
+                    case LOCAL:
+                        notificationText = getString(R.string.service_gatt_ready);
+                        break;
+                    case REMOTE:
+                        notificationText = getString(R.string.status_remote_collector_waiting);
+                        break;
+                    case NONE:
+                    default:
+                        notificationText = getString(R.string.status_waiting_for_scale);
+                        break;
+                }
                 break;
         }
         PendingIntent open = PendingIntent.getActivity(
@@ -3995,7 +4026,7 @@ public final class ScaleScanService extends Service {
         return new Notification.Builder(this, CHANNEL_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                 .setContentTitle(title)
-                .setContentText(text)
+                .setContentText(notificationText)
                 .setContentIntent(open)
                 .addAction(new Notification.Action.Builder(
                         null,
