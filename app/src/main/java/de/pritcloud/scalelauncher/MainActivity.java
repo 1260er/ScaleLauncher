@@ -1181,7 +1181,7 @@ public final class MainActivity extends Activity {
             return;
         }
         long now = System.currentTimeMillis();
-        for (UserProfile profile : profiles) {
+        for (UserProfile profile : enabledProfiles) {
             if (!profile.hasValidBodyData(now) || !profile.hasValidMatchingData()) {
                 LoggedToast.makeText(this,
                         getString(R.string.start_error_profile_incomplete, profile.name),
