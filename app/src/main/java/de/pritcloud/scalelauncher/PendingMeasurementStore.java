@@ -445,6 +445,15 @@ final class PendingMeasurementStore {
                     List<String> candidateProfileIds,
                     boolean manualRescue) {
         List<Item> items = load(prefs);
+
+        for (Item existing :
+                items) {
+            if (existing.id.equals(
+                    measurement.measurementId)) {
+                return existing;
+            }
+        }
+
         Item item = new Item(
                 measurement.measurementId,
                 measurement.weightKg,

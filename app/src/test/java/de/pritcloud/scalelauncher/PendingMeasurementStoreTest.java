@@ -194,4 +194,71 @@ public final class PendingMeasurementStoreTest {
                         "measurement-two").size());
     }
 
+
+    @Test
+    public void reusesExistingPendingForDuplicateMeasurementId() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String firstProfileId =
+                "11111111-1111-4111-8111-111111111111";
+
+        String secondProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        String ownerDeviceId =
+                "33333333-3333-4333-8333-333333333333";
+
+        S400FinalMeasurement measurement =
+                new S400FinalMeasurement(
+                        "duplicate-measurement",
+                        70.0f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        null);
+
+        PendingMeasurementStore.Item first =
+                PendingMeasurementStore.add(
+                        prefs,
+                        measurement,
+                        "first",
+                        List.of(
+                                firstProfileId,
+                                secondProfileId));
+
+        assertTrue(
+                PendingMeasurementStore.selectCandidate(
+                        prefs,
+                        first.id,
+                        firstProfileId,
+                        ownerDeviceId));
+
+        PendingMeasurementStore.Item duplicate =
+                PendingMeasurementStore.add(
+                        prefs,
+                        measurement,
+                        "replacement",
+                        List.of(secondProfileId),
+                        true);
+
+        assertEquals(
+                1,
+                PendingMeasurementStore.load(prefs).size());
+
+        assertTrue(duplicate.isResolved());
+        assertEquals(
+                firstProfileId,
+                duplicate.selectedProfileId);
+        assertEquals(
+                ownerDeviceId,
+                duplicate.selectedOwnerDeviceId);
+        assertFalse(duplicate.manualRescue);
+        assertEquals(
+                List.of(
+                        firstProfileId,
+                        secondProfileId),
+                duplicate.candidateProfileIds);
+    }
+
 }
