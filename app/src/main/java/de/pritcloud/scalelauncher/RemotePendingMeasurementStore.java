@@ -15,7 +15,6 @@ import java.util.Set;
 final class RemotePendingMeasurementStore {
     private static final String PREFS = "remote_pending_measurements_v1";
     private static final String KEY = "items";
-    private static final int MAX_ITEMS = 10;
 
     static final class Item {
         final String measurementId;
@@ -118,8 +117,12 @@ final class RemotePendingMeasurementStore {
     private RemotePendingMeasurementStore() {}
 
     static List<Item> load(Context context) {
+        return load(prefs(context));
+    }
+
+    static List<Item> load(SharedPreferences preferences) {
         List<Item> result = new ArrayList<>();
-        String encoded = prefs(context).getString(KEY, "");
+        String encoded = preferences.getString(KEY, "");
         if (encoded == null || encoded.isBlank()) return result;
 
         try {
@@ -145,6 +148,17 @@ final class RemotePendingMeasurementStore {
                           PeerTrustStore.Peer collector,
                           PeerMeasurementPayload payload,
                           List<String> localCandidateProfileIds) {
+        return upsert(
+                prefs(context),
+                collector,
+                payload,
+                localCandidateProfileIds);
+    }
+
+    static boolean upsert(SharedPreferences preferences,
+                          PeerTrustStore.Peer collector,
+                          PeerMeasurementPayload payload,
+                          List<String> localCandidateProfileIds) {
         if (collector == null || payload == null || !payload.requiresClaim) return false;
 
         Item incoming = new Item(
@@ -161,7 +175,7 @@ final class RemotePendingMeasurementStore {
 
         if (!incoming.isValid()) return false;
 
-        List<Item> items = load(context);
+        List<Item> items = load(preferences);
         for (int index = 0; index < items.size(); index++) {
             Item existing = items.get(index);
             if (!incoming.measurementId.equals(existing.measurementId)) continue;
@@ -171,13 +185,12 @@ final class RemotePendingMeasurementStore {
             }
 
             items.set(index, incoming);
-            save(context, items);
+            save(preferences, items);
             return true;
         }
 
         items.add(incoming);
-        while (items.size() > MAX_ITEMS) items.remove(0);
-        save(context, items);
+        save(preferences, items);
         return true;
     }
 
@@ -211,6 +224,10 @@ final class RemotePendingMeasurementStore {
     }
 
     private static void save(Context context, List<Item> items) {
+        save(prefs(context), items);
+    }
+
+    private static void save(SharedPreferences preferences, List<Item> items) {
         JSONArray array = new JSONArray();
         for (Item item : items) {
             if (item == null || !item.isValid()) continue;
@@ -219,7 +236,7 @@ final class RemotePendingMeasurementStore {
             } catch (JSONException ignored) {
             }
         }
-        prefs(context).edit().putString(KEY, array.toString()).commit();
+        preferences.edit().putString(KEY, array.toString()).commit();
     }
 
     private static SharedPreferences prefs(Context context) {
