@@ -803,8 +803,24 @@ public final class ScaleScanService extends Service {
                 ? deviceTimestamp * 1000L
                 : System.currentTimeMillis();
 
+        String scaleMac =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE)
+                        .getString(
+                                "mac",
+                                "");
+
+        String measurementId =
+                S400FinalMeasurement.stableLocalMeasurementId(
+                        scaleMac,
+                        deviceTimestamp > 0L
+                                ? timestampMs
+                                : 0L);
+
         S400FinalMeasurement finalized =
                 new S400FinalMeasurement(
+                        measurementId,
                         measurement.weightKg,
                         measurement.impedance,
                         measurement.impedanceLow,
@@ -3486,23 +3502,106 @@ public final class ScaleScanService extends Service {
         }
         EventLog.debug(this, buildCalculationLog(profile.name, age, measurement, composition));
 
-        boolean openScaleStored;
+        boolean openScaleStored = false;
         try {
             OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
             if (!meta.supportsGenericValues()) {
                 rejectMeasurement(getString(R.string.service_error_provider_api));
                 return false;
             }
+
             prefs.edit().putInt("openscale_api_version", meta.apiVersion).apply();
-            OpenScaleProvider.InsertResult result = OpenScaleProvider.insertMeasurement(
-                    this,
-                    authority,
-                    profile.userId,
-                    timestamp,
-                    meta.apiVersion,
-                    measurement,
-                    composition);
-            openScaleStored = logProviderResult(result, profile.name);
+
+            MeasurementWriteJournalStore.Status journalStatus =
+                    MeasurementWriteJournalStore.status(
+                            this,
+                            measurement.measurementId,
+                            authority,
+                            profile.userId,
+                            timestamp);
+
+            if (journalStatus
+                    == MeasurementWriteJournalStore.Status.CONFLICT) {
+                rejectMeasurement(
+                        getString(R.string.service_error_openscale_unconfirmed));
+                return false;
+            }
+
+            if (journalStatus
+                    == MeasurementWriteJournalStore.Status.STORED) {
+                openScaleStored = true;
+            } else {
+                if (journalStatus
+                        == MeasurementWriteJournalStore.Status.PREPARED) {
+                    OpenScaleProvider.ExistingMeasurementStatus existing =
+                            OpenScaleProvider.existingMeasurementStatus(
+                                    this,
+                                    authority,
+                                    profile.userId,
+                                    timestamp,
+                                    measurement.weightKg);
+
+                    if (existing
+                            == OpenScaleProvider.ExistingMeasurementStatus.COMPLETE) {
+                        if (!MeasurementWriteJournalStore.markStored(
+                                this,
+                                measurement.measurementId,
+                                authority,
+                                profile.userId,
+                                timestamp)) {
+                            rejectMeasurement(
+                                    getString(R.string.service_error_openscale_unconfirmed));
+                            return false;
+                        }
+
+                        openScaleStored = true;
+                    } else if (existing
+                            == OpenScaleProvider.ExistingMeasurementStatus.UNKNOWN) {
+                        rejectMeasurement(
+                                getString(R.string.service_error_openscale_unconfirmed));
+                        return false;
+                    }
+                } else if (!MeasurementWriteJournalStore.prepare(
+                        this,
+                        measurement.measurementId,
+                        authority,
+                        profile.userId,
+                        timestamp)) {
+                    rejectMeasurement(
+                            getString(R.string.service_error_openscale_unconfirmed));
+                    return false;
+                }
+
+                if (!openScaleStored) {
+                    OpenScaleProvider.InsertResult result =
+                            OpenScaleProvider.insertMeasurement(
+                                    this,
+                                    authority,
+                                    profile.userId,
+                                    timestamp,
+                                    meta.apiVersion,
+                                    measurement,
+                                    composition);
+
+                    openScaleStored =
+                            logProviderResult(
+                                    result,
+                                    profile.name);
+
+                    if (openScaleStored
+                            && !MeasurementWriteJournalStore.markStored(
+                                    this,
+                                    measurement.measurementId,
+                                    authority,
+                                    profile.userId,
+                                    timestamp)) {
+                        rejectMeasurement(
+                                getString(R.string.service_error_openscale_unconfirmed));
+                        return false;
+                    }
+                }
+            }
+
             if (openScaleStored) {
                 boolean referenceUpdated =
                         HouseholdProfileSync.updateReferenceWeight(

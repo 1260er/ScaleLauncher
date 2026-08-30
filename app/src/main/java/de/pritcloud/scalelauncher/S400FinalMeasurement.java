@@ -1,5 +1,7 @@
 package de.pritcloud.scalelauncher;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.UUID;
 
 /** Complete raw S400 measurement received from the authenticated GATT channel. */
@@ -53,6 +55,25 @@ final class S400FinalMeasurement {
         this.impedanceLow = impedanceLow;
         this.timestampMs = timestampMs;
         this.scaleProfileId = scaleProfileId;
+    }
+
+    static String stableLocalMeasurementId(
+            String scaleMac,
+            long timestampMs) {
+        if (!S400GattProtocol.isValidMacAddress(scaleMac)
+                || timestampMs <= 0L) {
+            return UUID.randomUUID().toString();
+        }
+
+        String source =
+                "ScaleLauncher:S400:"
+                        + scaleMac.toUpperCase(Locale.ROOT)
+                        + ":"
+                        + timestampMs;
+
+        return UUID.nameUUIDFromBytes(
+                        source.getBytes(StandardCharsets.UTF_8))
+                .toString();
     }
 
     boolean isComplete() {

@@ -87,6 +87,12 @@ public final class OpenScaleProvider {
         }
     }
 
+    public enum ExistingMeasurementStatus {
+        COMPLETE,
+        ABSENT,
+        UNKNOWN
+    }
+
     private static final class Verification {
         final boolean found;
         final boolean additionalValuesFound;
@@ -207,6 +213,98 @@ public final class OpenScaleProvider {
         double sum = 0.0d;
         for (int i = 0; i < count; i++) sum += values.get(i).weightKg;
         return (float) (sum / count);
+    }
+
+    public static ExistingMeasurementStatus existingMeasurementStatus(
+            Context context,
+            String authority,
+            long userId,
+            long timestamp,
+            float weightKg) {
+        if (authority == null
+                || authority.isBlank()
+                || userId < 0L
+                || timestamp <= 0L
+                || !Float.isFinite(weightKg)
+                || weightKg <= 0f) {
+            return ExistingMeasurementStatus.UNKNOWN;
+        }
+
+        Uri uri =
+                Uri.parse(
+                        "content://"
+                                + authority
+                                + "/measurements/"
+                                + userId);
+
+        String[] projection =
+                new String[]{
+                        "datetime",
+                        "weight",
+                        "values_json"
+                };
+
+        try (Cursor cursor =
+                     context.getContentResolver().query(
+                             uri,
+                             projection,
+                             null,
+                             null,
+                             null)) {
+            if (cursor == null) {
+                return ExistingMeasurementStatus.UNKNOWN;
+            }
+
+            int dateColumn =
+                    cursor.getColumnIndex("datetime");
+            int weightColumn =
+                    cursor.getColumnIndex("weight");
+            int jsonColumn =
+                    cursor.getColumnIndex("values_json");
+
+            if (dateColumn < 0
+                    || weightColumn < 0
+                    || jsonColumn < 0) {
+                return ExistingMeasurementStatus.UNKNOWN;
+            }
+
+            while (cursor.moveToNext()) {
+                if (cursor.getLong(dateColumn)
+                        != timestamp) {
+                    continue;
+                }
+
+                if (Math.abs(
+                                cursor.getFloat(weightColumn)
+                                        - weightKg)
+                        > 0.01f) {
+                    return ExistingMeasurementStatus.UNKNOWN;
+                }
+
+                if (cursor.isNull(jsonColumn)) {
+                    return ExistingMeasurementStatus.UNKNOWN;
+                }
+
+                JsonSummary summary =
+                        summarizeValuesJson(
+                                cursor.getString(jsonColumn));
+
+                Set<String> missing =
+                        new HashSet<>(
+                                REQUIRED_API2_KEYS);
+
+                missing.removeAll(
+                        summary.keys);
+
+                return missing.isEmpty()
+                        ? ExistingMeasurementStatus.COMPLETE
+                        : ExistingMeasurementStatus.UNKNOWN;
+            }
+
+            return ExistingMeasurementStatus.ABSENT;
+        } catch (RuntimeException ignored) {
+            return ExistingMeasurementStatus.UNKNOWN;
+        }
     }
 
     /**
