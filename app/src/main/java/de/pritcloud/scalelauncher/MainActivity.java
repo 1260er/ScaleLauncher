@@ -594,7 +594,7 @@ public final class MainActivity extends Activity {
             profiles.add(profile);
         }
 
-        boolean enabled = true;
+        boolean enabled = profileEnabled.isChecked();
         Float parsedHeight = parseOptionalDecimal(heightCm);
         Float parsedReference = parseOptionalDecimal(referenceWeight);
         Float parsedTolerance = parseOptionalDecimal(weightTolerance);

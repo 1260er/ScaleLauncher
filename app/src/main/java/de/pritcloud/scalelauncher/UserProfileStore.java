@@ -50,8 +50,8 @@ final class UserProfileStore {
             UserProfile profile = byId.get(user.id);
             if (profile == null) {
                 profile = new UserProfile(user.id, user.name);
+                profile.enabled = true;
                 if (migrateLegacy && user.id == oldUserId) {
-                    profile.enabled = true;
                     profile.birthDateIso = prefs.getString("birth_date", "");
                     profile.heightCm = prefs.getFloat("height_cm", 0f);
                     profile.male = prefs.getInt("sex", 0) == 1;
@@ -59,7 +59,6 @@ final class UserProfileStore {
                 byId.put(user.id, profile);
             }
             profile.name = user.name;
-            profile.enabled = true;
 
             /*
              * openScale users are local users.
