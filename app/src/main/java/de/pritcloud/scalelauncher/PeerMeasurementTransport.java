@@ -992,6 +992,10 @@ final class PeerMeasurementTransport {
                         BluetoothGatt gatt,
                         int status,
                         int newState) {
+                    if (gatt == null || gatt != sendGatt) {
+                        return;
+                    }
+
                     if (status
                             != BluetoothGatt.GATT_SUCCESS) {
                         if (sendPeer != null) {
@@ -1035,6 +1039,10 @@ final class PeerMeasurementTransport {
                         BluetoothGatt gatt,
                         int mtu,
                         int status) {
+                    if (gatt == null || gatt != sendGatt) {
+                        return;
+                    }
+
                     if (status
                             == BluetoothGatt.GATT_SUCCESS) {
                         sendMtu =
@@ -1058,6 +1066,10 @@ final class PeerMeasurementTransport {
                 public void onServicesDiscovered(
                         BluetoothGatt gatt,
                         int status) {
+                    if (gatt == null || gatt != sendGatt) {
+                        return;
+                    }
+
                     if (status
                             != BluetoothGatt.GATT_SUCCESS) {
                         failSend(
@@ -1125,6 +1137,10 @@ final class PeerMeasurementTransport {
                         BluetoothGatt gatt,
                         BluetoothGattDescriptor descriptor,
                         int status) {
+                    if (gatt == null || gatt != sendGatt) {
+                        return;
+                    }
+
                     if (descriptor == null
                             || !CCCD_UUID.equals(
                                     descriptor.getUuid())) {
@@ -1199,6 +1215,10 @@ final class PeerMeasurementTransport {
                         BluetoothGatt gatt,
                         BluetoothGattCharacteristic characteristic,
                         int status) {
+                    if (gatt == null || gatt != sendGatt) {
+                        return;
+                    }
+
                     if (status
                             != BluetoothGatt.GATT_SUCCESS) {
                         failSend(
