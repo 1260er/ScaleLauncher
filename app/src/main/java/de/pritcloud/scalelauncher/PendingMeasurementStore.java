@@ -15,7 +15,6 @@ final class PendingMeasurementStore {
     private static final String KEY = "pending_measurements_json";
     private static final String CLAIMS_KEY =
             "pending_measurement_claims_json";
-    private static final int MAX_ITEMS = 10;
     private static final int MAX_CLAIM_RESPONSES = 100;
 
     static final class ClaimResponse {
@@ -462,7 +461,6 @@ final class PendingMeasurementStore {
                 "",
                 "");
         items.add(item);
-        while (items.size() > MAX_ITEMS) items.remove(0);
         save(prefs, items);
         return item;
     }
