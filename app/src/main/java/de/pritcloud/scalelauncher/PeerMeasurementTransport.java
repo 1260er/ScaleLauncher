@@ -605,7 +605,8 @@ final class PeerMeasurementTransport {
                             || !acceptFrame(
                                     device,
                                     value,
-                                    serverReceiveStates)) {
+                                    serverReceiveStates,
+                                    true)) {
                         response =
                                 BluetoothGatt.GATT_FAILURE;
                     }
@@ -1264,7 +1265,8 @@ final class PeerMeasurementTransport {
         if (!acceptFrame(
                 device,
                 value,
-                replyReceiveStates)) {
+                replyReceiveStates,
+                false)) {
             return;
         }
 
@@ -1467,7 +1469,8 @@ final class PeerMeasurementTransport {
     private boolean acceptFrame(
             BluetoothDevice device,
             byte[] frame,
-            Map<String, ReceiveState> states) {
+            Map<String, ReceiveState> states,
+            boolean registerReplyDevice) {
         if (device == null
                 || frame == null
                 || frame.length < 2) {
@@ -1577,9 +1580,11 @@ final class PeerMeasurementTransport {
             return false;
         }
 
-        replyDevices.put(
-                peer.deviceId,
-                device);
+        if (registerReplyDevice) {
+            replyDevices.put(
+                    peer.deviceId,
+                    device);
+        }
 
         EventLog.debug(
                 context,
