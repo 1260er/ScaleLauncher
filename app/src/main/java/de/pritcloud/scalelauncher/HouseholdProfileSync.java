@@ -25,14 +25,10 @@ final class HouseholdProfileSync {
             return false;
         }
 
-        long now =
-                System.currentTimeMillis();
-
         boolean changed =
                 prepareIdentity(
                         context,
                         profile,
-                        now,
                         true);
 
         if (changed) {
@@ -80,7 +76,6 @@ final class HouseholdProfileSync {
         prepareIdentity(
                 context,
                 profile,
-                System.currentTimeMillis(),
                 true);
 
         UserProfileStore.save(
@@ -112,9 +107,6 @@ final class HouseholdProfileSync {
         boolean changed = false;
         int queued = 0;
 
-        long now =
-                System.currentTimeMillis();
-
         for (UserProfile profile :
                 profiles) {
             if (!profile.hasValidMatchingData()) {
@@ -125,7 +117,6 @@ final class HouseholdProfileSync {
                     prepareIdentity(
                             context,
                             profile,
-                            now,
                             false);
         }
 
@@ -233,8 +224,7 @@ final class HouseholdProfileSync {
                 continue;
             }
 
-            if (senderIsOwner
-                    || incoming.updatedAtMs
+            if (incoming.updatedAtMs
                     > local.householdUpdatedAtMs) {
                 local.referenceWeightKg =
                         incoming.referenceWeightKg;
@@ -479,8 +469,7 @@ final class HouseholdProfileSync {
     private static boolean prepareIdentity(
             Context context,
             UserProfile profile,
-            long now,
-            boolean bumpTimestamp) {
+            boolean bumpRevision) {
         boolean changed = false;
 
         String localDeviceId =
@@ -510,12 +499,14 @@ final class HouseholdProfileSync {
 
         if (UserProfile.isValidHouseholdProfileId(
                         profile.householdProfileId)
-                && (bumpTimestamp
+                && localDeviceId.equals(
+                        profile.ownerDeviceId)
+                && (bumpRevision
                     || profile.householdUpdatedAtMs <= 0L)) {
             profile.householdUpdatedAtMs =
-                    Math.max(
-                            1L,
-                            now);
+                    profile.householdUpdatedAtMs <= 0L
+                            ? 1L
+                            : profile.householdUpdatedAtMs + 1L;
 
             changed = true;
         }
