@@ -830,6 +830,27 @@ public final class MainActivity extends Activity {
                                     this,
                                     peer.deviceId);
 
+                            ServiceState.Snapshot serviceState =
+                                    ServiceState.read(
+                                            this);
+
+                            long now =
+                                    System.currentTimeMillis();
+
+                            if ((serviceState.mode
+                                            == ServiceState.Mode.RUNNING
+                                        || serviceState.mode
+                                            == ServiceState.Mode.STARTING)
+                                    && !serviceState.isStale(
+                                            now)) {
+                                startService(
+                                        new Intent(
+                                                this,
+                                                ScaleScanService.class)
+                                                .setAction(
+                                                        ScaleScanService.ACTION_SYNC_PEERS));
+                            }
+
                             String message =
                                     getString(
                                             R.string.peer_remove_success,
@@ -2012,36 +2033,85 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        StringBuilder text = new StringBuilder(getString(R.string.status_prefix)).append(" ");
+        StringBuilder text =
+                new StringBuilder(
+                        getString(R.string.status_prefix))
+                        .append(" ");
+
+        String runtimeMessage =
+                snapshot.message;
+
+        boolean collectorAvailable =
+                snapshot.collectorSource
+                        != ServiceState.CollectorSource.NONE;
+
         switch (snapshot.mode) {
             case RUNNING:
-                if (snapshot.scanRunning) {
-                    scaleStatusImage.setImageResource(R.drawable.scale_connected);
+                if (collectorAvailable) {
+                    scaleStatusImage.setImageResource(
+                            R.drawable.scale_connected);
+
                     scaleStatusImage.setContentDescription(
-                            getString(R.string.status_scale_connected));
+                            getString(
+                                    snapshot.collectorSource
+                                                    == ServiceState.CollectorSource.LOCAL
+                                            ? R.string.status_collector_local
+                                            : R.string.status_collector_remote));
+                } else {
+                    scaleStatusImage.setContentDescription(
+                            getString(
+                                    R.string.status_collector_unavailable));
                 }
-                text.append(getString(snapshot.scanRunning
-                        ? R.string.status_active
-                        : R.string.status_waiting));
-                status.setTextColor(getColor(R.color.ui_text_primary));
+
+                text.append(
+                        getString(
+                                collectorAvailable
+                                        ? R.string.status_active
+                                        : R.string.status_waiting));
+
+                if (snapshot.collectorSource
+                        == ServiceState.CollectorSource.LOCAL) {
+                    runtimeMessage =
+                            getString(
+                                    R.string.service_gatt_ready);
+                } else if (snapshot.collectorSource
+                        == ServiceState.CollectorSource.REMOTE) {
+                    runtimeMessage =
+                            getString(
+                                    R.string.status_remote_collector_waiting);
+                } else {
+                    runtimeMessage =
+                            getString(
+                                    R.string.status_waiting_for_scale);
+                }
+
+                status.setTextColor(
+                        getColor(R.color.ui_text_primary));
                 break;
+
             case STARTING:
                 text.append(getString(R.string.status_starting));
                 status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
+
             case ERROR:
                 text.append(getString(R.string.status_error));
                 status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
+
             case STOPPED:
             default:
                 text.append(getString(R.string.status_stopped));
                 status.setTextColor(getColor(R.color.ui_text_primary));
                 break;
         }
-        if (snapshot.message != null && !snapshot.message.isBlank()) {
-            text.append("\n").append(snapshot.message);
+
+        if (runtimeMessage != null
+                && !runtimeMessage.isBlank()) {
+            text.append("\n")
+                    .append(runtimeMessage);
         }
+
         if (snapshot.lastSuccessMs > 0L) {
             text.append("\n").append(getString(
                     R.string.status_last_success,

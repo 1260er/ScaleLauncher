@@ -13,6 +13,9 @@
 
     <string name="status_scale_connected">Waage verbunden</string>
     <string name="status_scale_disconnected">Waage getrennt</string>
+    <string name="status_collector_local">Collector auf diesem Gerät aktiv</string>
+    <string name="status_collector_remote">Collector auf anderem Gerät erreichbar</string>
+    <string name="status_collector_unavailable">Kein Collector erreichbar</string>
     <string name="status_waiting_for_measurement">Warte auf Messung</string>
     <string name="page_scale_title">Waage</string>
     <string name="scale_page_description">Hier wird die Xiaomi S400 ausgewählt und der Login-Token für die sichere Verbindung hinterlegt.</string>
@@ -44,6 +47,8 @@
     <string name="service_gatt_standby">Wartet auf freie Waage</string>
     <string name="service_gatt_claiming">Waage verfügbar – Collector-Rolle wird übernommen</string>
     <string name="service_gatt_ready">Collector wartet auf Messung</string>
+    <string name="status_remote_collector_waiting">Wartet auf Collectormessung</string>
+    <string name="status_waiting_for_scale">Wartet auf Waage</string>
     <string name="service_gatt_reconnecting">Wartet auf freie Waage</string>
     <string name="page_permissions_title">Berechtigungen</string>
     <string name="permissions_page_description">Diese Einstellungen sorgen dafür, dass ScaleLauncher zuverlässig auf die Waage warten und Messungen auch bei ausgeschaltetem Bildschirm verarbeiten kann.</string>

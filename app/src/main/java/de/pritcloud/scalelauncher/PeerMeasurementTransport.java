@@ -32,6 +32,7 @@ import android.os.ParcelUuid;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -49,6 +50,10 @@ final class PeerMeasurementTransport {
         void onMessageSent(
                 PeerTrustStore.Peer peer,
                 String messageId);
+
+        void onPeerPresence(
+                PeerTrustStore.Peer peer,
+                boolean collector);
 
         void onError(String message);
     }
@@ -85,6 +90,9 @@ final class PeerMeasurementTransport {
     private final Map<String, ReceiveState> receiveStates =
             new HashMap<>();
 
+    private volatile List<PresencePeer> presencePeers =
+            List.of();
+
     private final Set<String> notificationSubscribers =
             new HashSet<>();
 
@@ -102,6 +110,13 @@ final class PeerMeasurementTransport {
     private BluetoothLeAdvertiser advertiser;
     private BluetoothLeScanner scanner;
     private BluetoothGattServer server;
+
+    private boolean transportActive;
+    private boolean advertisingCollector;
+    private boolean advertisingActive;
+    private boolean advertisingStarting;
+    private boolean advertisingUpdatePending;
+    private boolean presenceScanActive;
 
     private BluetoothGatt sendGatt;
     private BluetoothGattCharacteristic sendCharacteristic;
@@ -127,6 +142,8 @@ final class PeerMeasurementTransport {
     }
 
     void start() {
+        refreshPresencePeers();
+
         if (!hasBlePermissions()) {
             reportError(
                     "Bluetooth-Berechtigungen für Peer-Transport fehlen");
@@ -162,6 +179,9 @@ final class PeerMeasurementTransport {
             return;
         }
 
+        transportActive =
+                true;
+
         try {
             server =
                     manager.openGattServer(
@@ -169,6 +189,9 @@ final class PeerMeasurementTransport {
                             serverCallback);
 
             if (server == null) {
+                transportActive =
+                        false;
+
                 reportError(
                         "BLE-Peer-GATT-Server konnte nicht gestartet werden");
                 return;
@@ -199,14 +222,53 @@ final class PeerMeasurementTransport {
                     data);
 
             if (!server.addService(service)) {
+                transportActive =
+                        false;
+
                 reportError(
                         "BLE-Peer-Dienst konnte nicht registriert werden");
             }
         } catch (RuntimeException exception) {
+            transportActive =
+                    false;
+
             reportError(
                     "BLE-Peer-Transport: "
                             + exception.getClass().getSimpleName());
         }
+    }
+
+    void setCollectorAdvertising(
+            boolean collector) {
+        if (advertisingCollector
+                == collector) {
+            return;
+        }
+
+        advertisingCollector =
+                collector;
+
+        if (advertisingStarting) {
+            advertisingUpdatePending =
+                    true;
+            return;
+        }
+
+        if (!advertisingActive
+                || advertiser == null) {
+            return;
+        }
+
+        try {
+            advertiser.stopAdvertising(
+                    advertiseCallback);
+        } catch (RuntimeException ignored) {
+        }
+
+        advertisingActive =
+                false;
+
+        startAdvertising();
     }
 
     boolean send(
@@ -312,6 +374,8 @@ final class PeerMeasurementTransport {
                             .setScanMode(
                                     ScanSettings.SCAN_MODE_LOW_LATENCY)
                             .build();
+
+            stopPresenceScan();
 
             scanner.startScan(
                     List.of(filter),
@@ -428,6 +492,13 @@ final class PeerMeasurementTransport {
     }
 
     void stop() {
+        transportActive =
+                false;
+        advertisingStarting =
+                false;
+        advertisingUpdatePending =
+                false;
+
         handler.removeCallbacks(
                 sendTimeoutTask);
 
@@ -437,6 +508,7 @@ final class PeerMeasurementTransport {
         handler.removeCallbacks(
                 sessionIdleTimeoutTask);
 
+        stopPresenceScan();
         stopSendScan();
 
         if (advertiser != null) {
@@ -445,6 +517,9 @@ final class PeerMeasurementTransport {
                         advertiseCallback);
             } catch (RuntimeException ignored) {
             }
+
+            advertisingActive =
+                    false;
         }
 
         if (sendGatt != null) {
@@ -490,6 +565,9 @@ final class PeerMeasurementTransport {
 
                     if (status
                             != BluetoothGatt.GATT_SUCCESS) {
+                        transportActive =
+                                false;
+
                         reportError(
                                 "BLE-Peer-Dienst Status "
                                         + status);
@@ -501,6 +579,7 @@ final class PeerMeasurementTransport {
                             "Peer-Transport: GATT-Dienst bereit");
 
                     startAdvertising();
+                    startPresenceScan();
                 }
 
                 @Override
@@ -677,7 +756,10 @@ final class PeerMeasurementTransport {
             };
 
     private void startAdvertising() {
-        if (advertiser == null) return;
+        if (!transportActive
+                || advertiser == null) {
+            return;
+        }
 
         AdvertiseSettings settings =
                 new AdvertiseSettings.Builder()
@@ -700,18 +782,25 @@ final class PeerMeasurementTransport {
                 new AdvertiseData.Builder()
                         .addServiceData(
                                 SERVICE_UUID,
-                                fingerprint(
+                                advertisingData(
                                         PeerTrustStore.localDeviceId(
-                                                context)))
+                                                context),
+                                        advertisingCollector))
                         .build();
 
         try {
+            advertisingStarting =
+                    true;
+
             advertiser.startAdvertising(
                     settings,
                     data,
                     response,
                     advertiseCallback);
         } catch (RuntimeException exception) {
+            advertisingStarting =
+                    false;
+
             reportError(
                     "BLE-Peer-Advertising: "
                             + exception.getClass().getSimpleName());
@@ -723,6 +812,43 @@ final class PeerMeasurementTransport {
                 @Override
                 public void onStartSuccess(
                         AdvertiseSettings settingsInEffect) {
+                    advertisingStarting =
+                            false;
+
+                    if (!transportActive) {
+                        try {
+                            advertiser.stopAdvertising(
+                                    advertiseCallback);
+                        } catch (RuntimeException ignored) {
+                        }
+
+                        advertisingActive =
+                                false;
+                        advertisingUpdatePending =
+                                false;
+                        return;
+                    }
+
+                    advertisingActive =
+                            true;
+
+                    if (advertisingUpdatePending) {
+                        advertisingUpdatePending =
+                                false;
+
+                        try {
+                            advertiser.stopAdvertising(
+                                    advertiseCallback);
+                        } catch (RuntimeException ignored) {
+                        }
+
+                        advertisingActive =
+                                false;
+
+                        startAdvertising();
+                        return;
+                    }
+
                     EventLog.debug(
                             context,
                             "Peer-Transport: Advertising aktiv");
@@ -731,9 +857,67 @@ final class PeerMeasurementTransport {
                 @Override
                 public void onStartFailure(
                         int errorCode) {
+                    advertisingStarting =
+                            false;
+                    advertisingUpdatePending =
+                            false;
+                    advertisingActive =
+                            false;
+
                     reportError(
                             "BLE-Peer-Advertising Fehler "
                                     + errorCode);
+                }
+            };
+
+    private final ScanCallback presenceScanCallback =
+            new ScanCallback() {
+                @Override
+                public void onScanResult(
+                        int callbackType,
+                        ScanResult result) {
+                    if (result == null
+                            || result.getScanRecord() == null) {
+                        return;
+                    }
+
+                    byte[] advertisedData =
+                            result.getScanRecord()
+                                    .getServiceData(
+                                            SERVICE_UUID);
+
+                    if (advertisedData == null
+                            || advertisedData.length != 9
+                            || (advertisedData[8] != 0
+                                && advertisedData[8] != 1)) {
+                        return;
+                    }
+
+                    for (PresencePeer presence :
+                            presencePeers) {
+                        if (!matchesFingerprint(
+                                advertisedData,
+                                presence.fingerprint)) {
+                            continue;
+                        }
+
+                        boolean collector =
+                                advertisedData[8] == 1;
+
+                        handler.post(
+                                () -> listener.onPeerPresence(
+                                        presence.peer,
+                                        collector));
+
+                        return;
+                    }
+                }
+
+                @Override
+                public void onScanFailed(
+                        int errorCode) {
+                    presenceScanActive =
+                            false;
                 }
             };
 
@@ -755,10 +939,9 @@ final class PeerMeasurementTransport {
                                     .getServiceData(
                                             SERVICE_UUID);
 
-                    if (remoteFingerprint == null
-                            || !Arrays.equals(
-                                    remoteFingerprint,
-                                    sendTargetFingerprint)) {
+                    if (!matchesFingerprint(
+                            remoteFingerprint,
+                            sendTargetFingerprint)) {
                         return;
                     }
 
@@ -771,6 +954,7 @@ final class PeerMeasurementTransport {
                                     + sendPeer.label);
 
                     stopSendScan();
+                    startPresenceScan();
 
                     try {
                         sendGatt =
@@ -1441,6 +1625,7 @@ final class PeerMeasurementTransport {
             String message) {
         cleanupSendConnection();
         clearSendState();
+        startPresenceScan();
         reportError(
                 message);
     }
@@ -1507,6 +1692,58 @@ final class PeerMeasurementTransport {
                         peer.deviceId);
     }
 
+    private void startPresenceScan() {
+        if (!transportActive
+                || presenceScanActive
+                || adapter == null
+                || !adapter.isEnabled()
+                || scanner == null
+                || !hasBlePermissions()) {
+            return;
+        }
+
+        ScanFilter filter =
+                new ScanFilter.Builder()
+                        .setServiceUuid(
+                                SERVICE_UUID)
+                        .build();
+
+        ScanSettings settings =
+                new ScanSettings.Builder()
+                        .setScanMode(
+                                ScanSettings.SCAN_MODE_LOW_POWER)
+                        .build();
+
+        try {
+            scanner.startScan(
+                    List.of(filter),
+                    settings,
+                    presenceScanCallback);
+
+            presenceScanActive =
+                    true;
+        } catch (RuntimeException exception) {
+            presenceScanActive =
+                    false;
+        }
+    }
+
+    private void stopPresenceScan() {
+        if (!presenceScanActive
+                || scanner == null) {
+            return;
+        }
+
+        try {
+            scanner.stopScan(
+                    presenceScanCallback);
+        } catch (RuntimeException ignored) {
+        }
+
+        presenceScanActive =
+                false;
+    }
+
     private void stopSendScan() {
         if (scanner == null) return;
 
@@ -1562,6 +1799,75 @@ final class PeerMeasurementTransport {
                 }
             };
 
+    void ensurePresenceScan() {
+        if ("scanning".equals(sendStage)) {
+            return;
+        }
+
+        startPresenceScan();
+    }
+
+    void refreshPresencePeers() {
+        List<PresencePeer> refreshed =
+                new ArrayList<>();
+
+        for (PeerTrustStore.Peer peer :
+                PeerTrustStore.load(
+                        context)) {
+            refreshed.add(
+                    new PresencePeer(
+                            peer,
+                            fingerprint(
+                                    peer.deviceId)));
+        }
+
+        presencePeers =
+                List.copyOf(
+                        refreshed);
+    }
+
+    private static byte[] advertisingData(
+            String deviceId,
+            boolean collector) {
+        byte[] fingerprint =
+                fingerprint(
+                        deviceId);
+
+        byte[] data =
+                Arrays.copyOf(
+                        fingerprint,
+                        fingerprint.length + 1);
+
+        data[fingerprint.length] =
+                collector
+                        ? (byte) 1
+                        : (byte) 0;
+
+        return data;
+    }
+
+    private static boolean matchesFingerprint(
+            byte[] advertisedData,
+            byte[] targetFingerprint) {
+        if (advertisedData == null
+                || targetFingerprint == null
+                || advertisedData.length
+                < targetFingerprint.length) {
+            return false;
+        }
+
+        for (int index = 0;
+             index < targetFingerprint.length;
+             index++) {
+            if (advertisedData[index]
+                    != targetFingerprint[index]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static byte[] fingerprint(
             String deviceId) {
         try {
@@ -1579,6 +1885,20 @@ final class PeerMeasurementTransport {
             throw new IllegalStateException(
                     "Could not create peer fingerprint",
                     exception);
+        }
+    }
+
+    private static final class PresencePeer {
+        final PeerTrustStore.Peer peer;
+        final byte[] fingerprint;
+
+        PresencePeer(
+                PeerTrustStore.Peer peer,
+                byte[] fingerprint) {
+            this.peer =
+                    peer;
+            this.fingerprint =
+                    fingerprint;
         }
     }
 

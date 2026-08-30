@@ -1,5 +1,6 @@
 package de.pritcloud.scalelauncher;
 
+import android.content.Intent;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -903,6 +904,27 @@ public final class PeerPairingActivity extends Activity {
                             "prefs",
                             MODE_PRIVATE),
                     remote.deviceId);
+
+            ServiceState.Snapshot serviceState =
+                    ServiceState.read(
+                            this);
+
+            long now =
+                    System.currentTimeMillis();
+
+            if ((serviceState.mode
+                            == ServiceState.Mode.RUNNING
+                        || serviceState.mode
+                            == ServiceState.Mode.STARTING)
+                    && !serviceState.isStale(
+                            now)) {
+                startService(
+                        new Intent(
+                                this,
+                                ScaleScanService.class)
+                                .setAction(
+                                        ScaleScanService.ACTION_SYNC_PEERS));
+            }
 
             stopBle();
             clearPendingPairing();

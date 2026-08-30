@@ -26,6 +26,9 @@ final class PeerOutboxStore {
     static final String KIND_CLOSED =
             "measurement_closed";
 
+    static final String KIND_COLLECTOR_STATUS =
+            "collector_status";
+
     private static final String PREFS =
             "peer_outbox_v1";
 
@@ -153,6 +156,30 @@ final class PeerOutboxStore {
                         payload.measurementId
                                 + ":"
                                 + payload.profileId,
+                        payload.encode(),
+                        System.currentTimeMillis()),
+                true);
+    }
+
+    static void enqueueCollectorStatus(
+            Context context,
+            String peerDeviceId,
+            PeerCollectorStatusPayload payload) {
+        if (!PeerTrustStore.isValidDeviceId(
+                        peerDeviceId)
+                || payload == null
+                || !payload.isValid()) {
+            throw new IllegalArgumentException(
+                    "Invalid collector status outbox item");
+        }
+
+        enqueue(
+                context,
+                new Item(
+                        payload.messageId,
+                        peerDeviceId,
+                        KIND_COLLECTOR_STATUS,
+                        "collector_status",
                         payload.encode(),
                         System.currentTimeMillis()),
                 true);
@@ -407,6 +434,8 @@ final class PeerOutboxStore {
                     || KIND_DECISION.equals(
                         item.kind)
                     || KIND_CLOSED.equals(
+                        item.kind)
+                    || KIND_COLLECTOR_STATUS.equals(
                         item.kind))
                 && item.dedupKey != null
                 && !item.dedupKey.isBlank()

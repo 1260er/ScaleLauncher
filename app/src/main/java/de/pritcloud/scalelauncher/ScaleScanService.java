@@ -18,13 +18,16 @@ import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 
 import org.json.JSONObject;
 
 import java.time.LocalDate;
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public final class ScaleScanService extends Service {
     public static final String ACTION_STOP = "de.pritcloud.scalelauncher.STOP";
@@ -48,6 +51,7 @@ public final class ScaleScanService extends Service {
     private static final int NOTIFICATION_RESULT = 12;
     private static final int LEGACY_NOTIFICATION_TRANSFER_FAILURE = 13;
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
+    private static final long REMOTE_COLLECTOR_REACHABLE_MS = 60_000L;
     private static final long GATT_RECONNECT_BASE_MS = 5_000L;
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
@@ -59,9 +63,21 @@ public final class ScaleScanService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable watchdogRunnable = this::runWatchdog;
     private final Runnable gattReconnectRunnable = this::runGattReconnect;
+    private boolean userSyncCompletedOnce;
+
     private final Runnable userSyncRunnable = new Runnable() {
         @Override public void run() {
             synchronizeOpenScaleUsers();
+
+            if (userSyncCompletedOnce) {
+                setCollectorOwned(
+                        gattCollectorOwned,
+                        true);
+            } else {
+                userSyncCompletedOnce =
+                        true;
+            }
+
             if (!explicitStop) {
                 handler.postDelayed(this, USER_SYNC_INTERVAL_MS);
             }
@@ -73,6 +89,9 @@ public final class ScaleScanService extends Service {
 
     private final ArrayDeque<DirectPeerMessage> peerDirectQueue =
             new ArrayDeque<>();
+
+    private final Map<String, Long> remoteCollectorLastSeenMs =
+            new HashMap<>();
 
     private final BroadcastReceiver bluetoothStateReceiver =
             new BroadcastReceiver() {
@@ -95,7 +114,20 @@ public final class ScaleScanService extends Service {
                         EventLog.debug(
                                 ScaleScanService.this,
                                 "Peer-Transport: Bluetooth aus – Transport wird angehalten");
-                        stopPeerTransport();
+                        stopPeerTransport(
+                                false);
+
+                        setCollectorOwned(
+                                false,
+                                false);
+
+                        ServiceState.heartbeat(
+                                ScaleScanService.this,
+                                false,
+                                monitorText,
+                                false,
+                                collectorSource());
+
                         return;
                     }
 
@@ -115,6 +147,7 @@ public final class ScaleScanService extends Service {
     private boolean peerSendInFlight;
     private boolean gattMonitoringActive;
     private boolean gattCollectorOwned;
+    private boolean collectorStatusAnnounced;
     private boolean gattReconnectScheduled;
     private int gattReconnectAttempt;
     private long lastGattFinalTimestampSeconds;
@@ -201,6 +234,8 @@ public final class ScaleScanService extends Service {
         } else if (intent != null
                 && ACTION_SYNC_PEERS.equals(
                         intent.getAction())) {
+            refreshTrustedPeerPresence();
+
             schedulePeerSync(
                     100L);
         } else {
@@ -259,6 +294,35 @@ public final class ScaleScanService extends Service {
                             }
 
                             @Override
+                            public void onPeerPresence(
+                                    PeerTrustStore.Peer peer,
+                                    boolean collector) {
+                                ServiceState.CollectorSource previousSource =
+                                        collectorSource();
+
+                                if (collector) {
+                                    remoteCollectorLastSeenMs.put(
+                                            peer.deviceId,
+                                            SystemClock.elapsedRealtime());
+                                } else {
+                                    remoteCollectorLastSeenMs.remove(
+                                            peer.deviceId);
+                                }
+
+                                ServiceState.CollectorSource currentSource =
+                                        collectorSource();
+
+                                if (currentSource != previousSource) {
+                                    ServiceState.heartbeat(
+                                            ScaleScanService.this,
+                                            gattCollectorOwned,
+                                            monitorText,
+                                            false,
+                                            currentSource);
+                                }
+                            }
+
+                            @Override
                             public void onError(
                                     String message) {
                                 peerSendInFlight =
@@ -300,6 +364,40 @@ public final class ScaleScanService extends Service {
         bluetoothStateReceiverRegistered = true;
     }
 
+    private void refreshTrustedPeerPresence() {
+        ServiceState.CollectorSource previousSource =
+                collectorSource();
+
+        if (peerTransport != null) {
+            peerTransport.refreshPresencePeers();
+        }
+
+        List<PeerTrustStore.Peer> trustedPeers =
+                PeerTrustStore.load(
+                        this);
+
+        remoteCollectorLastSeenMs.keySet()
+                .removeIf(
+                        deviceId ->
+                                trustedPeers.stream()
+                                        .noneMatch(
+                                                peer ->
+                                                        peer.deviceId.equals(
+                                                                deviceId)));
+
+        ServiceState.CollectorSource currentSource =
+                collectorSource();
+
+        if (currentSource != previousSource) {
+            ServiceState.heartbeat(
+                    this,
+                    gattCollectorOwned,
+                    monitorText,
+                    false,
+                    currentSource);
+        }
+    }
+
     private void startPeerTransport() {
         if (peerTransport != null
                 || explicitStop) {
@@ -311,20 +409,43 @@ public final class ScaleScanService extends Service {
                         this,
                         createPeerTransportListener());
 
+        peerTransport.setCollectorAdvertising(
+                gattCollectorOwned);
+
         peerTransport.start();
     }
 
-    private void stopPeerTransport() {
+    private void stopPeerTransport(
+            boolean updateCollectorState) {
+        ServiceState.CollectorSource previousSource =
+                collectorSource();
+
         if (peerTransport != null) {
             peerTransport.stop();
             peerTransport = null;
         }
 
+        remoteCollectorLastSeenMs.clear();
         peerSendInFlight = false;
+
+        if (updateCollectorState) {
+            ServiceState.CollectorSource currentSource =
+                    collectorSource();
+
+            if (currentSource != previousSource) {
+                ServiceState.heartbeat(
+                        this,
+                        gattCollectorOwned,
+                        monitorText,
+                        false,
+                        currentSource);
+            }
+        }
     }
 
     private void restartPeerTransport() {
-        stopPeerTransport();
+        stopPeerTransport(
+                true);
 
         if (explicitStop) {
             return;
@@ -435,7 +556,9 @@ public final class ScaleScanService extends Service {
         }
 
         gattMonitoringActive = true;
-        gattCollectorOwned = false;
+        setCollectorOwned(
+                false,
+                true);
         gattReconnectAttempt = 0;
 
         EventLog.info(
@@ -499,7 +622,11 @@ public final class ScaleScanService extends Service {
         }
 
         monitorText = getString(R.string.service_gatt_standby);
-        ServiceState.running(this, monitorText, false);
+        ServiceState.running(
+                this,
+                monitorText,
+                false,
+                collectorSource());
         notifyMonitor();
 
         EventLog.debug(
@@ -525,13 +652,16 @@ public final class ScaleScanService extends Service {
                             ServiceState.running(
                                     ScaleScanService.this,
                                     monitorText,
-                                    false);
+                                    false,
+                                    collectorSource());
                             notifyMonitor();
                         }
 
                         if (state == S400GattClient.State.DISCONNECTED
                                 && gattMonitoringActive) {
-                            gattCollectorOwned = false;
+                            setCollectorOwned(
+                                    false,
+                                    false);
                             gattClient = null;
                             scheduleGattReconnect(
                                     getString(
@@ -540,7 +670,9 @@ public final class ScaleScanService extends Service {
                     }
 
                     @Override public void onAuthenticated() {
-                        gattCollectorOwned = true;
+                        setCollectorOwned(
+                                true,
+                                false);
                         gattReconnectAttempt = 0;
                         ServiceState.scaleSeen(ScaleScanService.this);
 
@@ -821,6 +953,56 @@ public final class ScaleScanService extends Service {
             queuePeerAck(
                     peer,
                     payload.messageId);
+
+            return;
+        }
+
+        if (PeerCollectorStatusPayload.TYPE.equals(
+                type)) {
+            PeerCollectorStatusPayload status =
+                    PeerCollectorStatusPayload.decode(
+                            encoded);
+
+            if (status == null) {
+                return;
+            }
+
+            boolean duplicate =
+                    PeerInboxDedupStore.contains(
+                            this,
+                            peer.deviceId,
+                            status.messageId);
+
+            if (!duplicate) {
+                ServiceState.CollectorSource previousSource =
+                        collectorSource();
+
+                if (!status.collector) {
+                    remoteCollectorLastSeenMs.remove(
+                            peer.deviceId);
+                }
+
+                PeerInboxDedupStore.mark(
+                        this,
+                        peer.deviceId,
+                        status.messageId);
+
+                ServiceState.CollectorSource currentSource =
+                        collectorSource();
+
+                if (currentSource != previousSource) {
+                    ServiceState.heartbeat(
+                            this,
+                            gattCollectorOwned,
+                            monitorText,
+                            false,
+                            currentSource);
+                }
+            }
+
+            queuePeerAck(
+                    peer,
+                    status.messageId);
 
             return;
         }
@@ -1727,6 +1909,66 @@ public final class ScaleScanService extends Service {
         }
     }
 
+    private void setCollectorOwned(
+            boolean collector,
+            boolean forceAnnounce) {
+        boolean changed =
+                gattCollectorOwned != collector;
+
+        gattCollectorOwned =
+                collector;
+
+        if (peerTransport != null) {
+            peerTransport.setCollectorAdvertising(
+                    collector);
+        }
+
+        if (changed
+                || forceAnnounce
+                || !collectorStatusAnnounced) {
+            collectorStatusAnnounced =
+                    true;
+
+            enqueueCollectorStatusForPeers(
+                    collector);
+        }
+    }
+
+    private void enqueueCollectorStatusForPeers(
+            boolean collector) {
+        int queued =
+                0;
+
+        for (PeerTrustStore.Peer peer :
+                PeerTrustStore.load(
+                        this)) {
+            try {
+                PeerCollectorStatusPayload payload =
+                        PeerCollectorStatusPayload.create(
+                                collector);
+
+                PeerOutboxStore.enqueueCollectorStatus(
+                        this,
+                        peer.deviceId,
+                        payload);
+
+                queued++;
+            } catch (RuntimeException exception) {
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_peer_transport_error,
+                                exception.getClass()
+                                        .getSimpleName()));
+            }
+        }
+
+        if (queued > 0) {
+            schedulePeerSync(
+                    100L);
+        }
+    }
+
     private void broadcastMeasurementClosed(
             String measurementId) {
         if (measurementId == null
@@ -2071,6 +2313,11 @@ public final class ScaleScanService extends Service {
             return 5;
         }
 
+        if (PeerOutboxStore.KIND_COLLECTOR_STATUS.equals(
+                item.kind)) {
+            return 6;
+        }
+
         return 50;
     }
 
@@ -2201,7 +2448,9 @@ public final class ScaleScanService extends Service {
 
         gattReconnectAttempt++;
         gattReconnectScheduled = true;
-        gattCollectorOwned = false;
+        setCollectorOwned(
+                false,
+                false);
 
         S400GattClient oldClient = gattClient;
         gattClient = null;
@@ -2209,7 +2458,11 @@ public final class ScaleScanService extends Service {
         monitorText = getString(
                 R.string.service_gatt_reconnecting,
                 delayMs / 1000L);
-        ServiceState.running(this, monitorText, true);
+        ServiceState.running(
+                this,
+                monitorText,
+                false,
+                collectorSource());
         notifyMonitor();
 
         EventLog.debug(
@@ -3572,11 +3825,45 @@ public final class ScaleScanService extends Service {
                 : message;
     }
 
+    private boolean isRemoteCollectorReachable() {
+        return !remoteCollectorLastSeenMs.isEmpty();
+    }
+
+    private ServiceState.CollectorSource collectorSource() {
+        if (gattCollectorOwned) {
+            return ServiceState.CollectorSource.LOCAL;
+        }
+
+        if (isRemoteCollectorReachable()) {
+            return ServiceState.CollectorSource.REMOTE;
+        }
+
+        return ServiceState.CollectorSource.NONE;
+    }
+
+    private void expireRemoteCollectorPresence() {
+        long now =
+                SystemClock.elapsedRealtime();
+
+        remoteCollectorLastSeenMs.entrySet()
+                .removeIf(
+                        entry ->
+                                now - entry.getValue()
+                                        >= REMOTE_COLLECTOR_REACHABLE_MS);
+    }
+
     private void runWatchdog() {
         if (explicitStop) return;
 
+        expireRemoteCollectorPresence();
+
         if (terminalError) {
-            ServiceState.heartbeat(this, false, monitorText);
+            ServiceState.heartbeat(
+                    this,
+                    false,
+                    monitorText,
+                    false,
+                    collectorSource());
             handler.removeCallbacks(watchdogRunnable);
             handler.postDelayed(
                     watchdogRunnable,
@@ -3624,7 +3911,9 @@ public final class ScaleScanService extends Service {
                 ServiceState.heartbeat(
                         this,
                         false,
-                        monitorText);
+                        monitorText,
+                        false,
+                        collectorSource());
 
                 if (!gattReconnectScheduled) {
                     connectGattCollector();
@@ -3636,7 +3925,15 @@ public final class ScaleScanService extends Service {
                         this,
                         ready,
                         monitorText,
-                        ready);
+                        ready,
+                        collectorSource());
+            }
+
+            if (!terminalError
+                    && adapter != null
+                    && adapter.isEnabled()
+                    && peerTransport != null) {
+                peerTransport.ensurePresenceScan();
             }
         }
 
@@ -3648,6 +3945,9 @@ public final class ScaleScanService extends Service {
 
     private void enterTerminalError(String reason) {
         terminalError = true;
+        setCollectorOwned(
+                false,
+                false);
         stopGattCollector();
         monitorText = reason;
         ServiceState.error(this, reason);
@@ -3845,9 +4145,15 @@ public final class ScaleScanService extends Service {
             ServiceState.running(
                     this,
                     monitorText,
-                    gattCollectorOwned);
+                    gattCollectorOwned,
+                    collectorSource());
         } else {
-            ServiceState.heartbeat(this, false, monitorText);
+            ServiceState.heartbeat(
+                    this,
+                    false,
+                    monitorText,
+                    false,
+                    collectorSource());
         }
         notifyMonitor();
     }
@@ -3892,7 +4198,8 @@ public final class ScaleScanService extends Service {
             bluetoothStateReceiverRegistered = false;
         }
 
-        stopPeerTransport();
+        stopPeerTransport(
+                false);
 
         handler.removeCallbacksAndMessages(null);
         stopGattCollector();

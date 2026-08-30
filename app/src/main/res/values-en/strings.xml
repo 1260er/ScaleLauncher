@@ -10,6 +10,9 @@
     <string name="action_open_menu">Open menu</string>
     <string name="status_scale_connected">Scale connected</string>
     <string name="status_scale_disconnected">Scale disconnected</string>
+    <string name="status_collector_local">Collector active on this device</string>
+    <string name="status_collector_remote">Collector reachable on another device</string>
+    <string name="status_collector_unavailable">No collector reachable</string>
     <string name="status_waiting_for_measurement">Waiting for measurement</string>
     <string name="page_scale_title">Scale</string>
     <string name="scale_page_description">Select the Xiaomi S400 here and enter its login token for the secure connection.</string>
@@ -38,6 +41,8 @@
     <string name="service_gatt_standby">Waiting for available scale</string>
     <string name="service_gatt_claiming">Scale available – acquiring collector role</string>
     <string name="service_gatt_ready">Collector waiting for measurement</string>
+    <string name="status_remote_collector_waiting">Waiting for collector measurement</string>
+    <string name="status_waiting_for_scale">Waiting for scale</string>
     <string name="service_gatt_reconnecting">Waiting for available scale</string>
     <string name="page_permissions_title">Permissions</string>
     <string name="permissions_page_description">These settings allow ScaleLauncher to reliably wait for the scale and process measurements even while the screen is off.</string>
