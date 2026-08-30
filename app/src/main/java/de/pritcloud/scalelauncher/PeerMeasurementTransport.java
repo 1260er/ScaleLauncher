@@ -87,7 +87,10 @@ final class PeerMeasurementTransport {
             new Handler(
                     Looper.getMainLooper());
 
-    private final Map<String, ReceiveState> receiveStates =
+    private final Map<String, ReceiveState> serverReceiveStates =
+            new HashMap<>();
+
+    private final Map<String, ReceiveState> replyReceiveStates =
             new HashMap<>();
 
     private volatile List<PresencePeer> presencePeers =
@@ -544,7 +547,8 @@ final class PeerMeasurementTransport {
             server = null;
         }
 
-        receiveStates.clear();
+        serverReceiveStates.clear();
+        replyReceiveStates.clear();
         notificationSubscribers.clear();
         replyDevices.clear();
         replyMtus.clear();
@@ -600,7 +604,8 @@ final class PeerMeasurementTransport {
                             || offset != 0
                             || !acceptFrame(
                                     device,
-                                    value)) {
+                                    value,
+                                    serverReceiveStates)) {
                         response =
                                 BluetoothGatt.GATT_FAILURE;
                     }
@@ -686,7 +691,7 @@ final class PeerMeasurementTransport {
                         notificationSubscribers.remove(
                                 address);
 
-                        receiveStates.remove(
+                        serverReceiveStates.remove(
                                 address);
 
                         replyMtus.remove(
@@ -1258,11 +1263,12 @@ final class PeerMeasurementTransport {
 
         if (!acceptFrame(
                 device,
-                value)) {
+                value,
+                replyReceiveStates)) {
             return;
         }
 
-        if (!receiveStates.containsKey(
+        if (!replyReceiveStates.containsKey(
                 device.getAddress())) {
             finishReplyWait();
         }
@@ -1460,7 +1466,8 @@ final class PeerMeasurementTransport {
 
     private boolean acceptFrame(
             BluetoothDevice device,
-            byte[] frame) {
+            byte[] frame,
+            Map<String, ReceiveState> states) {
         if (device == null
                 || frame == null
                 || frame.length < 2) {
@@ -1488,7 +1495,7 @@ final class PeerMeasurementTransport {
 
             if (total <= 0
                     || total > MAX_MESSAGE_BYTES) {
-                receiveStates.remove(
+                states.remove(
                         address);
                 return false;
             }
@@ -1497,7 +1504,7 @@ final class PeerMeasurementTransport {
                     new ReceiveState(
                             total);
 
-            receiveStates.put(
+            states.put(
                     address,
                     state);
 
@@ -1508,7 +1515,7 @@ final class PeerMeasurementTransport {
         } else if (type
                 == FRAME_CONTINUE) {
             state =
-                    receiveStates.get(
+                    states.get(
                             address);
 
             if (state == null) {
@@ -1525,7 +1532,7 @@ final class PeerMeasurementTransport {
 
         if (state.buffer.size()
                 > state.expectedLength) {
-            receiveStates.remove(
+            states.remove(
                     address);
             return false;
         }
@@ -1535,7 +1542,7 @@ final class PeerMeasurementTransport {
             return true;
         }
 
-        receiveStates.remove(
+        states.remove(
                 address);
 
         String encrypted =
@@ -1678,6 +1685,7 @@ final class PeerMeasurementTransport {
     }
 
     private void clearActiveSendState() {
+        replyReceiveStates.clear();
         sendPeer = null;
         sendMessageId = null;
         sendPayload = null;
