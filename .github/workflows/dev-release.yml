@@ -72,7 +72,7 @@ jobs:
         env:
           SCALELAUNCHER_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           SCALELAUNCHER_VERSION_CODE: ${{ github.run_number }}
-        run: gradle --no-daemon clean assembleDebug
+        run: gradle --no-daemon clean testDebugUnitTest assembleDebug
 
       - name: Verify APK signature
         shell: bash

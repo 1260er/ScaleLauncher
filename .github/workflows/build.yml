@@ -40,4 +40,4 @@ jobs:
           gradle-version: '8.9'
 
       - name: Compile debug variant
-        run: gradle --no-daemon clean assembleDebug
+        run: gradle --no-daemon clean testDebugUnitTest assembleDebug
