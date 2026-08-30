@@ -14,6 +14,9 @@ final class PeerOutboxStore {
     static final String KIND_PROFILE =
             "profile_upsert";
 
+    static final String KIND_PROFILE_MANIFEST =
+            "profile_manifest";
+
     static final String KIND_MEASUREMENT =
             "measurement";
 
@@ -82,6 +85,30 @@ final class PeerOutboxStore {
                         peerDeviceId,
                         KIND_PROFILE,
                         payload.profile.profileId,
+                        payload.encode(),
+                        System.currentTimeMillis()),
+                true);
+    }
+
+    static void enqueueProfileManifest(
+            Context context,
+            String peerDeviceId,
+            PeerProfileManifestPayload payload) {
+        if (!PeerTrustStore.isValidDeviceId(
+                        peerDeviceId)
+                || payload == null
+                || !payload.isValid()) {
+            throw new IllegalArgumentException(
+                    "Invalid profile manifest outbox item");
+        }
+
+        enqueue(
+                context,
+                new Item(
+                        payload.messageId,
+                        peerDeviceId,
+                        KIND_PROFILE_MANIFEST,
+                        "owner-manifest",
                         payload.encode(),
                         System.currentTimeMillis()),
                 true);
@@ -426,6 +453,8 @@ final class PeerOutboxStore {
                 && PeerTrustStore.isValidDeviceId(
                         item.peerDeviceId)
                 && (KIND_PROFILE.equals(
+                        item.kind)
+                    || KIND_PROFILE_MANIFEST.equals(
                         item.kind)
                     || KIND_MEASUREMENT.equals(
                         item.kind)

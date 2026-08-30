@@ -938,6 +938,42 @@ public final class ScaleScanService extends Service {
             return;
         }
 
+        if (PeerProfileManifestPayload.TYPE.equals(type)) {
+            PeerProfileManifestPayload payload =
+                    PeerProfileManifestPayload.decode(
+                            encoded);
+
+            if (payload == null) {
+                return;
+            }
+
+            boolean duplicate =
+                    PeerInboxDedupStore.contains(
+                            this,
+                            peer.deviceId,
+                            payload.messageId);
+
+            if (!duplicate) {
+                if (!HouseholdProfileSync.acceptIncomingManifest(
+                        this,
+                        peer,
+                        payload.ownerProfileIds)) {
+                    return;
+                }
+
+                PeerInboxDedupStore.mark(
+                        this,
+                        peer.deviceId,
+                        payload.messageId);
+            }
+
+            queuePeerAck(
+                    peer,
+                    payload.messageId);
+
+            return;
+        }
+
         if (PeerProfilePayload.TYPE.equals(type)) {
             PeerProfilePayload payload =
                     PeerProfilePayload.decode(
@@ -2340,7 +2376,9 @@ public final class ScaleScanService extends Service {
         }
 
         if (PeerOutboxStore.KIND_PROFILE.equals(
-                item.kind)) {
+                    item.kind)
+                || PeerOutboxStore.KIND_PROFILE_MANIFEST.equals(
+                    item.kind)) {
             return 5;
         }
 

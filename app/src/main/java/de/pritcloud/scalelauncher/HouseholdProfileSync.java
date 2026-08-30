@@ -177,6 +177,22 @@ final class HouseholdProfileSync {
             }
         }
 
+        try {
+            PeerOutboxStore.enqueueProfileManifest(
+                    context,
+                    peer.deviceId,
+                    PeerProfileManifestPayload.create(
+                            ownerProfileIds));
+
+            queued++;
+        } catch (RuntimeException exception) {
+            EventLog.warning(
+                    context,
+                    context.getString(
+                            R.string.log_peer_profile_queue_failed,
+                            peer.label));
+        }
+
         return queued;
     }
 
@@ -264,6 +280,43 @@ final class HouseholdProfileSync {
                                 removed,
                                 peer.label));
             }
+        }
+
+        return true;
+    }
+
+    static boolean acceptIncomingManifest(
+            Context context,
+            PeerTrustStore.Peer peer,
+            List<String> ownerProfileIds) {
+        if (context == null
+                || peer == null
+                || ownerProfileIds == null
+                || ownerProfileIds.size() > 100) {
+            return false;
+        }
+
+        for (String profileId :
+                ownerProfileIds) {
+            if (!UserProfile.isValidHouseholdProfileId(
+                    profileId)) {
+                return false;
+            }
+        }
+
+        int removed =
+                HouseholdProfileStore.removeOwnerExcept(
+                        context,
+                        peer.deviceId,
+                        ownerProfileIds);
+
+        if (removed > 0) {
+            EventLog.info(
+                    context,
+                    context.getString(
+                            R.string.log_peer_profiles_pruned,
+                            removed,
+                            peer.label));
         }
 
         return true;
@@ -378,10 +431,6 @@ final class HouseholdProfileSync {
                 currentOwnedProfileIds(
                         context,
                         profiles);
-
-        if (ownerProfileIds.isEmpty()) {
-            return 0;
-        }
 
         return HouseholdProfileStore.removeOwnerExcept(
                 context,
