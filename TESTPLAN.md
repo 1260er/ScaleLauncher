@@ -1,7 +1,7 @@
 # ScaleLauncher – Abnahme- und Regressionstestplan
 
 Stand: 29. August 2026
-Branch: `ui-v1.2.0`
+Branch: `ui-v1.3.0`
 Status: **Finale Gesamtabnahme noch ausstehend**
 
 ## Zweck

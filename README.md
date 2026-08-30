@@ -373,7 +373,7 @@ Current Android configuration:
 minSdk 31
 targetSdk 35
 compileSdk 35
-versionName 1.2.1
+versionName 1.3.0
 ```
 
 ## License

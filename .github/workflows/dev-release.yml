@@ -3,7 +3,7 @@ name: Dev release
 on:
   push:
     branches:
-      - ui-v1.2.0
+      - ui-v1.3.0
   workflow_dispatch:
 
 permissions:
@@ -106,7 +106,7 @@ jobs:
             "$APK_FILE" "$APK_FILE.sha256" \
             --target "$GITHUB_SHA" \
             --title "ScaleLauncher Dev ${GITHUB_RUN_NUMBER}" \
-            --notes "Automatischer Test-Build aus dem Branch ui-v1.2.0." \
+            --notes "Automatischer Test-Build aus dem Branch ui-v1.3.0." \
             --prerelease \
             --latest=false
 

@@ -1,5 +1,20 @@
 # Änderungsprotokoll
 
+## 1.3.0
+
+- direkte Bluetooth-Kommunikation zwischen gekoppelten ScaleLauncher-Geräten für gemeinsame Haushaltsprofile und Messungsrouting ergänzt
+- Collector-Erreichbarkeit wird auf gekoppelten Geräten erkannt und im Dienststatus angezeigt
+- eindeutige Remote-Messungen werden automatisch an das Besitzergerät des passenden Profils weitergeleitet
+- mehrdeutige Messungen unterstützen Claims, Entscheidungen und manuelle Rescue-Zuordnung über gekoppelte Geräte
+- Peer-Kommunikation durch ACK-Wiederverwendung, getrennte Empfangsrahmen und Schutz vor veralteten GATT-Callbacks stabilisiert
+- Bluetooth-Wiederverbindung nach erneutem Einschalten ohne veralteten GATT-Backoff verbessert
+- deaktivierte Benutzerprofile bleiben beim Speichern und Synchronisieren deaktiviert
+- leere Haushaltsprofil-Manifeste entfernen veraltete Remote-Profile zuverlässig
+- eingehende Profiländerungen werden gegen den authentifizierten Absender geprüft und verwenden monotone Revisionsnummern
+- openScale-Schreibvorgänge durch persistentes Journal gegen doppelte Messungen nach Abstürzen oder Neustarts abgesichert
+- ausstehende Messungen und Peer-Outbox-Nachrichten werden nicht mehr durch feste Größenlimits still verworfen oder abgebrochen
+- gezielte Regressionstests für Pending-Messungen und Peer-Outbox ergänzt
+
 ## 1.2.1
 
 - BLE-Überwachung stabilisiert: laufende Scans werden bei reiner Funkstille nicht mehr vorsorglich neu gestartet; echte Scanfehler bleiben selbstheilend
