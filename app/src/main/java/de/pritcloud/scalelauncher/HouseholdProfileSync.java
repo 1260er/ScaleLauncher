@@ -204,7 +204,9 @@ final class HouseholdProfileSync {
             List<String> ownerProfileIds) {
         if (peer == null
                 || incoming == null
-                || !incoming.isValid()) {
+                || !incoming.isValid()
+                || !incoming.ownerDeviceId.equals(
+                        peer.deviceId)) {
             return false;
         }
 
