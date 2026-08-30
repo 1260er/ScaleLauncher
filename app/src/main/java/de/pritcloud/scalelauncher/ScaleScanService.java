@@ -136,7 +136,20 @@ public final class ScaleScanService extends Service {
                         EventLog.debug(
                                 ScaleScanService.this,
                                 "Peer-Transport: Bluetooth aktiv – Transport wird neu gestartet");
+
+                        handler.removeCallbacks(
+                                gattReconnectRunnable);
+                        gattReconnectScheduled = false;
+                        gattReconnectAttempt = 0;
+
                         restartPeerTransport();
+
+                        if (gattMonitoringActive
+                                && !explicitStop
+                                && !terminalError
+                                && gattClient == null) {
+                            connectGattCollector();
+                        }
                     }
                 }
             };
