@@ -562,28 +562,32 @@ final class PeerMeasurementTransport {
                 public void onServiceAdded(
                         int status,
                         BluetoothGattService service) {
-                    if (!SERVICE_UUID_VALUE.equals(
-                            service.getUuid())) {
-                        return;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (service == null
+                                        || !SERVICE_UUID_VALUE.equals(
+                                                service.getUuid())) {
+                                    return;
+                                }
 
-                    if (status
-                            != BluetoothGatt.GATT_SUCCESS) {
-                        transportActive =
-                                false;
+                                if (status
+                                        != BluetoothGatt.GATT_SUCCESS) {
+                                    transportActive =
+                                            false;
 
-                        reportError(
-                                "BLE-Peer-Dienst Status "
-                                        + status);
-                        return;
-                    }
+                                    reportError(
+                                            "BLE-Peer-Dienst Status "
+                                                    + status);
+                                    return;
+                                }
 
-                    EventLog.debug(
-                            context,
-                            "Peer-Transport: GATT-Dienst bereit");
+                                EventLog.debug(
+                                        context,
+                                        "Peer-Transport: GATT-Dienst bereit");
 
-                    startAdvertising();
-                    startPresenceScan();
+                                startAdvertising();
+                                startPresenceScan();
+                            });
                 }
 
                 @Override
@@ -595,31 +599,40 @@ final class PeerMeasurementTransport {
                         boolean responseNeeded,
                         int offset,
                         byte[] value) {
-                    int response =
-                            BluetoothGatt.GATT_SUCCESS;
+                    byte[] frame =
+                            value == null
+                                    ? null
+                                    : value.clone();
 
-                    if (!DATA_UUID.equals(
-                            characteristic.getUuid())
-                            || preparedWrite
-                            || offset != 0
-                            || !acceptFrame(
-                                    device,
-                                    value,
-                                    serverReceiveStates,
-                                    true)) {
-                        response =
-                                BluetoothGatt.GATT_FAILURE;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                int response =
+                                        BluetoothGatt.GATT_SUCCESS;
 
-                    if (responseNeeded
-                            && server != null) {
-                        server.sendResponse(
-                                device,
-                                requestId,
-                                response,
-                                offset,
-                                null);
-                    }
+                                if (characteristic == null
+                                        || !DATA_UUID.equals(
+                                                characteristic.getUuid())
+                                        || preparedWrite
+                                        || offset != 0
+                                        || !acceptFrame(
+                                                device,
+                                                frame,
+                                                serverReceiveStates,
+                                                true)) {
+                                    response =
+                                            BluetoothGatt.GATT_FAILURE;
+                                }
+
+                                if (responseNeeded
+                                        && server != null) {
+                                    server.sendResponse(
+                                            device,
+                                            requestId,
+                                            response,
+                                            offset,
+                                            null);
+                                }
+                            });
                 }
 
                 @Override
@@ -631,51 +644,59 @@ final class PeerMeasurementTransport {
                         boolean responseNeeded,
                         int offset,
                         byte[] value) {
-                    int response =
-                            BluetoothGatt.GATT_SUCCESS;
-
-                    BluetoothGattCharacteristic characteristic =
-                            descriptor == null
+                    byte[] descriptorValue =
+                            value == null
                                     ? null
-                                    : descriptor.getCharacteristic();
+                                    : value.clone();
 
-                    if (device == null
-                            || descriptor == null
-                            || !CCCD_UUID.equals(
-                                    descriptor.getUuid())
-                            || characteristic == null
-                            || !DATA_UUID.equals(
-                                    characteristic.getUuid())
-                            || preparedWrite
-                            || offset != 0
-                            || value == null) {
-                        response =
-                                BluetoothGatt.GATT_FAILURE;
-                    } else if (Arrays.equals(
-                            value,
-                            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) {
-                        notificationSubscribers.add(
-                                device.getAddress());
-                    } else if (Arrays.equals(
-                            value,
-                            BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
-                        notificationSubscribers.remove(
-                                device.getAddress());
-                    } else {
-                        response =
-                                BluetoothGatt.GATT_FAILURE;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                int response =
+                                        BluetoothGatt.GATT_SUCCESS;
 
-                    if (responseNeeded
-                            && server != null
-                            && device != null) {
-                        server.sendResponse(
-                                device,
-                                requestId,
-                                response,
-                                offset,
-                                null);
-                    }
+                                BluetoothGattCharacteristic characteristic =
+                                        descriptor == null
+                                                ? null
+                                                : descriptor.getCharacteristic();
+
+                                if (device == null
+                                        || descriptor == null
+                                        || !CCCD_UUID.equals(
+                                                descriptor.getUuid())
+                                        || characteristic == null
+                                        || !DATA_UUID.equals(
+                                                characteristic.getUuid())
+                                        || preparedWrite
+                                        || offset != 0
+                                        || descriptorValue == null) {
+                                    response =
+                                            BluetoothGatt.GATT_FAILURE;
+                                } else if (Arrays.equals(
+                                        descriptorValue,
+                                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) {
+                                    notificationSubscribers.add(
+                                            device.getAddress());
+                                } else if (Arrays.equals(
+                                        descriptorValue,
+                                        BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
+                                    notificationSubscribers.remove(
+                                            device.getAddress());
+                                } else {
+                                    response =
+                                            BluetoothGatt.GATT_FAILURE;
+                                }
+
+                                if (responseNeeded
+                                        && server != null
+                                        && device != null) {
+                                    server.sendResponse(
+                                            device,
+                                            requestId,
+                                            response,
+                                            offset,
+                                            null);
+                                }
+                            });
                 }
 
                 @Override
@@ -683,81 +704,90 @@ final class PeerMeasurementTransport {
                         BluetoothDevice device,
                         int status,
                         int newState) {
-                    if (device != null
-                            && newState
-                            == BluetoothProfile.STATE_DISCONNECTED) {
-                        String address =
-                                device.getAddress();
+                    runOnTransportThread(
+                            () -> {
+                                if (device != null
+                                        && newState
+                                        == BluetoothProfile.STATE_DISCONNECTED) {
+                                    String address =
+                                            device.getAddress();
 
-                        notificationSubscribers.remove(
-                                address);
+                                    notificationSubscribers.remove(
+                                            address);
 
-                        serverReceiveStates.remove(
-                                address);
+                                    serverReceiveStates.remove(
+                                            address);
 
-                        replyMtus.remove(
-                                address);
+                                    replyMtus.remove(
+                                            address);
 
-                        replyStates.remove(
-                                address);
+                                    replyStates.remove(
+                                            address);
 
-                        replyDevices.entrySet().removeIf(
-                                entry -> entry.getValue() != null
-                                        && address.equals(
-                                                entry.getValue().getAddress()));
-                    }
+                                    replyDevices.entrySet().removeIf(
+                                            entry -> entry.getValue() != null
+                                                    && address.equals(
+                                                            entry.getValue().getAddress()));
+                                }
+                            });
                 }
 
                 @Override
                 public void onMtuChanged(
                         BluetoothDevice device,
                         int mtu) {
-                    if (device != null
-                            && mtu >= 23) {
-                        replyMtus.put(
-                                device.getAddress(),
-                                mtu);
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (device != null
+                                        && mtu >= 23) {
+                                    replyMtus.put(
+                                            device.getAddress(),
+                                            mtu);
+                                }
+                            });
                 }
 
                 @Override
                 public void onNotificationSent(
                         BluetoothDevice device,
                         int status) {
-                    if (device == null) {
-                        return;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (device == null) {
+                                    return;
+                                }
 
-                    String address =
-                            device.getAddress();
+                                String address =
+                                        device.getAddress();
 
-                    ReplySendState state =
-                            replyStates.get(
-                                    address);
+                                ReplySendState state =
+                                        replyStates.get(
+                                                address);
 
-                    if (state == null) {
-                        return;
-                    }
+                                if (state == null) {
+                                    return;
+                                }
 
-                    if (status
-                            != BluetoothGatt.GATT_SUCCESS) {
-                        replyStates.remove(
-                                address);
-                        return;
-                    }
+                                if (status
+                                        != BluetoothGatt.GATT_SUCCESS) {
+                                    replyStates.remove(
+                                            address);
+                                    return;
+                                }
 
-                    if (state.offset
-                            >= state.bytes.length) {
-                        replyStates.remove(
-                                address);
-                        return;
-                    }
+                                if (state.offset
+                                        >= state.bytes.length) {
+                                    replyStates.remove(
+                                            address);
+                                    return;
+                                }
 
-                    if (!writeNextReplyChunk(
-                            state)) {
-                        replyStates.remove(
-                                address);
-                    }
+                                if (!writeNextReplyChunk(
+                                        state)) {
+                                    replyStates.remove(
+                                            address);
+                                }
+                            });
                 }
             };
 
@@ -818,61 +848,67 @@ final class PeerMeasurementTransport {
                 @Override
                 public void onStartSuccess(
                         AdvertiseSettings settingsInEffect) {
-                    advertisingStarting =
-                            false;
+                    runOnTransportThread(
+                            () -> {
+                                advertisingStarting =
+                                        false;
 
-                    if (!transportActive) {
-                        try {
-                            advertiser.stopAdvertising(
-                                    advertiseCallback);
-                        } catch (RuntimeException ignored) {
-                        }
+                                if (!transportActive) {
+                                    try {
+                                        advertiser.stopAdvertising(
+                                                advertiseCallback);
+                                    } catch (RuntimeException ignored) {
+                                    }
 
-                        advertisingActive =
-                                false;
-                        advertisingUpdatePending =
-                                false;
-                        return;
-                    }
+                                    advertisingActive =
+                                            false;
+                                    advertisingUpdatePending =
+                                            false;
+                                    return;
+                                }
 
-                    advertisingActive =
-                            true;
+                                advertisingActive =
+                                        true;
 
-                    if (advertisingUpdatePending) {
-                        advertisingUpdatePending =
-                                false;
+                                if (advertisingUpdatePending) {
+                                    advertisingUpdatePending =
+                                            false;
 
-                        try {
-                            advertiser.stopAdvertising(
-                                    advertiseCallback);
-                        } catch (RuntimeException ignored) {
-                        }
+                                    try {
+                                        advertiser.stopAdvertising(
+                                                advertiseCallback);
+                                    } catch (RuntimeException ignored) {
+                                    }
 
-                        advertisingActive =
-                                false;
+                                    advertisingActive =
+                                            false;
 
-                        startAdvertising();
-                        return;
-                    }
+                                    startAdvertising();
+                                    return;
+                                }
 
-                    EventLog.debug(
-                            context,
-                            "Peer-Transport: Advertising aktiv");
+                                EventLog.debug(
+                                        context,
+                                        "Peer-Transport: Advertising aktiv");
+                            });
                 }
 
                 @Override
                 public void onStartFailure(
                         int errorCode) {
-                    advertisingStarting =
-                            false;
-                    advertisingUpdatePending =
-                            false;
-                    advertisingActive =
-                            false;
+                    runOnTransportThread(
+                            () -> {
+                                advertisingStarting =
+                                        false;
+                                advertisingUpdatePending =
+                                        false;
+                                advertisingActive =
+                                        false;
 
-                    reportError(
-                            "BLE-Peer-Advertising Fehler "
-                                    + errorCode);
+                                reportError(
+                                        "BLE-Peer-Advertising Fehler "
+                                                + errorCode);
+                            });
                 }
             };
 
@@ -882,48 +918,52 @@ final class PeerMeasurementTransport {
                 public void onScanResult(
                         int callbackType,
                         ScanResult result) {
-                    if (result == null
-                            || result.getScanRecord() == null) {
-                        return;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (result == null
+                                        || result.getScanRecord() == null) {
+                                    return;
+                                }
 
-                    byte[] advertisedData =
-                            result.getScanRecord()
-                                    .getServiceData(
-                                            SERVICE_UUID);
+                                byte[] advertisedData =
+                                        result.getScanRecord()
+                                                .getServiceData(
+                                                        SERVICE_UUID);
 
-                    if (advertisedData == null
-                            || advertisedData.length != 9
-                            || (advertisedData[8] != 0
-                                && advertisedData[8] != 1)) {
-                        return;
-                    }
+                                if (advertisedData == null
+                                        || advertisedData.length != 9
+                                        || (advertisedData[8] != 0
+                                            && advertisedData[8] != 1)) {
+                                    return;
+                                }
 
-                    for (PresencePeer presence :
-                            presencePeers) {
-                        if (!matchesFingerprint(
-                                advertisedData,
-                                presence.fingerprint)) {
-                            continue;
-                        }
+                                for (PresencePeer presence :
+                                        presencePeers) {
+                                    if (!matchesFingerprint(
+                                            advertisedData,
+                                            presence.fingerprint)) {
+                                        continue;
+                                    }
 
-                        boolean collector =
-                                advertisedData[8] == 1;
+                                    boolean collector =
+                                            advertisedData[8] == 1;
 
-                        handler.post(
-                                () -> listener.onPeerPresence(
-                                        presence.peer,
-                                        collector));
+                                    handler.post(
+                                            () -> listener.onPeerPresence(
+                                                    presence.peer,
+                                                    collector));
 
-                        return;
-                    }
+                                    return;
+                                }
+                            });
                 }
 
                 @Override
                 public void onScanFailed(
                         int errorCode) {
-                    presenceScanActive =
-                            false;
+                    runOnTransportThread(
+                            () -> presenceScanActive =
+                                    false);
                 }
             };
 
@@ -933,61 +973,66 @@ final class PeerMeasurementTransport {
                 public void onScanResult(
                         int callbackType,
                         ScanResult result) {
-                    if (sendPeer == null
-                            || sendConnecting
-                            || result == null
-                            || result.getScanRecord() == null) {
-                        return;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (sendPeer == null
+                                        || sendConnecting
+                                        || result == null
+                                        || result.getScanRecord() == null) {
+                                    return;
+                                }
 
-                    byte[] remoteFingerprint =
-                            result.getScanRecord()
-                                    .getServiceData(
-                                            SERVICE_UUID);
+                                byte[] remoteFingerprint =
+                                        result.getScanRecord()
+                                                .getServiceData(
+                                                        SERVICE_UUID);
 
-                    if (!matchesFingerprint(
-                            remoteFingerprint,
-                            sendTargetFingerprint)) {
-                        return;
-                    }
+                                if (!matchesFingerprint(
+                                        remoteFingerprint,
+                                        sendTargetFingerprint)) {
+                                    return;
+                                }
 
-                    sendConnecting = true;
-                    sendStage = "connecting";
+                                sendConnecting = true;
+                                sendStage = "connecting";
 
-                    EventLog.debug(
-                            context,
-                            "Peer-Transport: Ziel gefunden – "
-                                    + sendPeer.label);
+                                EventLog.debug(
+                                        context,
+                                        "Peer-Transport: Ziel gefunden – "
+                                                + sendPeer.label);
 
-                    stopSendScan();
-                    startPresenceScan();
+                                stopSendScan();
+                                startPresenceScan();
 
-                    try {
-                        sendGatt =
-                                result.getDevice()
-                                        .connectGatt(
-                                                context,
-                                                false,
-                                                sendCallback,
-                                                BluetoothDevice.TRANSPORT_LE);
+                                try {
+                                    sendGatt =
+                                            result.getDevice()
+                                                    .connectGatt(
+                                                            context,
+                                                            false,
+                                                            sendCallback,
+                                                            BluetoothDevice.TRANSPORT_LE);
 
-                        if (sendGatt == null) {
-                            failSend(
-                                    "BLE-Peer-Verbindung konnte nicht gestartet werden");
-                        }
-                    } catch (RuntimeException exception) {
-                        failSend(
-                                "BLE-Peer-Verbindung: "
-                                        + exception.getClass().getSimpleName());
-                    }
+                                    if (sendGatt == null) {
+                                        failSend(
+                                                "BLE-Peer-Verbindung konnte nicht gestartet werden");
+                                    }
+                                } catch (RuntimeException exception) {
+                                    failSend(
+                                            "BLE-Peer-Verbindung: "
+                                                    + exception.getClass()
+                                                            .getSimpleName());
+                                }
+                            });
                 }
 
                 @Override
                 public void onScanFailed(
                         int errorCode) {
-                    failSend(
-                            "BLE-Peer-Suche Fehler "
-                                    + errorCode);
+                    runOnTransportThread(
+                            () -> failSend(
+                                    "BLE-Peer-Suche Fehler "
+                                            + errorCode));
                 }
             };
 
@@ -998,46 +1043,50 @@ final class PeerMeasurementTransport {
                         BluetoothGatt gatt,
                         int status,
                         int newState) {
-                    if (gatt == null || gatt != sendGatt) {
-                        return;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (gatt == null
+                                        || gatt != sendGatt) {
+                                    return;
+                                }
 
-                    if (status
-                            != BluetoothGatt.GATT_SUCCESS) {
-                        if (sendPeer != null) {
-                            failSend(
-                                    "BLE-Peer-Verbindung Status "
-                                            + status);
-                        } else if (gatt == sendGatt) {
-                            cleanupSendConnection();
-                            clearSendState();
-                        }
-                        return;
-                    }
+                                if (status
+                                        != BluetoothGatt.GATT_SUCCESS) {
+                                    if (sendPeer != null) {
+                                        failSend(
+                                                "BLE-Peer-Verbindung Status "
+                                                        + status);
+                                    } else if (gatt == sendGatt) {
+                                        cleanupSendConnection();
+                                        clearSendState();
+                                    }
+                                    return;
+                                }
 
-                    if (newState
-                            == BluetoothProfile.STATE_CONNECTED) {
-                        sendStage = "connected";
+                                if (newState
+                                        == BluetoothProfile.STATE_CONNECTED) {
+                                    sendStage = "connected";
 
-                        EventLog.debug(
-                                context,
-                                "Peer-Transport: Verbindung hergestellt – "
-                                        + sendPeer.label);
+                                    EventLog.debug(
+                                            context,
+                                            "Peer-Transport: Verbindung hergestellt – "
+                                                    + sendPeer.label);
 
-                        if (!gatt.requestMtu(517)) {
-                            sendStage = "discovering";
-                            gatt.discoverServices();
-                        }
-                    } else if (newState
-                            == BluetoothProfile.STATE_DISCONNECTED) {
-                        if (sendPeer != null) {
-                            failSend(
-                                    "BLE-Peer-Verbindung getrennt");
-                        } else if (gatt == sendGatt) {
-                            cleanupSendConnection();
-                            clearSendState();
-                        }
-                    }
+                                    if (!gatt.requestMtu(517)) {
+                                        sendStage = "discovering";
+                                        gatt.discoverServices();
+                                    }
+                                } else if (newState
+                                        == BluetoothProfile.STATE_DISCONNECTED) {
+                                    if (sendPeer != null) {
+                                        failSend(
+                                                "BLE-Peer-Verbindung getrennt");
+                                    } else if (gatt == sendGatt) {
+                                        cleanupSendConnection();
+                                        clearSendState();
+                                    }
+                                }
+                            });
                 }
 
                 @Override
@@ -1045,97 +1094,105 @@ final class PeerMeasurementTransport {
                         BluetoothGatt gatt,
                         int mtu,
                         int status) {
-                    if (gatt == null || gatt != sendGatt) {
-                        return;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (gatt == null
+                                        || gatt != sendGatt) {
+                                    return;
+                                }
 
-                    if (status
-                            == BluetoothGatt.GATT_SUCCESS) {
-                        sendMtu =
-                                Math.max(
-                                        23,
-                                        mtu);
-                    }
+                                if (status
+                                        == BluetoothGatt.GATT_SUCCESS) {
+                                    sendMtu =
+                                            Math.max(
+                                                    23,
+                                                    mtu);
+                                }
 
-                    sendStage = "discovering";
+                                sendStage = "discovering";
 
-                    EventLog.debug(
-                            context,
-                            "Peer-Transport: MTU "
-                                    + sendMtu
-                                    + " – Dienste werden gesucht");
+                                EventLog.debug(
+                                        context,
+                                        "Peer-Transport: MTU "
+                                                + sendMtu
+                                                + " – Dienste werden gesucht");
 
-                    gatt.discoverServices();
+                                gatt.discoverServices();
+                            });
                 }
 
                 @Override
                 public void onServicesDiscovered(
                         BluetoothGatt gatt,
                         int status) {
-                    if (gatt == null || gatt != sendGatt) {
-                        return;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (gatt == null
+                                        || gatt != sendGatt) {
+                                    return;
+                                }
 
-                    if (status
-                            != BluetoothGatt.GATT_SUCCESS) {
-                        failSend(
-                                "BLE-Peer-Dienste Status "
-                                        + status);
-                        return;
-                    }
+                                if (status
+                                        != BluetoothGatt.GATT_SUCCESS) {
+                                    failSend(
+                                            "BLE-Peer-Dienste Status "
+                                                    + status);
+                                    return;
+                                }
 
-                    BluetoothGattService service =
-                            gatt.getService(
-                                    SERVICE_UUID_VALUE);
+                                BluetoothGattService service =
+                                        gatt.getService(
+                                                SERVICE_UUID_VALUE);
 
-                    BluetoothGattCharacteristic characteristic =
-                            service == null
-                                    ? null
-                                    : service.getCharacteristic(
-                                            DATA_UUID);
+                                BluetoothGattCharacteristic characteristic =
+                                        service == null
+                                                ? null
+                                                : service.getCharacteristic(
+                                                        DATA_UUID);
 
-                    if (characteristic == null) {
-                        failSend(
-                                "BLE-Peer-Messwertkanal fehlt");
-                        return;
-                    }
+                                if (characteristic == null) {
+                                    failSend(
+                                            "BLE-Peer-Messwertkanal fehlt");
+                                    return;
+                                }
 
-                    BluetoothGattDescriptor cccd =
-                            characteristic.getDescriptor(
-                                    CCCD_UUID);
+                                BluetoothGattDescriptor cccd =
+                                        characteristic.getDescriptor(
+                                                CCCD_UUID);
 
-                    if (cccd == null
-                            || !gatt.setCharacteristicNotification(
-                                    characteristic,
-                                    true)) {
-                        failSend(
-                                "BLE-Peer-Rückkanal konnte nicht aktiviert werden");
-                        return;
-                    }
+                                if (cccd == null
+                                        || !gatt.setCharacteristicNotification(
+                                                characteristic,
+                                                true)) {
+                                    failSend(
+                                            "BLE-Peer-Rückkanal konnte nicht aktiviert werden");
+                                    return;
+                                }
 
-                    sendStage = "subscribing";
+                                sendStage = "subscribing";
 
-                    boolean queued;
+                                boolean queued;
 
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        queued =
-                                gatt.writeDescriptor(
-                                        cccd,
-                                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-                                        == BluetoothStatusCodes.SUCCESS;
-                    } else {
-                        cccd.setValue(
-                                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                                if (Build.VERSION.SDK_INT >= 33) {
+                                    queued =
+                                            gatt.writeDescriptor(
+                                                    cccd,
+                                                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                                                    == BluetoothStatusCodes.SUCCESS;
+                                } else {
+                                    cccd.setValue(
+                                            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
 
-                        queued =
-                                gatt.writeDescriptor(
-                                        cccd);
-                    }
+                                    queued =
+                                            gatt.writeDescriptor(
+                                                    cccd);
+                                }
 
-                    if (!queued) {
-                        failSend(
-                                "BLE-Peer-Rückkanal konnte nicht eingereiht werden");
-                    }
+                                if (!queued) {
+                                    failSend(
+                                            "BLE-Peer-Rückkanal konnte nicht eingereiht werden");
+                                }
+                            });
                 }
 
                 @Override
@@ -1143,53 +1200,57 @@ final class PeerMeasurementTransport {
                         BluetoothGatt gatt,
                         BluetoothGattDescriptor descriptor,
                         int status) {
-                    if (gatt == null || gatt != sendGatt) {
-                        return;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (gatt == null
+                                        || gatt != sendGatt) {
+                                    return;
+                                }
 
-                    if (descriptor == null
-                            || !CCCD_UUID.equals(
-                                    descriptor.getUuid())) {
-                        return;
-                    }
+                                if (descriptor == null
+                                        || !CCCD_UUID.equals(
+                                                descriptor.getUuid())) {
+                                    return;
+                                }
 
-                    if (status
-                            != BluetoothGatt.GATT_SUCCESS) {
-                        failSend(
-                                "BLE-Peer-Rückkanal Status "
-                                        + status);
-                        return;
-                    }
+                                if (status
+                                        != BluetoothGatt.GATT_SUCCESS) {
+                                    failSend(
+                                            "BLE-Peer-Rückkanal Status "
+                                                    + status);
+                                    return;
+                                }
 
-                    BluetoothGattCharacteristic characteristic =
-                            descriptor.getCharacteristic();
+                                BluetoothGattCharacteristic characteristic =
+                                        descriptor.getCharacteristic();
 
-                    if (characteristic == null
-                            || !DATA_UUID.equals(
-                                    characteristic.getUuid())) {
-                        failSend(
-                                "BLE-Peer-Messwertkanal fehlt");
-                        return;
-                    }
+                                if (characteristic == null
+                                        || !DATA_UUID.equals(
+                                                characteristic.getUuid())) {
+                                    failSend(
+                                            "BLE-Peer-Messwertkanal fehlt");
+                                    return;
+                                }
 
-                    sendCharacteristic =
-                            characteristic;
+                                sendCharacteristic =
+                                        characteristic;
 
-                    sendSessionPeerDeviceId =
-                            sendPeer == null
-                                    ? null
-                                    : sendPeer.deviceId;
+                                sendSessionPeerDeviceId =
+                                        sendPeer == null
+                                                ? null
+                                                : sendPeer.deviceId;
 
-                    sendStage = "writing";
+                                sendStage = "writing";
 
-                    EventLog.debug(
-                            context,
-                            "Peer-Transport: Datenkanal bereit – "
-                                    + sendPeer.label);
+                                EventLog.debug(
+                                        context,
+                                        "Peer-Transport: Datenkanal bereit – "
+                                                + sendPeer.label);
 
-                    writeNextChunk(
-                            gatt,
-                            characteristic);
+                                writeNextChunk(
+                                        gatt,
+                                        characteristic);
+                            });
                 }
 
                 @Override
@@ -1197,10 +1258,11 @@ final class PeerMeasurementTransport {
                         BluetoothGatt gatt,
                         BluetoothGattCharacteristic characteristic,
                         byte[] value) {
-                    handleReplyNotification(
-                            gatt,
-                            characteristic,
-                            value);
+                    runOnTransportThread(
+                            () -> handleReplyNotification(
+                                    gatt,
+                                    characteristic,
+                                    value));
                 }
 
                 @SuppressWarnings("deprecation")
@@ -1208,12 +1270,16 @@ final class PeerMeasurementTransport {
                 public void onCharacteristicChanged(
                         BluetoothGatt gatt,
                         BluetoothGattCharacteristic characteristic) {
-                    handleReplyNotification(
-                            gatt,
-                            characteristic,
+                    byte[] value =
                             characteristic == null
                                     ? null
-                                    : characteristic.getValue());
+                                    : characteristic.getValue();
+
+                    runOnTransportThread(
+                            () -> handleReplyNotification(
+                                    gatt,
+                                    characteristic,
+                                    value));
                 }
 
                 @Override
@@ -1221,26 +1287,30 @@ final class PeerMeasurementTransport {
                         BluetoothGatt gatt,
                         BluetoothGattCharacteristic characteristic,
                         int status) {
-                    if (gatt == null || gatt != sendGatt) {
-                        return;
-                    }
+                    runOnTransportThread(
+                            () -> {
+                                if (gatt == null
+                                        || gatt != sendGatt) {
+                                    return;
+                                }
 
-                    if (status
-                            != BluetoothGatt.GATT_SUCCESS) {
-                        failSend(
-                                "BLE-Peer-Schreiben Status "
-                                        + status);
-                        return;
-                    }
+                                if (status
+                                        != BluetoothGatt.GATT_SUCCESS) {
+                                    failSend(
+                                            "BLE-Peer-Schreiben Status "
+                                                    + status);
+                                    return;
+                                }
 
-                    if (sendLastChunkFinal) {
-                        finishSend();
-                        return;
-                    }
+                                if (sendLastChunkFinal) {
+                                    finishSend();
+                                    return;
+                                }
 
-                    writeNextChunk(
-                            gatt,
-                            characteristic);
+                                writeNextChunk(
+                                        gatt,
+                                        characteristic);
+                            });
                 }
             };
 
@@ -1797,6 +1867,16 @@ final class PeerMeasurementTransport {
                 && context.checkSelfPermission(
                         Manifest.permission.BLUETOOTH_ADVERTISE)
                         == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void runOnTransportThread(
+            Runnable action) {
+        if (Looper.myLooper()
+                == handler.getLooper()) {
+            action.run();
+        } else {
+            handler.post(action);
+        }
     }
 
     private void reportError(
