@@ -21,11 +21,16 @@ final class HouseholdProfileStore {
 
     static List<HouseholdProfile> load(
             Context context) {
+        return load(prefs(context));
+    }
+
+    static List<HouseholdProfile> load(
+            SharedPreferences preferences) {
         List<HouseholdProfile> result =
                 new ArrayList<>();
 
         String encoded =
-                prefs(context).getString(
+                preferences.getString(
                         KEY,
                         "");
 
@@ -75,13 +80,21 @@ final class HouseholdProfileStore {
     static boolean upsert(
             Context context,
             HouseholdProfile incoming) {
+        return upsert(
+                prefs(context),
+                incoming);
+    }
+
+    static boolean upsert(
+            SharedPreferences preferences,
+            HouseholdProfile incoming) {
         if (incoming == null
                 || !incoming.isValid()) {
             return false;
         }
 
         List<HouseholdProfile> profiles =
-                load(context);
+                load(preferences);
 
         HouseholdProfile existing = null;
         int existingIndex = -1;
@@ -101,6 +114,12 @@ final class HouseholdProfileStore {
         }
 
         if (existing != null
+                && !existing.ownerDeviceId.equals(
+                        incoming.ownerDeviceId)) {
+            return false;
+        }
+
+        if (existing != null
                 && existing.updatedAtMs
                 >= incoming.updatedAtMs) {
             return false;
@@ -116,7 +135,7 @@ final class HouseholdProfileStore {
         }
 
         save(
-                context,
+                preferences,
                 profiles);
 
         return true;
@@ -236,6 +255,14 @@ final class HouseholdProfileStore {
     private static void save(
             Context context,
             List<HouseholdProfile> profiles) {
+        save(
+                prefs(context),
+                profiles);
+    }
+
+    private static void save(
+            SharedPreferences preferences,
+            List<HouseholdProfile> profiles) {
         JSONArray array =
                 new JSONArray();
 
@@ -248,7 +275,7 @@ final class HouseholdProfileStore {
             }
         }
 
-        prefs(context)
+        preferences
                 .edit()
                 .putString(
                         KEY,

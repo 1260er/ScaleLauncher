@@ -211,6 +211,10 @@ final class HouseholdProfileSync {
         boolean localChanged =
                 false;
 
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        context);
+
         for (UserProfile local :
                 localProfiles) {
             /*
@@ -222,6 +226,17 @@ final class HouseholdProfileSync {
             if (!incoming.profileId.equals(
                     local.householdProfileId)) {
                 continue;
+            }
+
+            /*
+             * A profile that exists in local openScale belongs to this
+             * device. A remote peer must never take over its stable
+             * household identity, even with a newer revision.
+             */
+            if (hasOwnerConflict(
+                    localDeviceId,
+                    incoming)) {
+                return false;
             }
 
             if (incoming.updatedAtMs
@@ -275,6 +290,14 @@ final class HouseholdProfileSync {
         }
 
         return true;
+    }
+
+    static boolean hasOwnerConflict(
+            String localDeviceId,
+            HouseholdProfile incoming) {
+        return incoming != null
+                && !localDeviceId.equals(
+                        incoming.ownerDeviceId);
     }
 
     static boolean acceptIncomingManifest(
