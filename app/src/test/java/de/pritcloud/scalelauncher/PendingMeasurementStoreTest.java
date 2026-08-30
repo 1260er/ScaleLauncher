@@ -1,6 +1,8 @@
 package de.pritcloud.scalelauncher;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
@@ -78,6 +80,118 @@ public final class PendingMeasurementStoreTest {
         assertEquals(
                 "00000000-0000-4000-8000-000000000101",
                 responses.get(100).peerDeviceId);
+    }
+
+
+    @Test
+    public void rejectsSelectedCandidateWhenOwnerDisappears() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String selectedProfileId =
+                "11111111-1111-4111-8111-111111111111";
+
+        String remainingProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        String remoteOwnerId =
+                "33333333-3333-4333-8333-333333333333";
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.add(
+                        prefs,
+                        new S400FinalMeasurement(
+                                "selected-remote",
+                                70.0f,
+                                510.0f,
+                                490.0f,
+                                1_700_000_000_000L,
+                                null),
+                        "test",
+                        List.of(
+                                selectedProfileId,
+                                remainingProfileId));
+
+        assertTrue(
+                PendingMeasurementStore.selectCandidate(
+                        prefs,
+                        pending.id,
+                        selectedProfileId,
+                        remoteOwnerId));
+
+        assertTrue(
+                PendingMeasurementStore.rejectSelectedCandidate(
+                        prefs,
+                        pending.id,
+                        selectedProfileId,
+                        remoteOwnerId));
+
+        PendingMeasurementStore.Item repaired =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pending.id);
+
+        assertFalse(repaired.isResolved());
+
+        assertEquals(
+                List.of(remainingProfileId),
+                repaired.remainingCandidateProfileIds());
+    }
+
+
+    @Test
+    public void removesOnlyClaimResponsesFromRemovedPeer() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String removedPeer =
+                "11111111-1111-4111-8111-111111111111";
+
+        String retainedPeer =
+                "22222222-2222-4222-8222-222222222222";
+
+        PendingMeasurementStore.recordClaimResponse(
+                prefs,
+                "measurement-one",
+                removedPeer,
+                List.of());
+
+        PendingMeasurementStore.recordClaimResponse(
+                prefs,
+                "measurement-one",
+                retainedPeer,
+                List.of());
+
+        PendingMeasurementStore.recordClaimResponse(
+                prefs,
+                "measurement-two",
+                removedPeer,
+                List.of());
+
+        assertEquals(
+                2,
+                PendingMeasurementStore.removeClaimResponsesForPeer(
+                        prefs,
+                        removedPeer));
+
+        List<PendingMeasurementStore.ClaimResponse> remaining =
+                PendingMeasurementStore.claimResponses(
+                        prefs,
+                        "measurement-one");
+
+        assertEquals(
+                1,
+                remaining.size());
+
+        assertEquals(
+                retainedPeer,
+                remaining.get(0).peerDeviceId);
+
+        assertEquals(
+                0,
+                PendingMeasurementStore.claimResponses(
+                        prefs,
+                        "measurement-two").size());
     }
 
 }

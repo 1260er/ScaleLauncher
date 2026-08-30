@@ -188,6 +188,7 @@ public final class ScaleScanService extends Service {
         registerBluetoothStateReceiver();
         startPeerTransport();
 
+        repairPendingAfterPeerChanges();
         repairStaleAmbiguousPending();
 
         schedulePeerSync(
@@ -249,6 +250,7 @@ public final class ScaleScanService extends Service {
                 && ACTION_SYNC_PEERS.equals(
                         intent.getAction())) {
             refreshTrustedPeerPresence();
+            repairPendingAfterPeerChanges();
 
             schedulePeerSync(
                     100L);
@@ -2616,6 +2618,122 @@ public final class ScaleScanService extends Service {
             EventLog.debug(
                     this,
                     getString(R.string.log_user_sync_temporary_failure));
+        }
+    }
+
+    private void repairPendingAfterPeerChanges() {
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<HouseholdProfile> activeProfiles =
+                HouseholdProfileStore.active(
+                        this);
+
+        List<UserProfile> localProfiles =
+                UserProfileStore.enabled(
+                        UserProfileStore.load(
+                                prefs));
+
+        List<PendingMeasurementStore.Item> snapshot =
+                new java.util.ArrayList<>(
+                        PendingMeasurementStore.load(
+                                prefs));
+
+        for (PendingMeasurementStore.Item pending :
+                snapshot) {
+            if (pending == null) {
+                continue;
+            }
+
+            for (PendingMeasurementStore.ClaimResponse response :
+                    new java.util.ArrayList<>(
+                            PendingMeasurementStore.claimResponses(
+                                    prefs,
+                                    pending.id))) {
+                if (!localDeviceId.equals(
+                                response.peerDeviceId)
+                        && PeerTrustStore.find(
+                                this,
+                                response.peerDeviceId) == null) {
+                    PendingMeasurementStore.removeClaimResponsesForPeer(
+                            prefs,
+                            response.peerDeviceId);
+                }
+            }
+
+            if (pending.isResolved()
+                    && !localDeviceId.equals(
+                            pending.selectedOwnerDeviceId)
+                    && PeerTrustStore.find(
+                            this,
+                            pending.selectedOwnerDeviceId) == null) {
+                PendingMeasurementStore.rejectSelectedCandidate(
+                        prefs,
+                        pending.id,
+                        pending.selectedProfileId,
+                        pending.selectedOwnerDeviceId);
+            }
+
+            PendingMeasurementStore.Item current =
+                    PendingMeasurementStore.find(
+                            prefs,
+                            pending.id);
+
+            if (current == null
+                    || current.isResolved()) {
+                continue;
+            }
+
+            for (String profileId :
+                    new java.util.ArrayList<>(
+                            current.remainingCandidateProfileIds())) {
+                boolean available =
+                        UserProfileStore.findByHouseholdProfileId(
+                                localProfiles,
+                                profileId) != null;
+
+                if (!available) {
+                    for (HouseholdProfile profile :
+                            activeProfiles) {
+                        if (!profileId.equals(
+                                profile.profileId)) {
+                            continue;
+                        }
+
+                        if (localDeviceId.equals(
+                                        profile.ownerDeviceId)
+                                || PeerTrustStore.find(
+                                        this,
+                                        profile.ownerDeviceId) != null) {
+                            available =
+                                    true;
+                        }
+
+                        break;
+                    }
+                }
+
+                if (!available) {
+                    PendingMeasurementStore.rejectCandidate(
+                            prefs,
+                            current.id,
+                            profileId);
+                }
+            }
+
+            autoResolveSingleRemainingCandidate(
+                    prefs,
+                    pending.id);
+
+            removePendingWithoutCandidates(
+                    prefs,
+                    pending.id);
         }
     }
 

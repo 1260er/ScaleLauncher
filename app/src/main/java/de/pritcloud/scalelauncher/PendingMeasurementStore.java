@@ -579,6 +579,70 @@ final class PendingMeasurementStore {
         return false;
     }
 
+    static boolean rejectSelectedCandidate(
+            SharedPreferences prefs,
+            String measurementId,
+            String profileId,
+            String ownerDeviceId) {
+        if (measurementId == null
+                || measurementId.isBlank()
+                || !UserProfile.isValidHouseholdProfileId(
+                        profileId)
+                || !PeerTrustStore.isValidDeviceId(
+                        ownerDeviceId)) {
+            return false;
+        }
+
+        List<Item> items =
+                load(prefs);
+
+        for (int index = 0;
+             index < items.size();
+             index++) {
+            Item item =
+                    items.get(index);
+
+            if (!measurementId.equals(
+                    item.id)) {
+                continue;
+            }
+
+            if (!item.isResolved()
+                    || !profileId.equals(
+                            item.selectedProfileId)
+                    || !ownerDeviceId.equals(
+                            item.selectedOwnerDeviceId)) {
+                return false;
+            }
+
+            List<String> rejected =
+                    new ArrayList<>(
+                            item.rejectedProfileIds);
+
+            if (!rejected.contains(
+                    profileId)) {
+                rejected.add(
+                        profileId);
+            }
+
+            items.set(
+                    index,
+                    copyWithDecision(
+                            item,
+                            rejected,
+                            "",
+                            ""));
+
+            save(
+                    prefs,
+                    items);
+
+            return true;
+        }
+
+        return false;
+    }
+
     private static Item copyWithDecision(
             Item item,
             List<String> rejectedProfileIds,
@@ -634,6 +698,38 @@ final class PendingMeasurementStore {
         saveClaimResponses(
                 prefs,
                 responses);
+    }
+
+    static int removeClaimResponsesForPeer(
+            SharedPreferences prefs,
+            String peerDeviceId) {
+        if (!PeerTrustStore.isValidDeviceId(
+                peerDeviceId)) {
+            return 0;
+        }
+
+        List<ClaimResponse> responses =
+                loadClaimResponses(
+                        prefs);
+
+        int before =
+                responses.size();
+
+        responses.removeIf(
+                response ->
+                        peerDeviceId.equals(
+                                response.peerDeviceId));
+
+        int removed =
+                before - responses.size();
+
+        if (removed > 0) {
+            saveClaimResponses(
+                    prefs,
+                    responses);
+        }
+
+        return removed;
     }
 
     static List<ClaimResponse> claimResponses(
