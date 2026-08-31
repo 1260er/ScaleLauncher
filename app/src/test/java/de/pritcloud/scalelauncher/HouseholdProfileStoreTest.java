@@ -203,6 +203,92 @@ public final class HouseholdProfileStoreTest {
     }
 
 
+
+    @Test
+    public void removeOwnerExceptKeepsRetainedAndOtherOwnerProfiles() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String retainedProfileId =
+                "44444444-4444-4444-8444-444444444444";
+
+        String removedProfileId =
+                "55555555-5555-4555-8555-555555555555";
+
+        String otherOwnerProfileId =
+                "66666666-6666-4666-8666-666666666666";
+
+        assertTrue(
+                HouseholdProfileStore.upsert(
+                        prefs,
+                        new HouseholdProfile(
+                                retainedProfileId,
+                                "Behalten",
+                                OWNER_ONE,
+                                70.0f,
+                                5.0f,
+                                true,
+                                1L)));
+
+        assertTrue(
+                HouseholdProfileStore.upsert(
+                        prefs,
+                        new HouseholdProfile(
+                                removedProfileId,
+                                "Entfernen",
+                                OWNER_ONE,
+                                71.0f,
+                                5.0f,
+                                true,
+                                1L)));
+
+        assertTrue(
+                HouseholdProfileStore.upsert(
+                        prefs,
+                        new HouseholdProfile(
+                                otherOwnerProfileId,
+                                "Anderer Besitzer",
+                                OWNER_TWO,
+                                80.0f,
+                                5.0f,
+                                true,
+                                1L)));
+
+        assertEquals(
+                1,
+                HouseholdProfileStore.removeOwnerExcept(
+                        prefs,
+                        OWNER_ONE,
+                        List.of(retainedProfileId)));
+
+        List<HouseholdProfile> remaining =
+                HouseholdProfileStore.load(
+                        prefs);
+
+        assertEquals(
+                2,
+                remaining.size());
+
+        boolean retainedFound = false;
+        boolean otherOwnerFound = false;
+
+        for (HouseholdProfile profile : remaining) {
+            if (retainedProfileId.equals(profile.profileId)
+                    && OWNER_ONE.equals(profile.ownerDeviceId)) {
+                retainedFound = true;
+            }
+
+            if (otherOwnerProfileId.equals(profile.profileId)
+                    && OWNER_TWO.equals(profile.ownerDeviceId)) {
+                otherOwnerFound = true;
+            }
+        }
+
+        assertTrue(retainedFound);
+        assertTrue(otherOwnerFound);
+    }
+
+
     private static HouseholdProfile profile(
             String ownerDeviceId,
             long revision,
