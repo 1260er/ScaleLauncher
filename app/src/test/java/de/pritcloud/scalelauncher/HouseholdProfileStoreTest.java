@@ -289,6 +289,59 @@ public final class HouseholdProfileStoreTest {
     }
 
 
+
+    @Test
+    public void removeOwnerExceptRejectsInvalidManifestWithoutDeletingProfiles() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String ownerProfileId =
+                "44444444-4444-4444-8444-444444444444";
+
+        String otherOwnerProfileId =
+                "66666666-6666-4666-8666-666666666666";
+
+        assertTrue(
+                HouseholdProfileStore.upsert(
+                        prefs,
+                        new HouseholdProfile(
+                                ownerProfileId,
+                                "Profil 1",
+                                OWNER_ONE,
+                                70.0f,
+                                5.0f,
+                                true,
+                                1L)));
+
+        assertTrue(
+                HouseholdProfileStore.upsert(
+                        prefs,
+                        new HouseholdProfile(
+                                otherOwnerProfileId,
+                                "Profil 2",
+                                OWNER_TWO,
+                                80.0f,
+                                5.0f,
+                                true,
+                                1L)));
+
+        assertEquals(
+                0,
+                HouseholdProfileStore.removeOwnerExcept(
+                        prefs,
+                        OWNER_ONE,
+                        List.of("ungueltige-profil-id")));
+
+        List<HouseholdProfile> remaining =
+                HouseholdProfileStore.load(
+                        prefs);
+
+        assertEquals(
+                2,
+                remaining.size());
+    }
+
+
     private static HouseholdProfile profile(
             String ownerDeviceId,
             long revision,
