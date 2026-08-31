@@ -350,4 +350,44 @@ public final class RemotePendingMeasurementStoreTest {
     }
 
 
+
+    @Test
+    public void rejectsRemotePendingWithoutValidCandidateProfile() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        PeerTrustStore.Peer collector =
+                new PeerTrustStore.Peer(
+                        "11111111-1111-4111-8111-111111111111",
+                        "Collector",
+                        new byte[32]);
+
+        S400FinalMeasurement measurement =
+                new S400FinalMeasurement(
+                        "measurement-without-valid-candidate",
+                        70.0f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        null);
+
+        assertFalse(
+                RemotePendingMeasurementStore.upsert(
+                        prefs,
+                        collector,
+                        PeerMeasurementPayload.forClaim(
+                                "04:AE:47:67:4E:07",
+                                measurement,
+                                List.of(
+                                        "22222222-2222-4222-8222-222222222222")),
+                        List.of(
+                                "ungueltige-profil-id")));
+
+        assertEquals(
+                0,
+                RemotePendingMeasurementStore.load(
+                        prefs).size());
+    }
+
+
 }
