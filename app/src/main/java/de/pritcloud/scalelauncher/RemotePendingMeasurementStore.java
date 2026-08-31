@@ -204,12 +204,36 @@ final class RemotePendingMeasurementStore {
     }
 
     static int removeCollector(Context context, String collectorDeviceId) {
+        return removeCollector(
+                prefs(context),
+                collectorDeviceId);
+    }
+
+    static int removeCollector(
+            SharedPreferences preferences,
+            String collectorDeviceId) {
         if (!PeerTrustStore.isValidDeviceId(collectorDeviceId)) return 0;
-        List<Item> items = load(context);
-        int before = items.size();
-        items.removeIf(item -> collectorDeviceId.equals(item.collectorDeviceId));
-        int removed = before - items.size();
-        if (removed > 0) save(context, items);
+
+        List<Item> items =
+                load(preferences);
+
+        int before =
+                items.size();
+
+        items.removeIf(
+                item ->
+                        collectorDeviceId.equals(
+                                item.collectorDeviceId));
+
+        int removed =
+                before - items.size();
+
+        if (removed > 0) {
+            save(
+                    preferences,
+                    items);
+        }
+
         return removed;
     }
 

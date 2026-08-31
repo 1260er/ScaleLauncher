@@ -53,4 +53,87 @@ public final class RemotePendingMeasurementStoreTest {
         assertEquals("measurement-0", items.get(0).measurementId);
         assertEquals("measurement-11", items.get(11).measurementId);
     }
+
+    @Test
+    public void removeCollectorRemovesOnlyItsRemotePendingMeasurements() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        PeerTrustStore.Peer firstCollector =
+                new PeerTrustStore.Peer(
+                        "11111111-1111-4111-8111-111111111111",
+                        "Collector 1",
+                        new byte[32]);
+
+        PeerTrustStore.Peer secondCollector =
+                new PeerTrustStore.Peer(
+                        "33333333-3333-4333-8333-333333333333",
+                        "Collector 2",
+                        new byte[32]);
+
+        String candidateProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        S400FinalMeasurement firstMeasurement =
+                new S400FinalMeasurement(
+                        "collector-one-measurement",
+                        70.0f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        null);
+
+        S400FinalMeasurement secondMeasurement =
+                new S400FinalMeasurement(
+                        "collector-two-measurement",
+                        71.0f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_001L,
+                        null);
+
+        assertTrue(
+                RemotePendingMeasurementStore.upsert(
+                        prefs,
+                        firstCollector,
+                        PeerMeasurementPayload.forClaim(
+                                "04:AE:47:67:4E:07",
+                                firstMeasurement,
+                                List.of(candidateProfileId)),
+                        List.of(candidateProfileId)));
+
+        assertTrue(
+                RemotePendingMeasurementStore.upsert(
+                        prefs,
+                        secondCollector,
+                        PeerMeasurementPayload.forClaim(
+                                "04:AE:47:67:4E:07",
+                                secondMeasurement,
+                                List.of(candidateProfileId)),
+                        List.of(candidateProfileId)));
+
+        assertEquals(
+                1,
+                RemotePendingMeasurementStore.removeCollector(
+                        prefs,
+                        firstCollector.deviceId));
+
+        List<RemotePendingMeasurementStore.Item> remaining =
+                RemotePendingMeasurementStore.load(
+                        prefs);
+
+        assertEquals(
+                1,
+                remaining.size());
+
+        assertEquals(
+                secondCollector.deviceId,
+                remaining.get(0).collectorDeviceId);
+
+        assertEquals(
+                "collector-two-measurement",
+                remaining.get(0).measurementId);
+    }
+
+
 }
