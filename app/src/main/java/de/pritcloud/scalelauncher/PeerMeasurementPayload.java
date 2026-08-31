@@ -309,6 +309,7 @@ final class PeerMeasurementPayload {
     boolean isValid() {
         return measurementId != null
                 && !measurementId.isBlank()
+                && measurementId.length() <= 200
                 && S400GattProtocol.isValidMacAddress(scaleMac)
                 && timestampMs > 0L
                 && Float.isFinite(weightKg)
@@ -317,9 +318,6 @@ final class PeerMeasurementPayload {
                 && impedanceHigh > 0f
                 && Float.isFinite(impedanceLow)
                 && impedanceLow > 0f
-                && (targetProfileId.isBlank()
-                    || UserProfile.isValidHouseholdProfileId(
-                            targetProfileId))
                 && validCandidateProfileIds(
                         candidateProfileIds)
                 && (!manualRescue
@@ -327,12 +325,15 @@ final class PeerMeasurementPayload {
                 && (requiresClaim
                     ? targetProfileId.isBlank()
                         && !candidateProfileIds.isEmpty()
-                    : candidateProfileIds.isEmpty());
+                    : UserProfile.isValidHouseholdProfileId(
+                            targetProfileId)
+                        && candidateProfileIds.isEmpty());
     }
 
     private static boolean validCandidateProfileIds(
             List<String> profileIds) {
-        if (profileIds == null) {
+        if (profileIds == null
+                || profileIds.size() > 100) {
             return false;
         }
 

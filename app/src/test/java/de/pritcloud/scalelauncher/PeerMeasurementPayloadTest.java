@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.Test;
@@ -134,4 +135,74 @@ public final class PeerMeasurementPayloadTest {
                 1_700_000_000_000L,
                 null);
     }
+
+    @Test
+    public void measurementIdLongerThanTwoHundredCharactersIsRejected() {
+        S400FinalMeasurement measurement =
+                measurement(
+                        "x".repeat(201));
+
+        try {
+            PeerMeasurementPayload.forClaim(
+                    SCALE_MAC,
+                    measurement,
+                    List.of(PROFILE_A));
+
+            fail("Overlong measurement IDs must be rejected");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+    }
+
+    @Test
+    public void claimRejectsMoreThanOneHundredCandidates() {
+        S400FinalMeasurement measurement =
+                measurement(
+                        "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb");
+
+        List<String> candidates =
+                new ArrayList<>();
+
+        for (int index = 0; index <= 100; index++) {
+            candidates.add(
+                    String.format(
+                            java.util.Locale.ROOT,
+                            "00000000-0000-0000-0000-%012x",
+                            index));
+        }
+
+        try {
+            PeerMeasurementPayload.forClaim(
+                    SCALE_MAC,
+                    measurement,
+                    candidates);
+
+            fail("More than 100 candidate profiles must be rejected");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+    }
+
+    @Test
+    public void routedPayloadWithoutTargetProfileIsRejected() {
+        String encoded =
+                "{"
+                        + "\"version\":1,"
+                        + "\"type\":\"s400_measurement\","
+                        + "\"measurementId\":\"aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb\","
+                        + "\"scaleMac\":\"04:AE:47:67:4E:07\","
+                        + "\"timestampMs\":1700000000000,"
+                        + "\"weightKg\":70.7,"
+                        + "\"impedanceHigh\":510.0,"
+                        + "\"impedanceLow\":490.0,"
+                        + "\"requiresClaim\":false"
+                        + "}";
+
+        assertEquals(
+                null,
+                PeerMeasurementPayload.decode(
+                        encoded));
+    }
+
+
 }
