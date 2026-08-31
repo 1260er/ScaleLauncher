@@ -67,9 +67,23 @@ final class MeasurementWriteJournalStore {
             String authority,
             long userId,
             long timestampMs) {
+        return status(
+                prefs(context),
+                measurementId,
+                authority,
+                userId,
+                timestampMs);
+    }
+
+    static Status status(
+            SharedPreferences preferences,
+            String measurementId,
+            String authority,
+            long userId,
+            long timestampMs) {
         Entry entry =
                 find(
-                        context,
+                        preferences,
                         measurementId);
 
         if (entry == null) {
@@ -90,8 +104,22 @@ final class MeasurementWriteJournalStore {
             String authority,
             long userId,
             long timestampMs) {
+        return prepare(
+                prefs(context),
+                measurementId,
+                authority,
+                userId,
+                timestampMs);
+    }
+
+    static boolean prepare(
+            SharedPreferences preferences,
+            String measurementId,
+            String authority,
+            long userId,
+            long timestampMs) {
         return writeState(
-                context,
+                preferences,
                 measurementId,
                 authority,
                 userId,
@@ -105,8 +133,22 @@ final class MeasurementWriteJournalStore {
             String authority,
             long userId,
             long timestampMs) {
+        return markStored(
+                prefs(context),
+                measurementId,
+                authority,
+                userId,
+                timestampMs);
+    }
+
+    static boolean markStored(
+            SharedPreferences preferences,
+            String measurementId,
+            String authority,
+            long userId,
+            long timestampMs) {
         return writeState(
-                context,
+                preferences,
                 measurementId,
                 authority,
                 userId,
@@ -115,7 +157,7 @@ final class MeasurementWriteJournalStore {
     }
 
     private static boolean writeState(
-            Context context,
+            SharedPreferences preferences,
             String measurementId,
             String authority,
             long userId,
@@ -134,7 +176,7 @@ final class MeasurementWriteJournalStore {
 
         List<Entry> entries =
                 load(
-                        context);
+                        preferences);
 
         for (Entry entry : entries) {
             if (!entry.measurementId.equals(
@@ -173,12 +215,12 @@ final class MeasurementWriteJournalStore {
                 entries);
 
         return save(
-                context,
+                preferences,
                 entries);
     }
 
     private static Entry find(
-            Context context,
+            SharedPreferences preferences,
             String measurementId) {
         if (measurementId == null
                 || measurementId.isBlank()) {
@@ -186,7 +228,7 @@ final class MeasurementWriteJournalStore {
         }
 
         for (Entry entry :
-                load(context)) {
+                load(preferences)) {
             if (entry.measurementId.equals(
                     measurementId)) {
                 return entry;
@@ -228,12 +270,12 @@ final class MeasurementWriteJournalStore {
     }
 
     private static List<Entry> load(
-            Context context) {
+            SharedPreferences preferences) {
         List<Entry> result =
                 new ArrayList<>();
 
         String encoded =
-                prefs(context).getString(
+                preferences.getString(
                         KEY,
                         "");
 
@@ -320,7 +362,7 @@ final class MeasurementWriteJournalStore {
     }
 
     private static boolean save(
-            Context context,
+            SharedPreferences preferences,
             List<Entry> entries) {
         JSONArray array =
                 new JSONArray();
@@ -356,7 +398,7 @@ final class MeasurementWriteJournalStore {
             }
         }
 
-        return prefs(context)
+        return preferences
                 .edit()
                 .putString(
                         KEY,
