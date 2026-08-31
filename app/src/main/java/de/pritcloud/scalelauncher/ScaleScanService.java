@@ -192,6 +192,14 @@ public final class ScaleScanService extends Service {
         super.onCreate();
         createChannels();
 
+        monitorText = getString(R.string.service_gatt_connecting);
+        ServiceState.starting(
+                this,
+                getString(R.string.service_gatt_connecting));
+        startForeground(
+                NOTIFICATION_MONITOR,
+                monitorNotification(monitorText));
+
         registerBluetoothStateReceiver();
         startPeerTransport();
 
@@ -201,11 +209,6 @@ public final class ScaleScanService extends Service {
         schedulePeerSync(
                 1_000L);
 
-        monitorText = getString(R.string.service_gatt_connecting);
-        ServiceState.starting(
-                this,
-                getString(R.string.service_gatt_connecting));
-        startForeground(NOTIFICATION_MONITOR, monitorNotification(monitorText));
         EventLog.info(this, getString(R.string.log_service_started));
         updateAssignmentNotification();
         handler.post(userSyncRunnable);
