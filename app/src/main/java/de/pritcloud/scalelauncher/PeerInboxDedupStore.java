@@ -17,8 +17,6 @@ final class PeerInboxDedupStore {
     private static final String KEY =
             "processed";
 
-    private static final int MAX_ITEMS = 1000;
-
     private static final class Item {
         final String senderDeviceId;
         final String messageId;
@@ -40,8 +38,18 @@ final class PeerInboxDedupStore {
             Context context,
             String senderDeviceId,
             String messageId) {
+        return contains(
+                prefs(context),
+                senderDeviceId,
+                messageId);
+    }
+
+    static boolean contains(
+            SharedPreferences preferences,
+            String senderDeviceId,
+            String messageId) {
         for (Item item :
-                load(context)) {
+                load(preferences)) {
             if (item.senderDeviceId.equals(
                             senderDeviceId)
                     && item.messageId.equals(
@@ -57,6 +65,16 @@ final class PeerInboxDedupStore {
             Context context,
             String senderDeviceId,
             String messageId) {
+        mark(
+                prefs(context),
+                senderDeviceId,
+                messageId);
+    }
+
+    static void mark(
+            SharedPreferences preferences,
+            String senderDeviceId,
+            String messageId) {
         if (!PeerTrustStore.isValidDeviceId(
                         senderDeviceId)
                 || messageId == null
@@ -66,7 +84,7 @@ final class PeerInboxDedupStore {
         }
 
         List<Item> items =
-                load(context);
+                load(preferences);
 
         items.removeIf(
                 item ->
@@ -81,13 +99,8 @@ final class PeerInboxDedupStore {
                         messageId,
                         System.currentTimeMillis()));
 
-        while (items.size()
-                > MAX_ITEMS) {
-            items.remove(0);
-        }
-
         save(
-                context,
+                preferences,
                 items);
     }
 
@@ -119,11 +132,17 @@ final class PeerInboxDedupStore {
 
     private static List<Item> load(
             Context context) {
+        return load(
+                prefs(context));
+    }
+
+    static List<Item> load(
+            SharedPreferences preferences) {
         List<Item> result =
                 new ArrayList<>();
 
         String encoded =
-                prefs(context).getString(
+                preferences.getString(
                         KEY,
                         "");
 
@@ -182,6 +201,14 @@ final class PeerInboxDedupStore {
     private static void save(
             Context context,
             List<Item> items) {
+        save(
+                prefs(context),
+                items);
+    }
+
+    static void save(
+            SharedPreferences preferences,
+            List<Item> items) {
         JSONArray array =
                 new JSONArray();
 
@@ -206,7 +233,7 @@ final class PeerInboxDedupStore {
             }
         }
 
-        prefs(context)
+        preferences
                 .edit()
                 .putString(
                         KEY,
