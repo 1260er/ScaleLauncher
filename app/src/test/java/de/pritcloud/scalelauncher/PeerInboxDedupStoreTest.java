@@ -1,6 +1,7 @@
 package de.pritcloud.scalelauncher;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -68,6 +69,66 @@ public final class PeerInboxDedupStoreTest {
                         prefs,
                         otherPeerId,
                         "peer-two-message"));
+    }
+
+
+
+    @Test
+    public void sameMessageIdIsTrackedSeparatelyPerPeer() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String otherPeerId =
+                "22222222-2222-2222-2222-222222222222";
+
+        String sharedMessageId =
+                "shared-message-id";
+
+        PeerInboxDedupStore.mark(
+                prefs,
+                PEER_ID,
+                sharedMessageId);
+
+        assertTrue(
+                PeerInboxDedupStore.contains(
+                        prefs,
+                        PEER_ID,
+                        sharedMessageId));
+
+        assertFalse(
+                PeerInboxDedupStore.contains(
+                        prefs,
+                        otherPeerId,
+                        sharedMessageId));
+
+        PeerInboxDedupStore.mark(
+                prefs,
+                otherPeerId,
+                sharedMessageId);
+
+        assertTrue(
+                PeerInboxDedupStore.contains(
+                        prefs,
+                        PEER_ID,
+                        sharedMessageId));
+
+        assertTrue(
+                PeerInboxDedupStore.contains(
+                        prefs,
+                        otherPeerId,
+                        sharedMessageId));
+
+        assertEquals(
+                1,
+                PeerInboxDedupStore.removePeer(
+                        prefs,
+                        PEER_ID));
+
+        assertTrue(
+                PeerInboxDedupStore.contains(
+                        prefs,
+                        otherPeerId,
+                        sharedMessageId));
     }
 
 
