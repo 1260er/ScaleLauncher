@@ -119,6 +119,123 @@ public final class PeerOutboxStoreTest {
                 index);
     }
 
+
+    @Test
+    public void coalesceReplacesMatchingOutboxItem() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        PeerOutboxStore.enqueue(
+                prefs,
+                new PeerOutboxStore.Item(
+                        "message-old",
+                        PEER_ID,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        "measurement-1",
+                        "version-1",
+                        1_700_000_000_000L),
+                true);
+
+        PeerOutboxStore.enqueue(
+                prefs,
+                new PeerOutboxStore.Item(
+                        "message-new",
+                        PEER_ID,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        "measurement-1",
+                        "version-2",
+                        1_700_000_000_001L),
+                true);
+
+        List<PeerOutboxStore.Item> stored =
+                PeerOutboxStore.load(
+                        prefs);
+
+        assertEquals(
+                1,
+                stored.size());
+
+        assertEquals(
+                "message-new",
+                stored.get(0).messageId);
+
+        assertEquals(
+                "version-2",
+                stored.get(0).payload);
+    }
+
+    @Test
+    public void removeMeasurementRemovesOnlyMatchingMeasurementItems() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        List<PeerOutboxStore.Item> initial =
+                new ArrayList<>();
+
+        initial.add(
+                new PeerOutboxStore.Item(
+                        "measurement-message",
+                        PEER_ID,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        "measurement-1",
+                        "test-1",
+                        1_700_000_000_000L));
+
+        initial.add(
+                new PeerOutboxStore.Item(
+                        "decision-message",
+                        PEER_ID,
+                        PeerOutboxStore.KIND_DECISION,
+                        "measurement-1:decision",
+                        "test-2",
+                        1_700_000_000_001L));
+
+        initial.add(
+                new PeerOutboxStore.Item(
+                        "similar-measurement",
+                        PEER_ID,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        "measurement-10",
+                        "test-3",
+                        1_700_000_000_002L));
+
+        initial.add(
+                new PeerOutboxStore.Item(
+                        "other-measurement",
+                        PEER_ID,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        "measurement-2",
+                        "test-4",
+                        1_700_000_000_003L));
+
+        PeerOutboxStore.save(
+                prefs,
+                initial);
+
+        assertEquals(
+                2,
+                PeerOutboxStore.removeMeasurement(
+                        prefs,
+                        "measurement-1"));
+
+        List<PeerOutboxStore.Item> remaining =
+                PeerOutboxStore.load(
+                        prefs);
+
+        assertEquals(
+                2,
+                remaining.size());
+
+        assertEquals(
+                "similar-measurement",
+                remaining.get(0).messageId);
+
+        assertEquals(
+                "other-measurement",
+                remaining.get(1).messageId);
+    }
+
+
     private static PeerOutboxStore.Item item(
             String messageId,
             String peerDeviceId,
