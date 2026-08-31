@@ -215,4 +215,79 @@ public final class RemotePendingMeasurementStoreTest {
     }
 
 
+
+    @Test
+    public void sameCollectorUpdatesExistingRemotePendingMeasurement() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        PeerTrustStore.Peer collector =
+                new PeerTrustStore.Peer(
+                        "11111111-1111-4111-8111-111111111111",
+                        "Collector",
+                        new byte[32]);
+
+        String firstProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        String updatedProfileId =
+                "33333333-3333-4333-8333-333333333333";
+
+        S400FinalMeasurement firstMeasurement =
+                new S400FinalMeasurement(
+                        "same-measurement-id",
+                        70.0f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        null);
+
+        S400FinalMeasurement updatedMeasurement =
+                new S400FinalMeasurement(
+                        "same-measurement-id",
+                        71.5f,
+                        520.0f,
+                        480.0f,
+                        1_700_000_000_001L,
+                        null);
+
+        assertTrue(
+                RemotePendingMeasurementStore.upsert(
+                        prefs,
+                        collector,
+                        PeerMeasurementPayload.forClaim(
+                                "04:AE:47:67:4E:07",
+                                firstMeasurement,
+                                List.of(firstProfileId)),
+                        List.of(firstProfileId)));
+
+        assertTrue(
+                RemotePendingMeasurementStore.upsert(
+                        prefs,
+                        collector,
+                        PeerMeasurementPayload.forClaim(
+                                "04:AE:47:67:4E:07",
+                                updatedMeasurement,
+                                List.of(updatedProfileId)),
+                        List.of(updatedProfileId)));
+
+        List<RemotePendingMeasurementStore.Item> stored =
+                RemotePendingMeasurementStore.load(
+                        prefs);
+
+        assertEquals(
+                1,
+                stored.size());
+
+        assertEquals(
+                71.5f,
+                stored.get(0).weightKg,
+                0.001f);
+
+        assertEquals(
+                List.of(updatedProfileId),
+                stored.get(0).candidateProfileIds);
+    }
+
+
 }
