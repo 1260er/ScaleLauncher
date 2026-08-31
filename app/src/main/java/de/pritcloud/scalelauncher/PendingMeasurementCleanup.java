@@ -3,6 +3,9 @@ package de.pritcloud.scalelauncher;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.ArrayList;
+import java.util.List;
+
 final class PendingMeasurementCleanup {
 
     enum Status {
@@ -33,7 +36,84 @@ final class PendingMeasurementCleanup {
     static Result discardLocal(
             Context context,
             String pendingId) {
-        if (context == null
+        if (context == null) {
+            return new Result(
+                    Status.INVALID,
+                    0f,
+                    0);
+        }
+
+        List<String> peerDeviceIds =
+                new ArrayList<>();
+
+        for (PeerTrustStore.Peer peer :
+                PeerTrustStore.load(
+                        context)) {
+            peerDeviceIds.add(
+                    peer.deviceId);
+        }
+
+        Result result =
+                discardLocal(
+                        context.getSharedPreferences(
+                                "prefs",
+                                Context.MODE_PRIVATE),
+                        PeerOutboxStore.prefs(
+                                context),
+                        peerDeviceIds,
+                        pendingId,
+                        exception ->
+                                EventLog.warning(
+                                        context,
+                                        context.getString(
+                                                R.string.log_peer_transport_error,
+                                                exception.getClass()
+                                                        .getSimpleName())));
+
+        if (result.status
+                == Status.DISCARDED) {
+            if (result.closedQueued > 0) {
+                EventLog.debug(
+                        context,
+                        context.getString(
+                                R.string.log_measurement_closed_queued,
+                                pendingId,
+                                result.closedQueued));
+            }
+
+            EventLog.info(
+                    context,
+                    context.getString(
+                            R.string.pending_discarded_log,
+                            result.weightKg));
+        }
+
+        return result;
+    }
+
+    static Result discardLocal(
+            SharedPreferences pendingPreferences,
+            SharedPreferences outboxPreferences,
+            List<String> peerDeviceIds,
+            String pendingId) {
+        return discardLocal(
+                pendingPreferences,
+                outboxPreferences,
+                peerDeviceIds,
+                pendingId,
+                exception -> {
+                });
+    }
+
+    private static Result discardLocal(
+            SharedPreferences pendingPreferences,
+            SharedPreferences outboxPreferences,
+            List<String> peerDeviceIds,
+            String pendingId,
+            ErrorHandler errorHandler) {
+        if (pendingPreferences == null
+                || outboxPreferences == null
+                || peerDeviceIds == null
                 || pendingId == null
                 || pendingId.isBlank()) {
             return new Result(
@@ -42,14 +122,9 @@ final class PendingMeasurementCleanup {
                     0);
         }
 
-        SharedPreferences prefs =
-                context.getSharedPreferences(
-                        "prefs",
-                        Context.MODE_PRIVATE);
-
         PendingMeasurementStore.Item pending =
                 PendingMeasurementStore.find(
-                        prefs,
+                        pendingPreferences,
                         pendingId);
 
         if (pending == null) {
@@ -67,58 +142,43 @@ final class PendingMeasurementCleanup {
         }
 
         PeerOutboxStore.removeMeasurement(
-                context,
+                outboxPreferences,
                 pendingId);
 
         int queued =
                 0;
 
-        for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
-                        context)) {
+        for (String peerDeviceId :
+                peerDeviceIds) {
             try {
                 PeerMeasurementClosedPayload payload =
                         PeerMeasurementClosedPayload.create(
                                 pendingId);
 
                 PeerOutboxStore.enqueueClosed(
-                        context,
-                        peer.deviceId,
+                        outboxPreferences,
+                        peerDeviceId,
                         payload);
 
                 queued++;
             } catch (RuntimeException exception) {
-                EventLog.warning(
-                        context,
-                        context.getString(
-                                R.string.log_peer_transport_error,
-                                exception.getClass()
-                                        .getSimpleName()));
+                errorHandler.onError(
+                        exception);
             }
         }
 
         PendingMeasurementStore.remove(
-                prefs,
+                pendingPreferences,
                 pendingId);
-
-        if (queued > 0) {
-            EventLog.debug(
-                    context,
-                    context.getString(
-                            R.string.log_measurement_closed_queued,
-                            pendingId,
-                            queued));
-        }
-
-        EventLog.info(
-                context,
-                context.getString(
-                        R.string.pending_discarded_log,
-                        pending.weightKg));
 
         return new Result(
                 Status.DISCARDED,
                 pending.weightKg,
                 queued);
+    }
+
+    private interface ErrorHandler {
+        void onError(
+                RuntimeException exception);
     }
 }

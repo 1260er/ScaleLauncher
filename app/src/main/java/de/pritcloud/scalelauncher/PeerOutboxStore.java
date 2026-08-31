@@ -215,6 +215,16 @@ final class PeerOutboxStore {
             Context context,
             String peerDeviceId,
             PeerMeasurementClosedPayload payload) {
+        enqueueClosed(
+                prefs(context),
+                peerDeviceId,
+                payload);
+    }
+
+    static void enqueueClosed(
+            SharedPreferences preferences,
+            String peerDeviceId,
+            PeerMeasurementClosedPayload payload) {
         if (!PeerTrustStore.isValidDeviceId(
                         peerDeviceId)
                 || payload == null
@@ -224,7 +234,7 @@ final class PeerOutboxStore {
         }
 
         enqueue(
-                context,
+                preferences,
                 new Item(
                         payload.messageId,
                         peerDeviceId,
@@ -350,13 +360,21 @@ final class PeerOutboxStore {
     static int removeMeasurement(
             Context context,
             String measurementId) {
+        return removeMeasurement(
+                prefs(context),
+                measurementId);
+    }
+
+    static int removeMeasurement(
+            SharedPreferences preferences,
+            String measurementId) {
         if (measurementId == null
                 || measurementId.isBlank()) {
             return 0;
         }
 
         List<Item> items =
-                load(context);
+                load(preferences);
 
         int before =
                 items.size();
@@ -373,7 +391,7 @@ final class PeerOutboxStore {
 
         if (removed > 0) {
             save(
-                    context,
+                    preferences,
                     items);
         }
 
@@ -541,7 +559,7 @@ final class PeerOutboxStore {
                 .commit();
     }
 
-    private static SharedPreferences prefs(
+    static SharedPreferences prefs(
             Context context) {
         return context.getSharedPreferences(
                 PREFS,
