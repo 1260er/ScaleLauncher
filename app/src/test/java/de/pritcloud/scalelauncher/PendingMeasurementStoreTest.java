@@ -493,4 +493,50 @@ public final class PendingMeasurementStoreTest {
     }
 
 
+
+    @Test
+    public void candidateProfilesAreSanitizedAndDeduplicated() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String firstProfileId =
+                "11111111-1111-4111-8111-111111111111";
+
+        String secondProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.add(
+                        prefs,
+                        new S400FinalMeasurement(
+                                "sanitized-candidates",
+                                70.0f,
+                                510.0f,
+                                490.0f,
+                                1_700_000_000_000L,
+                                null),
+                        "test",
+                        List.of(
+                                firstProfileId,
+                                "ungueltige-profil-id",
+                                firstProfileId,
+                                secondProfileId,
+                                secondProfileId));
+
+        assertEquals(
+                List.of(
+                        firstProfileId,
+                        secondProfileId),
+                pending.candidateProfileIds);
+
+        assertEquals(
+                List.of(
+                        firstProfileId,
+                        secondProfileId),
+                PendingMeasurementStore.find(
+                        prefs,
+                        pending.id).candidateProfileIds);
+    }
+
+
 }
