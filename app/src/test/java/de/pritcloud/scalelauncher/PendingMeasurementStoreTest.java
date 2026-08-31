@@ -444,4 +444,53 @@ public final class PendingMeasurementStoreTest {
     }
 
 
+
+    @Test
+    public void claimResponseFromSamePeerUpdatesInsteadOfDuplicating() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String measurementId =
+                "updated-claim-measurement";
+
+        String peerDeviceId =
+                "11111111-1111-4111-8111-111111111111";
+
+        String firstProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        String updatedProfileId =
+                "33333333-3333-4333-8333-333333333333";
+
+        PendingMeasurementStore.recordClaimResponse(
+                prefs,
+                measurementId,
+                peerDeviceId,
+                List.of(firstProfileId));
+
+        PendingMeasurementStore.recordClaimResponse(
+                prefs,
+                measurementId,
+                peerDeviceId,
+                List.of(updatedProfileId));
+
+        List<PendingMeasurementStore.ClaimResponse> responses =
+                PendingMeasurementStore.claimResponses(
+                        prefs,
+                        measurementId);
+
+        assertEquals(
+                1,
+                responses.size());
+
+        assertEquals(
+                peerDeviceId,
+                responses.get(0).peerDeviceId);
+
+        assertEquals(
+                List.of(updatedProfileId),
+                responses.get(0).profileIds);
+    }
+
+
 }
