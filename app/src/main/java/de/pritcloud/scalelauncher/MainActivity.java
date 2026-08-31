@@ -693,8 +693,7 @@ public final class MainActivity extends Activity {
                             == ServiceState.Mode.RUNNING
                         || serviceState.mode
                             == ServiceState.Mode.STARTING)
-                    && !serviceState.isStale(
-                            now)) {
+                    && !serviceState.isStale()) {
                 startService(
                         new Intent(
                                 this,
@@ -865,8 +864,7 @@ public final class MainActivity extends Activity {
                                             == ServiceState.Mode.RUNNING
                                         || serviceState.mode
                                             == ServiceState.Mode.STARTING)
-                                    && !serviceState.isStale(
-                                            now)) {
+                                    && !serviceState.isStale()) {
                                 startService(
                                         new Intent(
                                                 this,
@@ -1502,8 +1500,7 @@ public final class MainActivity extends Activity {
                                                     == ServiceState.Mode.RUNNING
                                             || serviceState.mode
                                                     == ServiceState.Mode.STARTING)
-                                            && !serviceState.isStale(
-                                                    now);
+                                            && !serviceState.isStale();
 
                             if (serviceActive) {
                                 startService(
@@ -2183,7 +2180,7 @@ public final class MainActivity extends Activity {
         ServiceState.Snapshot snapshot = ServiceState.read(this);
 
         boolean serviceActive =
-                !snapshot.isStale(now)
+                !snapshot.isStale()
                         && (snapshot.mode == ServiceState.Mode.STARTING
                             || snapshot.mode == ServiceState.Mode.RUNNING);
 
@@ -2194,7 +2191,7 @@ public final class MainActivity extends Activity {
         scaleStatusImage.setContentDescription(
                 getString(R.string.status_scale_disconnected));
 
-        if (snapshot.isStale(now)) {
+        if (snapshot.isStale()) {
             status.setText(R.string.status_service_unresponsive);
             status.setTextColor(getColor(R.color.ui_text_primary));
             return;

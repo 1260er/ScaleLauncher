@@ -51,10 +51,12 @@ final class ServiceState {
             this.lastFailureMs = lastFailureMs;
         }
 
-        boolean isStale(long ignoredNowMs) {
-            long nowUptimeMs =
-                    SystemClock.uptimeMillis();
+        boolean isStale() {
+            return isStaleAt(
+                    SystemClock.uptimeMillis());
+        }
 
+        boolean isStaleAt(long nowUptimeMs) {
             return (mode == Mode.RUNNING || mode == Mode.STARTING)
                     && (heartbeatMs <= 0L
                         || heartbeatMs > nowUptimeMs

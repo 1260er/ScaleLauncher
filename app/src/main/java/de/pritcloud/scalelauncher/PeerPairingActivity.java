@@ -916,8 +916,7 @@ public final class PeerPairingActivity extends Activity {
                             == ServiceState.Mode.RUNNING
                         || serviceState.mode
                             == ServiceState.Mode.STARTING)
-                    && !serviceState.isStale(
-                            now)) {
+                    && !serviceState.isStale()) {
                 startService(
                         new Intent(
                                 this,
