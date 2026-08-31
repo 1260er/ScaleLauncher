@@ -1,6 +1,7 @@
 package de.pritcloud.scalelauncher;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.List;
@@ -133,6 +134,84 @@ public final class RemotePendingMeasurementStoreTest {
         assertEquals(
                 "collector-two-measurement",
                 remaining.get(0).measurementId);
+    }
+
+
+
+    @Test
+    public void rejectsSameMeasurementIdFromDifferentCollector() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        PeerTrustStore.Peer firstCollector =
+                new PeerTrustStore.Peer(
+                        "11111111-1111-4111-8111-111111111111",
+                        "Collector 1",
+                        new byte[32]);
+
+        PeerTrustStore.Peer secondCollector =
+                new PeerTrustStore.Peer(
+                        "33333333-3333-4333-8333-333333333333",
+                        "Collector 2",
+                        new byte[32]);
+
+        String candidateProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        S400FinalMeasurement firstMeasurement =
+                new S400FinalMeasurement(
+                        "shared-measurement-id",
+                        70.0f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        null);
+
+        S400FinalMeasurement conflictingMeasurement =
+                new S400FinalMeasurement(
+                        "shared-measurement-id",
+                        80.0f,
+                        520.0f,
+                        480.0f,
+                        1_700_000_000_001L,
+                        null);
+
+        assertTrue(
+                RemotePendingMeasurementStore.upsert(
+                        prefs,
+                        firstCollector,
+                        PeerMeasurementPayload.forClaim(
+                                "04:AE:47:67:4E:07",
+                                firstMeasurement,
+                                List.of(candidateProfileId)),
+                        List.of(candidateProfileId)));
+
+        assertFalse(
+                RemotePendingMeasurementStore.upsert(
+                        prefs,
+                        secondCollector,
+                        PeerMeasurementPayload.forClaim(
+                                "04:AE:47:67:4E:07",
+                                conflictingMeasurement,
+                                List.of(candidateProfileId)),
+                        List.of(candidateProfileId)));
+
+        List<RemotePendingMeasurementStore.Item> stored =
+                RemotePendingMeasurementStore.load(
+                        prefs);
+
+        assertEquals(
+                1,
+                stored.size());
+
+        assertEquals(
+                firstCollector.deviceId,
+                stored.get(0).collectorDeviceId);
+
+        assertEquals(
+                70.0f,
+                stored.get(0).weightKg,
+                0.001f);
     }
 
 
