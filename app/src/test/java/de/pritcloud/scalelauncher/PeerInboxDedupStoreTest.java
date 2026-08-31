@@ -132,4 +132,28 @@ public final class PeerInboxDedupStoreTest {
     }
 
 
+
+    @Test
+    public void repeatedMessageFromSamePeerIsStoredOnlyOnce() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        PeerInboxDedupStore.mark(
+                prefs,
+                PEER_ID,
+                "repeated-message");
+
+        PeerInboxDedupStore.mark(
+                prefs,
+                PEER_ID,
+                "repeated-message");
+
+        assertEquals(
+                1,
+                PeerInboxDedupStore.removePeer(
+                        prefs,
+                        PEER_ID));
+    }
+
+
 }

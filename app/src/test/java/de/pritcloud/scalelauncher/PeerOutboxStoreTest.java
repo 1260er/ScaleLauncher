@@ -288,6 +288,48 @@ public final class PeerOutboxStoreTest {
     }
 
 
+
+    @Test
+    public void repeatedMessageIdForSamePeerIsStoredOnlyOnce() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        PeerOutboxStore.enqueue(
+                prefs,
+                new PeerOutboxStore.Item(
+                        "repeated-message",
+                        PEER_ID,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        "measurement-1",
+                        "first",
+                        1_700_000_000_000L),
+                false);
+
+        PeerOutboxStore.enqueue(
+                prefs,
+                new PeerOutboxStore.Item(
+                        "repeated-message",
+                        PEER_ID,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        "measurement-2",
+                        "second",
+                        1_700_000_000_001L),
+                false);
+
+        List<PeerOutboxStore.Item> stored =
+                PeerOutboxStore.load(
+                        prefs);
+
+        assertEquals(
+                1,
+                stored.size());
+
+        assertEquals(
+                "measurement-1",
+                stored.get(0).dedupKey);
+    }
+
+
     private static PeerOutboxStore.Item item(
             String messageId,
             String peerDeviceId,
