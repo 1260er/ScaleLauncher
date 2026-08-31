@@ -390,4 +390,62 @@ public final class RemotePendingMeasurementStoreTest {
     }
 
 
+
+    @Test
+    public void candidateProfilesAreSanitizedAndDeduplicated() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        PeerTrustStore.Peer collector =
+                new PeerTrustStore.Peer(
+                        "11111111-1111-4111-8111-111111111111",
+                        "Collector",
+                        new byte[32]);
+
+        String firstProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        String secondProfileId =
+                "33333333-3333-4333-8333-333333333333";
+
+        S400FinalMeasurement measurement =
+                new S400FinalMeasurement(
+                        "sanitized-remote-candidates",
+                        70.0f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        null);
+
+        assertTrue(
+                RemotePendingMeasurementStore.upsert(
+                        prefs,
+                        collector,
+                        PeerMeasurementPayload.forClaim(
+                                "04:AE:47:67:4E:07",
+                                measurement,
+                                List.of(firstProfileId)),
+                        List.of(
+                                firstProfileId,
+                                "ungueltige-profil-id",
+                                firstProfileId,
+                                secondProfileId,
+                                secondProfileId)));
+
+        List<RemotePendingMeasurementStore.Item> stored =
+                RemotePendingMeasurementStore.load(
+                        prefs);
+
+        assertEquals(
+                1,
+                stored.size());
+
+        assertEquals(
+                List.of(
+                        firstProfileId,
+                        secondProfileId),
+                stored.get(0).candidateProfileIds);
+    }
+
+
 }
