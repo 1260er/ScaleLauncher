@@ -214,8 +214,16 @@ final class HouseholdProfileStore {
     static int removeOwner(
             Context context,
             String ownerDeviceId) {
+        return removeOwner(
+                prefs(context),
+                ownerDeviceId);
+    }
+
+    static int removeOwner(
+            SharedPreferences preferences,
+            String ownerDeviceId) {
         List<HouseholdProfile> profiles =
-                load(context);
+                load(preferences);
 
         int before =
                 profiles.size();
@@ -230,7 +238,7 @@ final class HouseholdProfileStore {
 
         if (removed > 0) {
             save(
-                    context,
+                    preferences,
                     profiles);
         }
 
