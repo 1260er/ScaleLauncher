@@ -35,6 +35,7 @@ public final class ScaleScanService extends Service {
     public static final String ACTION_SYNC_PEERS = "de.pritcloud.scalelauncher.SYNC_PEERS";
     public static final String ACTION_SELECT_PENDING = "de.pritcloud.scalelauncher.SELECT_PENDING";
     public static final String ACTION_REJECT_PENDING = "de.pritcloud.scalelauncher.REJECT_PENDING";
+    public static final String ACTION_DISCARD_PENDING = "de.pritcloud.scalelauncher.DISCARD_PENDING";
     public static final String ACTION_ACCEPT_REMOTE_PENDING = "de.pritcloud.scalelauncher.ACCEPT_REMOTE_PENDING";
     public static final String ACTION_REJECT_REMOTE_PENDING = "de.pritcloud.scalelauncher.REJECT_REMOTE_PENDING";
     public static final String EXTRA_PENDING_ID = "pending_id";
@@ -230,6 +231,12 @@ public final class ScaleScanService extends Service {
                 && ACTION_REJECT_PENDING.equals(
                         intent.getAction())) {
             rejectLocalPendingCandidates(
+                    intent.getStringExtra(
+                            EXTRA_PENDING_ID));
+        } else if (intent != null
+                && ACTION_DISCARD_PENDING.equals(
+                        intent.getAction())) {
+            discardPending(
                     intent.getStringExtra(
                             EXTRA_PENDING_ID));
         } else if (intent != null
@@ -1771,6 +1778,44 @@ public final class ScaleScanService extends Service {
                         profileId);
             }
         }
+    }
+
+    private void discardPending(
+            String pendingId) {
+        PendingMeasurementCleanup.Result result =
+                PendingMeasurementCleanup.discardLocal(
+                        this,
+                        pendingId);
+
+        switch (result.status) {
+            case MISSING:
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_pending_measurement_missing));
+                break;
+
+            case ALREADY_RESOLVED:
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_pending_discard_resolved_ignored,
+                                result.weightKg));
+                break;
+
+            case DISCARDED:
+                if (result.closedQueued > 0) {
+                    schedulePeerSync(
+                            100L);
+                }
+                break;
+
+            case INVALID:
+            default:
+                break;
+        }
+
+        updateAssignmentNotification();
     }
 
     private void removePendingWithoutCandidates(

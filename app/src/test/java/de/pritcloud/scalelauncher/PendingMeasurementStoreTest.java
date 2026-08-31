@@ -261,4 +261,54 @@ public final class PendingMeasurementStoreTest {
                 duplicate.candidateProfileIds);
     }
 
+
+    @Test
+    public void removingPendingAlsoRemovesItsClaimResponses() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String measurementId =
+                "discard-measurement";
+
+        String profileId =
+                "11111111-1111-4111-8111-111111111111";
+
+        String peerDeviceId =
+                "22222222-2222-4222-8222-222222222222";
+
+        PendingMeasurementStore.add(
+                prefs,
+                new S400FinalMeasurement(
+                        measurementId,
+                        72.0f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        null),
+                "test",
+                List.of(profileId));
+
+        PendingMeasurementStore.recordClaimResponse(
+                prefs,
+                measurementId,
+                peerDeviceId,
+                List.of(profileId));
+
+        PendingMeasurementStore.remove(
+                prefs,
+                measurementId);
+
+        assertEquals(
+                0,
+                PendingMeasurementStore.load(
+                        prefs).size());
+
+        assertEquals(
+                0,
+                PendingMeasurementStore.claimResponses(
+                        prefs,
+                        measurementId).size());
+    }
+
+
 }

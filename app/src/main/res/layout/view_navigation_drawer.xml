@@ -58,6 +58,13 @@
             android:text="@string/nav_health_connect" />
 
         <TextView
+            android:id="@+id/navEmergencyCleanup"
+            style="@style/UiDrawerItem"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/nav_emergency_cleanup" />
+
+        <TextView
             android:id="@+id/navLog"
             style="@style/UiDrawerItem"
             android:layout_width="match_parent"

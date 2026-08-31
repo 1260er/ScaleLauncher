@@ -117,6 +117,7 @@ public final class MainActivity extends Activity {
         View pageUsers = findViewById(R.id.pageUsers);
         View pageUserDetail = findViewById(R.id.pageUserDetail);
         View pageHealthConnect = findViewById(R.id.pageHealthConnect);
+        View pageEmergencyCleanup = findViewById(R.id.pageEmergencyCleanup);
         View pageLog = findViewById(R.id.pageLog);
         findViewById(R.id.navScale).setOnClickListener(view -> {
             pageHome.setVisibility(View.GONE);
@@ -124,6 +125,7 @@ public final class MainActivity extends Activity {
             pageUsers.setVisibility(View.GONE);
             pageUserDetail.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.GONE);
+            pageEmergencyCleanup.setVisibility(View.GONE);
             pageLog.setVisibility(View.GONE);
             pageScale.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.END);
@@ -135,6 +137,7 @@ public final class MainActivity extends Activity {
             pageUsers.setVisibility(View.GONE);
             pageUserDetail.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.GONE);
+            pageEmergencyCleanup.setVisibility(View.GONE);
             pageLog.setVisibility(View.GONE);
             pagePermissions.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.END);
@@ -148,6 +151,7 @@ public final class MainActivity extends Activity {
             pagePermissions.setVisibility(View.GONE);
             pageUserDetail.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.GONE);
+            pageEmergencyCleanup.setVisibility(View.GONE);
             pageLog.setVisibility(View.GONE);
             pageUsers.setVisibility(View.VISIBLE);
             drawerLayout.closeDrawer(android.view.Gravity.END);
@@ -160,8 +164,22 @@ public final class MainActivity extends Activity {
             pageUsers.setVisibility(View.GONE);
             pageUserDetail.setVisibility(View.GONE);
             pageLog.setVisibility(View.GONE);
+            pageEmergencyCleanup.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.VISIBLE);
             refreshHealthConnectStatus();
+            drawerLayout.closeDrawer(android.view.Gravity.END);
+        });
+
+        findViewById(R.id.navEmergencyCleanup).setOnClickListener(view -> {
+            pageHome.setVisibility(View.GONE);
+            pageScale.setVisibility(View.GONE);
+            pagePermissions.setVisibility(View.GONE);
+            pageUsers.setVisibility(View.GONE);
+            pageUserDetail.setVisibility(View.GONE);
+            pageHealthConnect.setVisibility(View.GONE);
+            pageLog.setVisibility(View.GONE);
+            pageEmergencyCleanup.setVisibility(View.VISIBLE);
+            refreshEmergencyCleanup();
             drawerLayout.closeDrawer(android.view.Gravity.END);
         });
 
@@ -172,6 +190,7 @@ public final class MainActivity extends Activity {
             pageUsers.setVisibility(View.GONE);
             pageUserDetail.setVisibility(View.GONE);
             pageHealthConnect.setVisibility(View.GONE);
+            pageEmergencyCleanup.setVisibility(View.GONE);
             pageLog.setVisibility(View.VISIBLE);
             refreshLog();
             drawerLayout.closeDrawer(android.view.Gravity.END);
@@ -194,6 +213,11 @@ public final class MainActivity extends Activity {
 
         findViewById(R.id.backLog).setOnClickListener(view -> {
             pageLog.setVisibility(View.GONE);
+            pageHome.setVisibility(View.VISIBLE);
+        });
+
+        findViewById(R.id.backEmergencyCleanup).setOnClickListener(view -> {
+            pageEmergencyCleanup.setVisibility(View.GONE);
             pageHome.setVisibility(View.VISIBLE);
         });
 
@@ -1363,6 +1387,147 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void refreshEmergencyCleanup() {
+        View page =
+                findViewById(
+                        R.id.pageEmergencyCleanup);
+
+        if (page == null
+                || page.getVisibility() != View.VISIBLE) {
+            return;
+        }
+
+        android.widget.LinearLayout list =
+                findViewById(
+                        R.id.emergencyCleanupList);
+
+        TextView empty =
+                findViewById(
+                        R.id.emergencyCleanupEmpty);
+
+        if (list == null
+                || empty == null) {
+            return;
+        }
+
+        List<PendingMeasurementStore.Item> items =
+                PendingMeasurementStore.load(
+                        getSharedPreferences(
+                                "prefs",
+                                MODE_PRIVATE));
+
+        list.removeAllViews();
+
+        int openCount = 0;
+        long now =
+                System.currentTimeMillis();
+
+        for (PendingMeasurementStore.Item item :
+                items) {
+            if (item.isResolved()) {
+                continue;
+            }
+
+            openCount++;
+
+            View row =
+                    getLayoutInflater().inflate(
+                            R.layout.item_emergency_cleanup,
+                            list,
+                            false);
+
+            TextView info =
+                    row.findViewById(
+                            R.id.emergencyCleanupItemInfo);
+
+            android.widget.ImageButton deleteButton =
+                    row.findViewById(
+                            R.id.emergencyCleanupDelete);
+
+            info.setText(
+                    getString(
+                            R.string.emergency_cleanup_item_title)
+                            + (char) 10
+                            + getString(
+                                    R.string.emergency_cleanup_item_details,
+                                    item.weightKg,
+                                    relativeTime(
+                                            now - item.timestampMs))
+                            + (char) 10
+                            + getString(
+                                    R.string.emergency_cleanup_item_waiting));
+
+            deleteButton.setOnClickListener(
+                    view ->
+                            confirmDiscardEmergencyMeasurement(
+                                    item));
+
+            list.addView(
+                    row);
+        }
+
+        empty.setVisibility(
+                openCount == 0
+                        ? View.VISIBLE
+                        : View.GONE);
+    }
+
+    private void confirmDiscardEmergencyMeasurement(
+            PendingMeasurementStore.Item item) {
+        if (item == null
+                || item.isResolved()) {
+            return;
+        }
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(
+                        R.string.emergency_cleanup_confirm_title)
+                .setMessage(
+                        R.string.emergency_cleanup_confirm_message)
+                .setNegativeButton(
+                        android.R.string.cancel,
+                        null)
+                .setPositiveButton(
+                        R.string.emergency_cleanup_confirm,
+                        (dialog, which) -> {
+                            ServiceState.Snapshot serviceState =
+                                    ServiceState.read(
+                                            this);
+
+                            long now =
+                                    System.currentTimeMillis();
+
+                            boolean serviceActive =
+                                    (serviceState.mode
+                                                    == ServiceState.Mode.RUNNING
+                                            || serviceState.mode
+                                                    == ServiceState.Mode.STARTING)
+                                            && !serviceState.isStale(
+                                                    now);
+
+                            if (serviceActive) {
+                                startService(
+                                        new Intent(
+                                                this,
+                                                ScaleScanService.class)
+                                                .setAction(
+                                                        ScaleScanService.ACTION_DISCARD_PENDING)
+                                                .putExtra(
+                                                        ScaleScanService.EXTRA_PENDING_ID,
+                                                        item.id));
+                            } else {
+                                PendingMeasurementCleanup.discardLocal(
+                                        this,
+                                        item.id);
+
+                                refreshPending();
+                            }
+
+                            refreshEmergencyCleanup();
+                        })
+                .show();
+    }
+
     private void refreshPending() {
         if (pendingStatus == null) return;
 
@@ -1374,6 +1539,8 @@ public final class MainActivity extends Activity {
         pendingMeasurements =
                 PendingMeasurementStore.load(
                         prefs);
+
+        refreshEmergencyCleanup();
 
         remotePendingMeasurements =
                 RemotePendingMeasurementStore.load(

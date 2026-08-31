@@ -485,4 +485,20 @@ Both phones must show exactly the same code. If they match, press “Codes match
     <string name="log_peer_ack_session_started">Peer ACK to %1$s started over existing connection</string>
     <string name="log_peer_ack_reverse_fallback_disabled">Peer ACK to %1$s could not be started over the existing connection – reverse fallback disabled for test</string>
     <string name="log_peer_connection_reused">Peer transport: Existing connection reused – %1$s</string>
+
+    <string name="nav_emergency_cleanup">Emergency cleanup</string>
+    <string name="page_emergency_cleanup_title">Unassigned measurements</string>
+    <string name="emergency_cleanup_description">This page is for emergency cleanup of measurements that could not be assigned automatically. Remove only entries that are stuck and no longer needed.</string>
+    <string name="emergency_cleanup_open_title">Open entries</string>
+    <string name="emergency_cleanup_empty">No unassigned measurements available.</string>
+    <string name="emergency_cleanup_item_title">Unassigned measurement</string>
+    <string name="emergency_cleanup_item_details">%1$.1f kg · %2$s</string>
+    <string name="emergency_cleanup_item_waiting">Still waiting for assignment</string>
+    <string name="emergency_cleanup_delete_description">Discard unassigned measurement</string>
+    <string name="emergency_cleanup_confirm_title">Really discard measurement?</string>
+    <string name="emergency_cleanup_confirm_message">The selected unassigned measurement will be permanently removed. All pending decision data and related state will be deleted.
+
+Use this action only when the entry is stuck and no longer needed.</string>
+    <string name="emergency_cleanup_confirm">Discard measurement</string>
+    <string name="log_pending_discard_resolved_ignored">Emergency cleanup ignored for already assigned measurement of %1$.1f kg</string>
 </resources>

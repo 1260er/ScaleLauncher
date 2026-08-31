@@ -493,4 +493,20 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="log_peer_ack_session_started">Peer-ACK an %1$s über bestehende Verbindung gestartet</string>
     <string name="log_peer_ack_reverse_fallback_disabled">Peer-ACK an %1$s konnte nicht über die bestehende Verbindung gestartet werden – Reverse-Fallback für Test deaktiviert</string>
     <string name="log_peer_connection_reused">Peer-Transport: Bestehende Verbindung wiederverwendet – %1$s</string>
+
+    <string name="nav_emergency_cleanup">Notfallbereinigung</string>
+    <string name="page_emergency_cleanup_title">Unzugeordnete Messungen</string>
+    <string name="emergency_cleanup_description">Diese Seite dient der Notbereinigung von Messungen, die nicht automatisch zugeordnet werden konnten. Entferne nur Einträge, die feststecken und nicht mehr benötigt werden.</string>
+    <string name="emergency_cleanup_open_title">Offene Einträge</string>
+    <string name="emergency_cleanup_empty">Keine unzugeordneten Messungen vorhanden.</string>
+    <string name="emergency_cleanup_item_title">Unzugeordnete Messung</string>
+    <string name="emergency_cleanup_item_details">%1$.1f kg · %2$s</string>
+    <string name="emergency_cleanup_item_waiting">Wartet noch auf Zuordnung</string>
+    <string name="emergency_cleanup_delete_description">Unzugeordnete Messung verwerfen</string>
+    <string name="emergency_cleanup_confirm_title">Messung wirklich verwerfen?</string>
+    <string name="emergency_cleanup_confirm_message">Die ausgewählte unzugeordnete Messung wird dauerhaft entfernt. Alle noch offenen Entscheidungsdaten und zugehörigen Zustände werden gelöscht.
+
+Diese Aktion sollte nur verwendet werden, wenn der Eintrag feststeckt und nicht mehr benötigt wird.</string>
+    <string name="emergency_cleanup_confirm">Messung verwerfen</string>
+    <string name="log_pending_discard_resolved_ignored">Notfallbereinigung für bereits zugeordnete Messung %1$.1f kg ignoriert</string>
 </resources>

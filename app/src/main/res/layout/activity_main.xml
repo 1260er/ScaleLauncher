@@ -214,6 +214,10 @@
             android:visibility="gone" />
 
         <include
+            layout="@layout/page_emergency_cleanup"
+            android:visibility="gone" />
+
+        <include
             layout="@layout/page_log"
             android:visibility="gone" />
     </FrameLayout>
