@@ -118,6 +118,12 @@ public final class ScaleScanService extends Service {
                         stopPeerTransport(
                                 false);
 
+                        if (gattMonitoringActive) {
+                            scheduleGattReconnect(
+                                    getString(
+                                            R.string.service_error_bluetooth_disabled));
+                        }
+
                         setCollectorOwned(
                                 false,
                                 false);

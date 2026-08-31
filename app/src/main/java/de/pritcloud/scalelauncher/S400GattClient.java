@@ -257,12 +257,30 @@ public final class S400GattClient {
         public void onCharacteristicChanged(
                 BluetoothGatt callbackGatt,
                 BluetoothGattCharacteristic characteristic) {
-            byte[] value = characteristic.getValue();
+            UUID characteristicUuid =
+                    characteristic == null
+                            ? null
+                            : characteristic.getUuid();
+
+            byte[] value =
+                    characteristic == null
+                            ? null
+                            : characteristic.getValue();
+
             byte[] safe = value == null
                     ? new byte[0]
                     : Arrays.copyOf(value, value.length);
-            handler.post(() ->
-                    handleCharacteristicChanged(characteristic.getUuid(), safe));
+
+            handler.post(() -> {
+                if (callbackGatt != gatt
+                        || characteristicUuid == null) {
+                    return;
+                }
+
+                handleCharacteristicChanged(
+                        characteristicUuid,
+                        safe);
+            });
         }
 
         @Override
@@ -270,11 +288,25 @@ public final class S400GattClient {
                 BluetoothGatt callbackGatt,
                 BluetoothGattCharacteristic characteristic,
                 byte[] value) {
+            UUID characteristicUuid =
+                    characteristic == null
+                            ? null
+                            : characteristic.getUuid();
+
             byte[] safe = value == null
                     ? new byte[0]
                     : Arrays.copyOf(value, value.length);
-            handler.post(() ->
-                    handleCharacteristicChanged(characteristic.getUuid(), safe));
+
+            handler.post(() -> {
+                if (callbackGatt != gatt
+                        || characteristicUuid == null) {
+                    return;
+                }
+
+                handleCharacteristicChanged(
+                        characteristicUuid,
+                        safe);
+            });
         }
     };
 
