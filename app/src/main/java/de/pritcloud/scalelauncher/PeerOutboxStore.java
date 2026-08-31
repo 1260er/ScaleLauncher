@@ -383,8 +383,16 @@ final class PeerOutboxStore {
     static int removePeer(
             Context context,
             String peerDeviceId) {
+        return removePeer(
+                prefs(context),
+                peerDeviceId);
+    }
+
+    static int removePeer(
+            SharedPreferences preferences,
+            String peerDeviceId) {
         List<Item> items =
-                load(context);
+                load(preferences);
 
         int before =
                 items.size();
@@ -399,7 +407,7 @@ final class PeerOutboxStore {
 
         if (removed > 0) {
             save(
-                    context,
+                    preferences,
                     items);
         }
 
