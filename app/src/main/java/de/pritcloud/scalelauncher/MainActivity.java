@@ -854,10 +854,6 @@ public final class MainActivity extends Activity {
                                     this,
                                     peer.deviceId);
 
-                            PeerOutboxStore.removePeer(
-                                    this,
-                                    peer.deviceId);
-
                             ServiceState.Snapshot serviceState =
                                     ServiceState.read(
                                             this);
