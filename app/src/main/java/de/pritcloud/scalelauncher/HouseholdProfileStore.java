@@ -166,6 +166,16 @@ final class HouseholdProfileStore {
             Context context,
             String ownerDeviceId,
             List<String> retainedProfileIds) {
+        return removeOwnerExcept(
+                prefs(context),
+                ownerDeviceId,
+                retainedProfileIds);
+    }
+
+    static int removeOwnerExcept(
+            SharedPreferences preferences,
+            String ownerDeviceId,
+            List<String> retainedProfileIds) {
         if (!PeerTrustStore.isValidDeviceId(
                         ownerDeviceId)
                 || retainedProfileIds == null) {
@@ -187,7 +197,7 @@ final class HouseholdProfileStore {
         }
 
         List<HouseholdProfile> profiles =
-                load(context);
+                load(preferences);
 
         int before =
                 profiles.size();
@@ -204,7 +214,7 @@ final class HouseholdProfileStore {
 
         if (removed > 0) {
             save(
-                    context,
+                    preferences,
                     profiles);
         }
 

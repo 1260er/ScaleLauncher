@@ -140,6 +140,69 @@ public final class HouseholdProfileStoreTest {
     }
 
 
+
+    @Test
+    public void removeOwnerExceptWithEmptyManifestRemovesAllOwnerProfiles() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        assertTrue(
+                HouseholdProfileStore.upsert(
+                        prefs,
+                        new HouseholdProfile(
+                                "44444444-4444-4444-8444-444444444444",
+                                "Profil 1",
+                                OWNER_ONE,
+                                70.0f,
+                                5.0f,
+                                true,
+                                1L)));
+
+        assertTrue(
+                HouseholdProfileStore.upsert(
+                        prefs,
+                        new HouseholdProfile(
+                                "55555555-5555-4555-8555-555555555555",
+                                "Profil 2",
+                                OWNER_ONE,
+                                71.0f,
+                                5.0f,
+                                true,
+                                1L)));
+
+        assertTrue(
+                HouseholdProfileStore.upsert(
+                        prefs,
+                        new HouseholdProfile(
+                                "66666666-6666-4666-8666-666666666666",
+                                "Profil 3",
+                                OWNER_TWO,
+                                80.0f,
+                                5.0f,
+                                true,
+                                1L)));
+
+        assertEquals(
+                2,
+                HouseholdProfileStore.removeOwnerExcept(
+                        prefs,
+                        OWNER_ONE,
+                        List.of()));
+
+        List<HouseholdProfile> remaining =
+                HouseholdProfileStore.load(
+                        prefs);
+
+        assertEquals(
+                1,
+                remaining.size());
+
+        assertEquals(
+                OWNER_TWO,
+                remaining.get(0).ownerDeviceId);
+    }
+
+
     private static HouseholdProfile profile(
             String ownerDeviceId,
             long revision,
