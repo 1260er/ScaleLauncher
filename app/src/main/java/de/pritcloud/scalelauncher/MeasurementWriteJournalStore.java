@@ -17,8 +17,6 @@ final class MeasurementWriteJournalStore {
     private static final String KEY =
             "entries";
 
-    private static final int MAX_STORED_ITEMS = 1000;
-
     enum Status {
         MISSING,
         PREPARED,
@@ -211,9 +209,6 @@ final class MeasurementWriteJournalStore {
                         newStatus,
                         System.currentTimeMillis()));
 
-        trimStored(
-                entries);
-
         return save(
                 preferences,
                 entries);
@@ -236,37 +231,6 @@ final class MeasurementWriteJournalStore {
         }
 
         return null;
-    }
-
-    private static void trimStored(
-            List<Entry> entries) {
-        int storedCount = 0;
-
-        for (Entry entry : entries) {
-            if (entry.status == Status.STORED) {
-                storedCount++;
-            }
-        }
-
-        while (storedCount > MAX_STORED_ITEMS) {
-            boolean removed = false;
-
-            for (int index = 0;
-                 index < entries.size();
-                 index++) {
-                if (entries.get(index).status
-                        == Status.STORED) {
-                    entries.remove(index);
-                    storedCount--;
-                    removed = true;
-                    break;
-                }
-            }
-
-            if (!removed) {
-                break;
-            }
-        }
     }
 
     private static List<Entry> load(

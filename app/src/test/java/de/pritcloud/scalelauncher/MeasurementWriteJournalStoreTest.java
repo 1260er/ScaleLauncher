@@ -124,4 +124,43 @@ public final class MeasurementWriteJournalStoreTest {
                         USER_ID,
                         TIMESTAMP));
     }
+
+    @Test
+    public void keepsStoredEntriesBeyondFormerThousandItemLimit() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        for (int index = 0; index <= 1000; index++) {
+            String measurementId =
+                    "stored-measurement-" + index;
+
+            assertTrue(
+                    MeasurementWriteJournalStore.markStored(
+                            prefs,
+                            measurementId,
+                            AUTHORITY,
+                            USER_ID,
+                            TIMESTAMP + index));
+        }
+
+        assertEquals(
+                MeasurementWriteJournalStore.Status.STORED,
+                MeasurementWriteJournalStore.status(
+                        prefs,
+                        "stored-measurement-0",
+                        AUTHORITY,
+                        USER_ID,
+                        TIMESTAMP));
+
+        assertEquals(
+                MeasurementWriteJournalStore.Status.STORED,
+                MeasurementWriteJournalStore.status(
+                        prefs,
+                        "stored-measurement-1000",
+                        AUTHORITY,
+                        USER_ID,
+                        TIMESTAMP + 1000L));
+    }
+
+
 }

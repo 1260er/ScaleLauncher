@@ -147,16 +147,26 @@ public final class OpenScaleProvider {
         return new Meta(1, -1);
     }
 
+    static Cursor requireUsersCursor(
+            Cursor cursor) {
+        if (cursor == null) {
+            throw new IllegalStateException(
+                    "openScale user query returned no cursor");
+        }
+
+        return cursor;
+    }
+
     public static List<User> loadUsers(Context context, String authority) {
         List<User> users = new ArrayList<>();
         Uri uri = Uri.parse("content://" + authority + "/users");
-        try (Cursor cursor = context.getContentResolver().query(
-                uri,
-                new String[]{"_ID", "username"},
-                null,
-                null,
-                null)) {
-            if (cursor == null) return users;
+        try (Cursor cursor = requireUsersCursor(
+                context.getContentResolver().query(
+                        uri,
+                        new String[]{"_ID", "username"},
+                        null,
+                        null,
+                        null))) {
             int idColumn = cursor.getColumnIndexOrThrow("_ID");
             int nameColumn = cursor.getColumnIndexOrThrow("username");
             while (cursor.moveToNext()) {
