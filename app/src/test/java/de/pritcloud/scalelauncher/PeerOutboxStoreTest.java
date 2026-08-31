@@ -236,6 +236,58 @@ public final class PeerOutboxStoreTest {
     }
 
 
+
+    @Test
+    public void sameMessageIdIsTrackedSeparatelyPerPeer() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String otherPeerId =
+                "22222222-2222-2222-2222-222222222222";
+
+        String sharedMessageId =
+                "shared-message-id";
+
+        PeerOutboxStore.enqueue(
+                prefs,
+                new PeerOutboxStore.Item(
+                        sharedMessageId,
+                        PEER_ID,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        "measurement-1",
+                        "peer-one",
+                        1_700_000_000_000L),
+                false);
+
+        PeerOutboxStore.enqueue(
+                prefs,
+                new PeerOutboxStore.Item(
+                        sharedMessageId,
+                        otherPeerId,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        "measurement-2",
+                        "peer-two",
+                        1_700_000_000_001L),
+                false);
+
+        List<PeerOutboxStore.Item> stored =
+                PeerOutboxStore.load(
+                        prefs);
+
+        assertEquals(
+                2,
+                stored.size());
+
+        assertEquals(
+                PEER_ID,
+                stored.get(0).peerDeviceId);
+
+        assertEquals(
+                otherPeerId,
+                stored.get(1).peerDeviceId);
+    }
+
+
     private static PeerOutboxStore.Item item(
             String messageId,
             String peerDeviceId,
