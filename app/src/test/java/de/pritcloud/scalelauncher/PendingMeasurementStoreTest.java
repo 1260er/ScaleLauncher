@@ -311,4 +311,137 @@ public final class PendingMeasurementStoreTest {
     }
 
 
+
+    @Test
+    public void selectCandidateResolvesOnlyValidCandidate() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String firstProfileId =
+                "11111111-1111-4111-8111-111111111111";
+
+        String secondProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        String ownerDeviceId =
+                "33333333-3333-4333-8333-333333333333";
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.add(
+                        prefs,
+                        new S400FinalMeasurement(
+                                "select-candidate",
+                                70.0f,
+                                510.0f,
+                                490.0f,
+                                1_700_000_000_000L,
+                                null),
+                        "test",
+                        List.of(
+                                firstProfileId,
+                                secondProfileId));
+
+        assertFalse(
+                PendingMeasurementStore.selectCandidate(
+                        prefs,
+                        pending.id,
+                        "44444444-4444-4444-8444-444444444444",
+                        ownerDeviceId));
+
+        assertTrue(
+                PendingMeasurementStore.selectCandidate(
+                        prefs,
+                        pending.id,
+                        firstProfileId,
+                        ownerDeviceId));
+
+        PendingMeasurementStore.Item selected =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pending.id);
+
+        assertTrue(selected.isResolved());
+        assertEquals(
+                firstProfileId,
+                selected.selectedProfileId);
+        assertEquals(
+                ownerDeviceId,
+                selected.selectedOwnerDeviceId);
+
+        assertFalse(
+                PendingMeasurementStore.selectCandidate(
+                        prefs,
+                        pending.id,
+                        secondProfileId,
+                        ownerDeviceId));
+    }
+
+    @Test
+    public void rejectCandidateExcludesItFromLaterSelection() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        String rejectedProfileId =
+                "11111111-1111-4111-8111-111111111111";
+
+        String remainingProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        String ownerDeviceId =
+                "33333333-3333-4333-8333-333333333333";
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementStore.add(
+                        prefs,
+                        new S400FinalMeasurement(
+                                "reject-candidate",
+                                70.0f,
+                                510.0f,
+                                490.0f,
+                                1_700_000_000_000L,
+                                null),
+                        "test",
+                        List.of(
+                                rejectedProfileId,
+                                remainingProfileId));
+
+        assertTrue(
+                PendingMeasurementStore.rejectCandidate(
+                        prefs,
+                        pending.id,
+                        rejectedProfileId));
+
+        PendingMeasurementStore.Item rejected =
+                PendingMeasurementStore.find(
+                        prefs,
+                        pending.id);
+
+        assertFalse(rejected.isResolved());
+
+        assertEquals(
+                List.of(remainingProfileId),
+                rejected.remainingCandidateProfileIds());
+
+        assertFalse(
+                PendingMeasurementStore.rejectCandidate(
+                        prefs,
+                        pending.id,
+                        rejectedProfileId));
+
+        assertFalse(
+                PendingMeasurementStore.selectCandidate(
+                        prefs,
+                        pending.id,
+                        rejectedProfileId,
+                        ownerDeviceId));
+
+        assertTrue(
+                PendingMeasurementStore.selectCandidate(
+                        prefs,
+                        pending.id,
+                        remainingProfileId,
+                        ownerDeviceId));
+    }
+
+
 }
