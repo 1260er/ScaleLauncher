@@ -290,4 +290,64 @@ public final class RemotePendingMeasurementStoreTest {
     }
 
 
+
+    @Test
+    public void removeDeletesOnlySelectedRemotePendingMeasurement() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        PeerTrustStore.Peer collector =
+                new PeerTrustStore.Peer(
+                        "11111111-1111-4111-8111-111111111111",
+                        "Collector",
+                        new byte[32]);
+
+        String candidateProfileId =
+                "22222222-2222-4222-8222-222222222222";
+
+        for (int index = 1; index <= 2; index++) {
+            S400FinalMeasurement measurement =
+                    new S400FinalMeasurement(
+                            "measurement-" + index,
+                            70.0f + index,
+                            510.0f,
+                            490.0f,
+                            1_700_000_000_000L + index,
+                            null);
+
+            assertTrue(
+                    RemotePendingMeasurementStore.upsert(
+                            prefs,
+                            collector,
+                            PeerMeasurementPayload.forClaim(
+                                    "04:AE:47:67:4E:07",
+                                    measurement,
+                                    List.of(candidateProfileId)),
+                            List.of(candidateProfileId)));
+        }
+
+        assertTrue(
+                RemotePendingMeasurementStore.remove(
+                        prefs,
+                        "measurement-1"));
+
+        List<RemotePendingMeasurementStore.Item> remaining =
+                RemotePendingMeasurementStore.load(
+                        prefs);
+
+        assertEquals(
+                1,
+                remaining.size());
+
+        assertEquals(
+                "measurement-2",
+                remaining.get(0).measurementId);
+
+        assertFalse(
+                RemotePendingMeasurementStore.remove(
+                        prefs,
+                        "measurement-does-not-exist"));
+    }
+
+
 }

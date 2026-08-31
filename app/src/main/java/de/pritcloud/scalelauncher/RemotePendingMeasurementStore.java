@@ -195,11 +195,31 @@ final class RemotePendingMeasurementStore {
     }
 
     static boolean remove(Context context, String measurementId) {
+        return remove(
+                prefs(context),
+                measurementId);
+    }
+
+    static boolean remove(
+            SharedPreferences preferences,
+            String measurementId) {
         if (measurementId == null || measurementId.isBlank()) return false;
-        List<Item> items = load(context);
-        boolean removed = items.removeIf(
-                item -> measurementId.equals(item.measurementId));
-        if (removed) save(context, items);
+
+        List<Item> items =
+                load(preferences);
+
+        boolean removed =
+                items.removeIf(
+                        item ->
+                                measurementId.equals(
+                                        item.measurementId));
+
+        if (removed) {
+            save(
+                    preferences,
+                    items);
+        }
+
         return removed;
     }
 
