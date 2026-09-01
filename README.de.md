@@ -11,11 +11,11 @@
 
 > ScaleLauncher verbindet sich direkt per Bluetooth mit der Xiaomi S400, authentifiziert sich mit dem Login-Token der Waage, empfängt vollständige Messungen, ordnet sie dem richtigen lokalen oder entfernten Haushaltsbenutzer zu und speichert die lokal berechneten Körperwerte in openScale.
 
-> **Stand dieser Dokumentation: 1. September 2026**
+> **Stand dieser Dokumentation: 2. September 2026**
 
 ## Status
 
-ScaleLauncher 1.4.0 wurde mit dev-259 auf Commit `c29aa8a` praktisch abgenommen. Die Version basiert auf dem abgenommenen Anwendungsverhalten von 1.3.0 und ergänzt die Release- und Distributionsvorbereitung für GitHub, F-Droid und IzzyOnDroid sowie den korrigierten Dienststatus nach einem Geräteneustart bei deaktiviertem Autostart. Messlogik, BLE-Verhalten, Routing und Benutzerzuordnung bleiben gegenüber 1.3.0 unverändert.
+ScaleLauncher 1.5.0 wurde mit dev-262 auf Commit `a97e872` praktisch abgenommen. Diese Version stellt die Build-Toolchain auf Java 21 um und deaktiviert Android-Abhängigkeitsmetadaten in APK und App Bundle zur besseren F-Droid-Kompatibilität und Unterstützung reproduzierbarer Builds. Messlogik, BLE-Verhalten, Routing und Benutzerzuordnung bleiben gegenüber 1.4.0 funktional unverändert.
 
 Geprüft wurden unter anderem:
 
@@ -34,7 +34,7 @@ Geprüft wurden unter anderem:
 
 Der vollständige Regressionstest und das dokumentierte Abnahmeergebnis stehen in [TESTPLAN.md](TESTPLAN.md).
 
-Die Abnahme von 1.3.0 bleibt die technische Regressionsbasis für Messlogik, BLE-Verhalten, Routing und Benutzerzuordnung. Die zusätzlichen Release-/Distributionsänderungen von 1.4.0 und die Korrektur des Neustart-Status wurden gezielt nachgeprüft und mit dev-259 abgenommen.
+Die Abnahme von 1.4.0 bleibt die technische Regressionsbasis für das Anwendungsverhalten. Für 1.5.0 wurden Java-21-Build, App-Start, Dienststart, eine normale Messung und geräteübergreifendes Routing gezielt nachgeprüft und mit dev-262 abgenommen.
 
 ## Wozu dient ScaleLauncher?
 
@@ -349,10 +349,10 @@ Die praktische Abnahme ist in [TESTPLAN.md](TESTPLAN.md) dokumentiert.
 Abnahme-Build:
 
 ```text
-Dev-Build: dev-255
-Branch: ui-v1.3.0
-Technischer Abnahme-Commit: d1d2a3d
-Abnahmedatum: 2026-09-01
+Dev-Build: dev-262
+Branch: ui-v1.5.0
+Technischer Abnahme-Commit: a97e872
+Abnahmedatum: 2026-09-02
 ```
 
 Dieser Eintrag dokumentiert die praktisch getestete technische Basis. Spätere reine Dokumentationsänderungen können neuere Commits verwenden, ohne das getestete Anwendungsverhalten zu verändern.
@@ -361,7 +361,7 @@ Dieser Eintrag dokumentiert die praktisch getestete technische Basis. Spätere r
 
 Voraussetzungen:
 
-- JDK 17
+- JDK 21
 - Android SDK
 - Gradle 8.x
 
@@ -387,8 +387,8 @@ Aktuelle Android-Konfiguration:
 minSdk 31
 targetSdk 35
 compileSdk 35
-versionCode 5
-versionName 1.4.0
+versionCode 6
+versionName 1.5.0
 ```
 
 ## Lizenz

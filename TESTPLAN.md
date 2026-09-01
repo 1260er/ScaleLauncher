@@ -1,16 +1,16 @@
 # ScaleLauncher – Abnahme- und Regressionstestplan
 
-Stand: 1. September 2026
-Branch: `ui-v1.4.0`
-Status: **Finale Gesamtabnahme 1.4.0 erfolgreich abgeschlossen**
+Stand: 2. September 2026
+Branch: `ui-v1.5.0`
+Status: **Gezielte Release-Abnahme 1.5.0 erfolgreich abgeschlossen**
 
-Abnahme-Build: `dev-259`
-Technischer Abnahme-Commit: `c29aa8a`
-Abnahmedatum: 1. September 2026
+Abnahme-Build: `dev-262`
+Technischer Abnahme-Commit: `a97e872`
+Abnahmedatum: 2. September 2026
 
-Technische Regressionsbasis: 1.3.0 / `dev-255` / `d1d2a3d`
+Technische Regressionsbasis: 1.4.0 / `dev-259` / `c29aa8a`
 
-Für 1.4.0 wurden zusätzlich die Release-/Distributionsänderungen sowie der korrigierte Dienststatus nach einem Geräteneustart mit deaktiviertem Autostart gezielt geprüft. Der Dienst blieb dabei erwartungsgemäß gestoppt und die Oberfläche zeigte korrekt `Gestoppt` statt einer veralteten Bluetooth-Fehlermeldung.
+Für 1.5.0 wurden wegen der ausschließlich buildbezogenen Änderungen gezielt Java-21-Build und App-Start auf beiden Geräten, Dienststart, eine normale Messung sowie geräteübergreifendes Routing geprüft. Alle Prüfungen waren erfolgreich. Messlogik, Bluetooth-Routing und Benutzerzuordnung wurden gegenüber 1.4.0 funktional nicht geändert.
 
 ## Zweck
 

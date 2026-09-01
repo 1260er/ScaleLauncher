@@ -11,11 +11,11 @@
 
 > ScaleLauncher connects directly to the Xiaomi S400 over Bluetooth, authenticates with the scale login token, receives complete measurements, assigns them to the correct local or remote household user, and stores locally calculated body values in openScale.
 
-> **Documentation status: September 1, 2026**
+> **Documentation status: September 2, 2026**
 
 ## Status
 
-ScaleLauncher 1.4.0 was practically accepted with dev-259 at commit `c29aa8a`. It is based on the accepted 1.3.0 application behavior and adds release and distribution preparation for GitHub, F-Droid, and IzzyOnDroid plus a corrected stopped-service status after device reboot when autostart is disabled. Measurement, BLE, routing, and user-assignment logic remain unchanged from 1.3.0.
+ScaleLauncher 1.5.0 was practically accepted with dev-262 at commit `a97e872`. This release moves the build toolchain to Java 21 and disables Android dependency metadata in APKs and App Bundles to improve F-Droid compatibility and reproducible-build support. Measurement, BLE, routing, and user-assignment logic remain functionally unchanged from 1.4.0.
 
 Validated areas include:
 
@@ -34,7 +34,7 @@ Validated areas include:
 
 The full regression plan and recorded acceptance result are documented in [TESTPLAN.md](TESTPLAN.md).
 
-The 1.3.0 acceptance remains the technical regression baseline for the measurement, BLE, routing, and assignment logic. The additional 1.4.0 release/distribution changes and reboot-status correction were specifically rechecked and accepted with dev-259.
+The 1.4.0 acceptance remains the technical regression baseline for application behavior. The Java 21 build, app startup, service startup, a normal measurement, and cross-device routing were specifically rechecked and accepted with dev-262 for 1.5.0.
 
 ## What ScaleLauncher does
 
@@ -349,10 +349,10 @@ The practical acceptance baseline is documented in [TESTPLAN.md](TESTPLAN.md).
 Acceptance build:
 
 ```text
-Dev build: dev-255
-Branch: ui-v1.3.0
-Technical acceptance commit: d1d2a3d
-Acceptance date: 2026-09-01
+Dev build: dev-262
+Branch: ui-v1.5.0
+Technical acceptance commit: a97e872
+Acceptance date: 2026-09-02
 ```
 
 This records the practically tested technical baseline. Later documentation-only changes may use newer commits without changing the tested application behavior.
@@ -361,7 +361,7 @@ This records the practically tested technical baseline. Later documentation-only
 
 Requirements:
 
-- JDK 17
+- JDK 21
 - Android SDK
 - Gradle 8.x
 
@@ -387,8 +387,8 @@ Current Android configuration:
 minSdk 31
 targetSdk 35
 compileSdk 35
-versionCode 5
-versionName 1.4.0
+versionCode 6
+versionName 1.5.0
 ```
 
 ## License
