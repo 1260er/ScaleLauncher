@@ -1,0 +1,1 @@
+Build toolchain updated to Java 21. Dependency metadata in the APK and App Bundle is disabled to support F-Droid checks and reproducible builds.

@@ -1,0 +1,1 @@
+Build-Toolchain auf Java 21 umgestellt. Abhängigkeitsmetadaten im APK und App Bundle deaktiviert, um F-Droid-Prüfungen und reproduzierbare Builds zu unterstützen.

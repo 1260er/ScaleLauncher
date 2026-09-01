@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## 1.5.0
+
+- Build-Toolchain auf Java 21 umgestellt
+- Android-Abhängigkeitsmetadaten im APK und App Bundle deaktiviert, um F-Droid-Prüfungen und reproduzierbare Builds zu unterstützen
+- Dev-Release-Workflow auf den Entwicklungszweig ui-v1.5.0 umgestellt
+- keine funktionalen Änderungen an Messlogik, Bluetooth-Routing oder Benutzerzuordnung gegenüber 1.4.0
+
 ## 1.4.0
 
 - Release-Build für unabhängige F-Droid-Quellbuilds vorbereitet; private GitHub-Signierung bleibt getrennt abgesichert
