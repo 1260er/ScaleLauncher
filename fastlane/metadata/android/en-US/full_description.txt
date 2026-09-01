@@ -1,0 +1,18 @@
+ScaleLauncher connects Android devices directly to the Xiaomi Body Composition Scale S400 over Bluetooth and processes measurements locally.
+
+The app authenticates using the scale login token, receives complete measurement data and assigns measurements to the appropriate user based on configurable weight ranges. Results can be stored directly in openScale. Selected values can optionally also be written to Health Connect.
+
+Multiple paired ScaleLauncher devices can exchange household profiles and measurement decisions over encrypted Bluetooth. This allows measurements to be assigned to a user whose profile belongs to another paired device.
+
+ScaleLauncher does not require Xiaomi Cloud for normal operation and has no Internet permission.
+
+Features:
+• direct Bluetooth connection to the Xiaomi S400
+• local body-composition calculation
+• automatic and manual user assignment
+• openScale integration
+• optional Health Connect integration
+• encrypted communication between paired ScaleLauncher devices
+• no advertising or tracking
+
+ScaleLauncher is free and open-source software licensed under the GNU General Public License v3.0 only.

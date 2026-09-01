@@ -1,0 +1,1 @@
+Use Xiaomi S400 locally via Bluetooth with openScale and Health Connect
