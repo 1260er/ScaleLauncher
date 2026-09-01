@@ -15,7 +15,7 @@
 
 ## Status
 
-ScaleLauncher 1.4.0 basiert auf dem praktisch abgenommenen Anwendungsverhalten von 1.3.0. Version 1.4.0 ergänzt die Release- und Distributionsvorbereitung für GitHub, F-Droid und IzzyOnDroid, ohne Messlogik, Bluetooth-Verhalten, Routing oder Benutzerzuordnung zu verändern.
+ScaleLauncher 1.4.0 wurde mit dev-259 auf Commit `c29aa8a` praktisch abgenommen. Die Version basiert auf dem abgenommenen Anwendungsverhalten von 1.3.0 und ergänzt die Release- und Distributionsvorbereitung für GitHub, F-Droid und IzzyOnDroid sowie den korrigierten Dienststatus nach einem Geräteneustart bei deaktiviertem Autostart. Messlogik, BLE-Verhalten, Routing und Benutzerzuordnung bleiben gegenüber 1.3.0 unverändert.
 
 Geprüft wurden unter anderem:
 
@@ -34,7 +34,7 @@ Geprüft wurden unter anderem:
 
 Der vollständige Regressionstest und das dokumentierte Abnahmeergebnis stehen in [TESTPLAN.md](TESTPLAN.md).
 
-Die Abnahme von 1.3.0 bleibt die technische Verhaltensbasis für 1.4.0, da Version 1.4.0 keine Änderungen an Messlogik, BLE-Verhalten, Routing oder Benutzerzuordnung enthält.
+Die Abnahme von 1.3.0 bleibt die technische Regressionsbasis für Messlogik, BLE-Verhalten, Routing und Benutzerzuordnung. Die zusätzlichen Release-/Distributionsänderungen von 1.4.0 und die Korrektur des Neustart-Status wurden gezielt nachgeprüft und mit dev-259 abgenommen.
 
 ## Wozu dient ScaleLauncher?
 
