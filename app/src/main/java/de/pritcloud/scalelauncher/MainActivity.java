@@ -834,7 +834,8 @@ public final class MainActivity extends Activity {
         String assignments =
                 inlineAssignedUsersText(peer.deviceId);
 
-        new android.app.AlertDialog.Builder(this)
+        android.app.AlertDialog alertDialog =
+                new android.app.AlertDialog.Builder(this)
                 .setTitle(R.string.peer_remove_title)
                 .setMessage(
                         getString(
@@ -884,6 +885,11 @@ public final class MainActivity extends Activity {
                             refreshHomeUserSummary();
                         })
                 .show();
+
+        alertDialog.getButton(
+                android.app.AlertDialog.BUTTON_NEGATIVE)
+                .setTextColor(
+                        getColor(R.color.ui_text_secondary));
     }
 
     private void refreshHomeUserSummary() {
@@ -1477,7 +1483,8 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        new android.app.AlertDialog.Builder(this)
+        android.app.AlertDialog alertDialog =
+                new android.app.AlertDialog.Builder(this)
                 .setTitle(
                         R.string.emergency_cleanup_confirm_title)
                 .setMessage(
@@ -1523,6 +1530,11 @@ public final class MainActivity extends Activity {
                             refreshEmergencyCleanup();
                         })
                 .show();
+
+        alertDialog.getButton(
+                android.app.AlertDialog.BUTTON_NEGATIVE)
+                .setTextColor(
+                        getColor(R.color.ui_text_secondary));
     }
 
     private void refreshPending() {
