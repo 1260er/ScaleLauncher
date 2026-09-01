@@ -11,6 +11,12 @@ val releaseSigningConfigured = listOf(
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
 
+val requireReleaseSigning =
+    providers.environmentVariable("SCALELAUNCHER_REQUIRE_RELEASE_SIGNING")
+        .orNull
+        ?.equals("true", ignoreCase = true)
+        ?: false
+
 android {
     namespace = "de.pritcloud.scalelauncher"
     compileSdk = 35
@@ -73,7 +79,9 @@ tasks.register("verifyReleaseSigningEnvironment") {
 }
 
 tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
-    dependsOn("verifyReleaseSigningEnvironment")
+    if (requireReleaseSigning) {
+        dependsOn("verifyReleaseSigningEnvironment")
+    }
 }
 
 dependencies {

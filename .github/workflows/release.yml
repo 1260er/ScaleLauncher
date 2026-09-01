@@ -67,6 +67,7 @@ jobs:
       - name: Build signed release APK
         env:
           SCALELAUNCHER_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          SCALELAUNCHER_REQUIRE_RELEASE_SIGNING: "true"
         run: gradle --no-daemon clean testDebugUnitTest assembleRelease
 
       - name: Verify APK signature
