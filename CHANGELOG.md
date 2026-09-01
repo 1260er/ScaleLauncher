@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## 1.4.0
+
+- Release-Build für unabhängige F-Droid-Quellbuilds vorbereitet; private GitHub-Signierung bleibt getrennt abgesichert
+- Fastlane-Metadaten mit deutschen und englischen Beschreibungen, App-Icon und Screenshots ergänzt
+- Datenschutz-, Lizenz- und Asset-Dokumentation für die Veröffentlichung vervollständigt
+- Dev-Release-Workflow auf den Entwicklungszweig ui-v1.4.0 umgestellt
+- keine Änderungen an Messlogik, Bluetooth-Verhalten oder Benutzerzuordnung gegenüber 1.3.0
+
 ## 1.3.0
 
 - direkte Bluetooth-Kommunikation zwischen gekoppelten ScaleLauncher-Geräten für gemeinsame Haushaltsprofile und Messungsrouting ergänzt

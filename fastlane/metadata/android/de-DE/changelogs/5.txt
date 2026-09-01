@@ -1,0 +1,5 @@
+Release fuer F-Droid und IzzyOnDroid vorbereitet.
+- unabhaengiger F-Droid-Quellbuild
+- Store-Metadaten und Screenshots
+- Datenschutz- und Lizenzdokumentation
+- App-Funktionalitaet unveraendert gegenueber 1.3.0

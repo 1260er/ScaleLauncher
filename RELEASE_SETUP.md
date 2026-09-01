@@ -1,6 +1,6 @@
-# Einmalige Einrichtung der festen Release-Signatur
+# Einrichtung und Verwendung der festen Release-Signatur
 
-ScaleLauncher verwendet ab Version 3.3.0 eine dauerhaft gleichbleibende Release-Signatur.
+ScaleLauncher verwendet eine dauerhaft gleichbleibende Release-Signatur.
 Der private Signierschlüssel wird nicht in Git gespeichert. GitHub Actions erhält ihn nur
 über verschlüsselte Repository-Secrets.
 
@@ -64,49 +64,61 @@ Werte:
 
 Bei PKCS12 ist das Schlüsselpasswort üblicherweise identisch mit dem Keystore-Passwort.
 
-## 4. Erste signierte Veröffentlichung
+## 4. Stabile Veröffentlichung 1.4.0
 
-Nach Commit und Push von Version 3.3.0:
+Nach abgeschlossener Endabnahme und Push von Version 1.4.0:
 
 ```bash
-git tag -a v3.3.0 -m "ScaleLauncher 3.3.0"
-git push origin v3.3.0
+git tag -a v1.4.0 -m "ScaleLauncher 1.4.0"
+git push origin v1.4.0
 ```
 
 Der Workflow `Signed release` erzeugt:
 
-- `ScaleLauncher-3.3.0.apk`
-- `ScaleLauncher-3.3.0.apk.sha256`
+- `ScaleLauncher-1.4.0.apk`
+- `ScaleLauncher-1.4.0.apk.sha256`
 - eine GitHub Release-Seite für Obtainium und manuelle Downloads
 
-## 5. Einmaliger Wechsel von Debug auf Release
-
-Die bisherige Debug-APK besitzt eine andere Signatur. Deshalb ist genau einmal nötig:
-
-1. Einstellungen und Benutzerprofile notieren.
-2. ScaleLauncher-Dienst stoppen.
-3. Bisherige ScaleLauncher-App deinstallieren.
-4. `ScaleLauncher-3.3.0.apk` aus der GitHub Release installieren.
-5. Berechtigungen und Profile neu einrichten.
-
-Danach werden alle weiteren signierten Versionen direkt als Update installiert, sofern
-der gleiche Keystore verwendet und `versionCode` erhöht wird.
-
-## 6. Jede weitere Veröffentlichung
+## 5. Jede weitere Veröffentlichung
 
 Vor jeder Veröffentlichung in `app/build.gradle.kts` beide Werte erhöhen, zum Beispiel:
 
 ```kotlin
-versionCode = 34
-versionName = "3.4.0"
+versionCode = 6
+versionName = "1.5.0"
 ```
 
 Dann committen, pushen und den passenden Tag setzen:
 
 ```bash
-git tag -a v3.4.0 -m "ScaleLauncher 3.4.0"
-git push origin v3.4.0
+git tag -a v1.5.0 -m "ScaleLauncher 1.5.0"
+git push origin v1.5.0
 ```
 
 Die Tag-Version muss exakt mit `versionName` übereinstimmen. Der Release-Workflow bricht
 ansonsten absichtlich ab.
+
+## 6. Unabhängiger F-Droid-Quellbuild
+
+Vor dem stabilen Tag muss der Release-Build ohne private Signierschlüssel erfolgreich durchlaufen:
+
+```bash
+env -u SCALELAUNCHER_KEYSTORE_PATH -u SCALELAUNCHER_KEYSTORE_PASSWORD -u SCALELAUNCHER_KEY_ALIAS -u SCALELAUNCHER_KEY_PASSWORD -u SCALELAUNCHER_REQUIRE_RELEASE_SIGNING gradle --no-daemon clean testDebugUnitTest assembleRelease
+```
+
+Dieser Build darf keinen privaten ScaleLauncher-Signierschlüssel voraussetzen. Die offizielle GitHub-Veröffentlichung verwendet dagegen weiterhin die dauerhaft hinterlegte Release-Signatur.
+
+## 7. Reihenfolge einer stabilen Veröffentlichung
+
+1. `versionName` und monoton steigenden `versionCode` festlegen.
+2. CHANGELOG, README, Datenschutz- und Fastlane-Metadaten aktualisieren.
+3. Tests und unabhängigen Release-Quellbuild ausführen.
+4. Änderungen committen und auf den Release-Branch pushen.
+5. Dev-Release und CI vollständig prüfen.
+6. Praktische Endabnahme durchführen.
+7. Erst danach den annotierten stabilen Tag erstellen und pushen.
+8. Signed-Release-Workflow, APK-Signatur und SHA256 prüfen.
+9. GitHub-Release abschließen.
+10. Anschließend F-Droid- und IzzyOnDroid-Aufnahme beziehungsweise Aktualisierung anstoßen.
+
+Ein veröffentlichter stabiler Tag darf nicht nachträglich verändert werden.

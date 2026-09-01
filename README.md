@@ -15,7 +15,7 @@
 
 ## Status
 
-ScaleLauncher 1.3.0 has completed practical acceptance testing with multiple real Android phones.
+ScaleLauncher 1.4.0 is based on the practically accepted 1.3.0 application behavior. Version 1.4.0 adds release and distribution preparation for GitHub, F-Droid, and IzzyOnDroid without changing measurement, Bluetooth, routing, or user-assignment logic.
 
 Validated areas include:
 
@@ -34,7 +34,7 @@ Validated areas include:
 
 The full regression plan and recorded acceptance result are documented in [TESTPLAN.md](TESTPLAN.md).
 
-The technical routing/BLE/assignment logic is considered frozen after this acceptance. Further pre-release work should be limited to UI/UX and documentation unless a reproducible technical defect is found.
+The 1.3.0 acceptance remains the technical behavior baseline for 1.4.0 because version 1.4.0 contains no changes to the measurement, BLE, routing, or assignment logic.
 
 ## What ScaleLauncher does
 
@@ -129,11 +129,13 @@ A factory reset or adding the scale to Xiaomi Home again may create a new token.
 
 ## Installation
 
-Install an APK from GitHub Releases:
+Stable developer-signed APKs are published through GitHub Releases:
 
 https://github.com/1260er/ScaleLauncher/releases
 
-Or track the repository with Obtainium:
+ScaleLauncher also contains the metadata and source-build support required for distribution through F-Droid and IzzyOnDroid. Availability in those repositories may follow a GitHub release later because repository inclusion and update processing are handled independently.
+
+The GitHub repository can also be tracked with Obtainium:
 
 ```text
 https://github.com/1260er/ScaleLauncher
@@ -338,6 +340,8 @@ ScaleLauncher is designed for local processing.
 - Personal body profile data and local openScale user IDs remain on the owner phone.
 - Only explicitly selected values are written to Health Connect.
 
+Detailed privacy information is available in [PRIVACY.md](PRIVACY.md). Asset licensing is documented in [ASSETS.md](ASSETS.md).
+
 ## Tested technical baseline
 
 The practical acceptance baseline is documented in [TESTPLAN.md](TESTPLAN.md).
@@ -367,13 +371,24 @@ Debug build:
 gradle :app:assembleDebug
 ```
 
+Release/source build:
+
+```bash
+gradle --no-daemon clean testDebugUnitTest assembleRelease
+```
+
+The source release build does not require the private ScaleLauncher signing key. This allows F-Droid to build the APK independently from source.
+
+The official GitHub stable-release workflow requires the private long-term release-signing credentials before a signed APK can be produced.
+
 Current Android configuration:
 
 ```text
 minSdk 31
 targetSdk 35
 compileSdk 35
-versionName 1.3.0
+versionCode 5
+versionName 1.4.0
 ```
 
 ## License

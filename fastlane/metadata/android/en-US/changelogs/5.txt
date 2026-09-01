@@ -1,0 +1,5 @@
+Prepared for F-Droid and IzzyOnDroid distribution.
+- independent F-Droid source build
+- store metadata and screenshots
+- privacy and licensing documentation
+- app functionality unchanged from 1.3.0

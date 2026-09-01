@@ -15,7 +15,7 @@
 
 ## Status
 
-ScaleLauncher 1.3.0 wurde mit mehreren realen Android-Handys praktisch abgenommen.
+ScaleLauncher 1.4.0 basiert auf dem praktisch abgenommenen Anwendungsverhalten von 1.3.0. Version 1.4.0 ergänzt die Release- und Distributionsvorbereitung für GitHub, F-Droid und IzzyOnDroid, ohne Messlogik, Bluetooth-Verhalten, Routing oder Benutzerzuordnung zu verändern.
 
 Geprüft wurden unter anderem:
 
@@ -34,7 +34,7 @@ Geprüft wurden unter anderem:
 
 Der vollständige Regressionstest und das dokumentierte Abnahmeergebnis stehen in [TESTPLAN.md](TESTPLAN.md).
 
-Nach dieser Abnahme gilt die technische BLE-, Routing- und Zuordnungslogik als eingefroren. Weitere Arbeiten vor der Freigabe sollen sich auf UI/UX und Dokumentation beschränken, solange kein reproduzierbarer technischer Fehler gefunden wird.
+Die Abnahme von 1.3.0 bleibt die technische Verhaltensbasis für 1.4.0, da Version 1.4.0 keine Änderungen an Messlogik, BLE-Verhalten, Routing oder Benutzerzuordnung enthält.
 
 ## Wozu dient ScaleLauncher?
 
@@ -129,11 +129,13 @@ Ein Factory Reset oder erneutes Hinzufügen zu Xiaomi Home kann einen neuen Toke
 
 ## Installation
 
-APK über die GitHub-Releases installieren:
+Stabile, vom Entwickler signierte APKs werden über GitHub Releases veröffentlicht:
 
 https://github.com/1260er/ScaleLauncher/releases
 
-Alternativ kann Obtainium dieses Repository überwachen:
+ScaleLauncher enthält außerdem die Metadaten und die Unterstützung für einen unabhängigen Quellbuild zur Verteilung über F-Droid und IzzyOnDroid. Die Verfügbarkeit in diesen Repositories kann einem GitHub-Release zeitlich folgen, da Aufnahme und Aktualisierung dort unabhängig verarbeitet werden.
+
+Alternativ kann Obtainium das GitHub-Repository überwachen:
 
 ```text
 https://github.com/1260er/ScaleLauncher
@@ -338,6 +340,8 @@ ScaleLauncher ist auf lokale Verarbeitung ausgelegt.
 - Persönliche Körperprofildaten und lokale openScale-Benutzer-IDs bleiben auf dem Besitzer-Handy.
 - Nur ausdrücklich ausgewählte Werte werden an Health Connect geschrieben.
 
+Ausführliche Datenschutzinformationen stehen in [PRIVACY.de.md](PRIVACY.de.md). Die Lizenzierung der Projekt-Assets ist in [ASSETS.md](ASSETS.md) dokumentiert.
+
 ## Technisch abgenommener Stand
 
 Die praktische Abnahme ist in [TESTPLAN.md](TESTPLAN.md) dokumentiert.
@@ -367,13 +371,24 @@ Debug-Build:
 gradle :app:assembleDebug
 ```
 
+Release-/Quellbuild:
+
+```bash
+gradle --no-daemon clean testDebugUnitTest assembleRelease
+```
+
+Der Release-Quellbuild benötigt keinen privaten ScaleLauncher-Signierschlüssel. Dadurch kann F-Droid die APK unabhängig aus dem Quellcode bauen.
+
+Der offizielle GitHub-Workflow für stabile Releases verlangt die privaten, dauerhaft verwendeten Release-Signierdaten, bevor eine signierte APK erzeugt werden kann.
+
 Aktuelle Android-Konfiguration:
 
 ```text
 minSdk 31
 targetSdk 35
 compileSdk 35
-versionName 1.3.0
+versionCode 5
+versionName 1.4.0
 ```
 
 ## Lizenz
