@@ -57,8 +57,6 @@ public final class ScaleScanService extends Service {
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
     private static final long PEER_SYNC_RETRY_MS = 30_000L;
-    private static final long PEER_SYNC_ERROR_RETRY_BASE_MS = 2_000L;
-    private static final long PEER_SYNC_ERROR_RETRY_SPAN_MS = 4_000L;
     private static final boolean ENABLE_REVERSE_ACK_FALLBACK = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -87,6 +85,15 @@ public final class ScaleScanService extends Service {
 
     private final Runnable peerSyncRunnable =
             this::dispatchPeerOutbox;
+
+    private SharedPreferences peerOutboxPreferences;
+
+    private final SharedPreferences.OnSharedPreferenceChangeListener
+            peerOutboxListener =
+            (preferences, key) -> {
+                peerErrorRetryAttempt = 0;
+                schedulePeerSync(0L);
+            };
 
     private final ArrayDeque<DirectPeerMessage> peerDirectQueue =
             new ArrayDeque<>();
@@ -166,6 +173,7 @@ public final class ScaleScanService extends Service {
     private S400GattClient gattClient;
     private PeerMeasurementTransport peerTransport;
     private boolean peerSendInFlight;
+    private int peerErrorRetryAttempt;
     private boolean gattMonitoringActive;
     private boolean gattCollectorOwned;
     private boolean collectorStatusAnnounced;
@@ -201,6 +209,13 @@ public final class ScaleScanService extends Service {
                 monitorNotification(monitorText));
 
         registerBluetoothStateReceiver();
+
+        peerOutboxPreferences =
+                PeerOutboxStore.prefs(this);
+        peerOutboxPreferences
+                .registerOnSharedPreferenceChangeListener(
+                        peerOutboxListener);
+
         startPeerTransport();
 
         repairPendingAfterPeerChanges();
@@ -283,6 +298,8 @@ public final class ScaleScanService extends Service {
                             public void onMessageReceived(
                                     PeerTrustStore.Peer peer,
                                     String payload) {
+                                peerErrorRetryAttempt = 0;
+
                                 handlePeerMessage(
                                         peer,
                                         payload);
@@ -294,6 +311,7 @@ public final class ScaleScanService extends Service {
                                     String messageId) {
                                 peerSendInFlight =
                                         false;
+                                peerErrorRetryAttempt = 0;
 
                                 DirectPeerMessage direct =
                                         peerDirectQueue.peek();
@@ -361,14 +379,26 @@ public final class ScaleScanService extends Service {
                                 peerSendInFlight =
                                         false;
 
-                                EventLog.warning(
-                                        ScaleScanService.this,
+                                long retryDelayMs =
+                                        peerErrorRetryDelayMs();
+
+                                String logMessage =
                                         getString(
                                                 R.string.log_peer_transport_error,
-                                                message));
+                                                message);
+
+                                if (peerErrorRetryAttempt <= 1) {
+                                    EventLog.warning(
+                                            ScaleScanService.this,
+                                            logMessage);
+                                } else {
+                                    EventLog.debug(
+                                            ScaleScanService.this,
+                                            logMessage);
+                                }
 
                                 schedulePeerSync(
-                                        peerErrorRetryDelayMs());
+                                        retryDelayMs);
                             }
                         };
     }
@@ -2373,13 +2403,14 @@ public final class ScaleScanService extends Service {
                         ? 0
                         : localDeviceId.hashCode();
 
-        long offset =
-                Math.floorMod(
-                        hash,
-                        (int) PEER_SYNC_ERROR_RETRY_SPAN_MS);
+        long delayMs =
+                PeerRetryPolicy.delayMs(
+                        peerErrorRetryAttempt,
+                        hash);
 
-        return PEER_SYNC_ERROR_RETRY_BASE_MS
-                + offset;
+        peerErrorRetryAttempt++;
+
+        return delayMs;
     }
 
     private void schedulePeerSync(
@@ -2580,14 +2611,28 @@ public final class ScaleScanService extends Service {
         S400GattClient oldClient = gattClient;
         gattClient = null;
 
-        monitorText = getString(
-                R.string.service_gatt_reconnecting,
-                delayMs / 1000L);
-        ServiceState.running(
-                this,
-                monitorText,
-                false,
-                collectorSource());
+        BluetoothManager manager =
+                (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
+        BluetoothAdapter adapter =
+                manager == null ? null : manager.getAdapter();
+        boolean bluetoothEnabled =
+                adapter != null && adapter.isEnabled();
+
+        if (bluetoothEnabled) {
+            monitorText = getString(
+                    R.string.service_gatt_reconnecting,
+                    delayMs / 1000L);
+            ServiceState.running(
+                    this,
+                    monitorText,
+                    false,
+                    collectorSource());
+        } else {
+            monitorText = reason;
+            ServiceState.error(
+                    this,
+                    reason);
+        }
         notifyMonitor();
 
         EventLog.debug(
@@ -4542,6 +4587,13 @@ public final class ScaleScanService extends Service {
     }
 
     @Override public void onDestroy() {
+        if (peerOutboxPreferences != null) {
+            peerOutboxPreferences
+                    .unregisterOnSharedPreferenceChangeListener(
+                            peerOutboxListener);
+            peerOutboxPreferences = null;
+        }
+
         if (bluetoothStateReceiverRegistered) {
             try {
                 unregisterReceiver(
