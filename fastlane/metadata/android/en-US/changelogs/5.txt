@@ -3,3 +3,4 @@ Prepared for F-Droid and IzzyOnDroid distribution.
 - store metadata and screenshots
 - privacy and licensing documentation
 - app functionality unchanged from 1.3.0
+- correct stopped status after reboot when autostart is disabled

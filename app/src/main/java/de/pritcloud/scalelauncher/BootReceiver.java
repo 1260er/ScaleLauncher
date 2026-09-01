@@ -16,6 +16,13 @@ public final class BootReceiver extends BroadcastReceiver {
         ServiceState.Snapshot previousState =
                 ServiceState.read(context);
 
+        if (Intent.ACTION_BOOT_COMPLETED.equals(action) && !autoStart) {
+            ServiceState.stopped(
+                    context,
+                    context.getString(R.string.service_state_stopped_default));
+            return;
+        }
+
         if (!shouldStart(
                 action,
                 autoStart,

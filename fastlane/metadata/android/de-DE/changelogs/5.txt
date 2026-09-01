@@ -3,3 +3,4 @@ Release fuer F-Droid und IzzyOnDroid vorbereitet.
 - Store-Metadaten und Screenshots
 - Datenschutz- und Lizenzdokumentation
 - App-Funktionalitaet unveraendert gegenueber 1.3.0
+- korrekter Dienststatus nach Neustart bei deaktiviertem Autostart

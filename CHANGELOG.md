@@ -6,7 +6,8 @@
 - Fastlane-Metadaten mit deutschen und englischen Beschreibungen, App-Icon und Screenshots ergänzt
 - Datenschutz-, Lizenz- und Asset-Dokumentation für die Veröffentlichung vervollständigt
 - Dev-Release-Workflow auf den Entwicklungszweig ui-v1.4.0 umgestellt
-- keine Änderungen an Messlogik, Bluetooth-Verhalten oder Benutzerzuordnung gegenüber 1.3.0
+- Status nach Geräteneustart korrigiert: bei deaktiviertem Autostart wird der Dienst als gestoppt angezeigt statt eine veraltete Bluetooth-Fehlermeldung zu übernehmen
+- keine Änderungen an Messlogik, Bluetooth-Routing oder Benutzerzuordnung gegenüber 1.3.0
 
 ## 1.3.0
 
