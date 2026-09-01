@@ -19,14 +19,19 @@ val requireReleaseSigning =
 
 android {
     namespace = "de.pritcloud.scalelauncher"
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
     compileSdk = 35
 
     defaultConfig {
         applicationId = "de.pritcloud.scalelauncher"
         minSdk = 31
         targetSdk = 35
-        versionCode = providers.environmentVariable("SCALELAUNCHER_VERSION_CODE").orNull?.toIntOrNull() ?: 5
-        versionName = "1.4.0"
+        versionCode = providers.environmentVariable("SCALELAUNCHER_VERSION_CODE").orNull?.toIntOrNull() ?: 6
+        versionName = "1.5.0"
     }
 
     signingConfigs {

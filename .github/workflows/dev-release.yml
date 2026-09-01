@@ -3,7 +3,7 @@ name: Dev release
 on:
   push:
     branches:
-      - ui-v1.4.0
+      - ui-v1.5.0
   workflow_dispatch:
 
 permissions:
@@ -46,11 +46,11 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           chmod 600 "$KEYSTORE_PATH"
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
@@ -106,7 +106,7 @@ jobs:
             "$APK_FILE" "$APK_FILE.sha256" \
             --target "$GITHUB_SHA" \
             --title "ScaleLauncher Dev ${GITHUB_RUN_NUMBER}" \
-            --notes "Automatischer Test-Build aus dem Branch ui-v1.4.0." \
+            --notes "Automatischer Test-Build aus dem Branch ui-v1.5.0." \
             --prerelease \
             --latest=false
 
