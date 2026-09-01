@@ -14,6 +14,10 @@
 - openScale-Schreibvorgänge durch persistentes Journal gegen doppelte Messungen nach Abstürzen oder Neustarts abgesichert
 - ausstehende Messungen und Peer-Outbox-Nachrichten werden nicht mehr durch feste Größenlimits still verworfen oder abgebrochen
 - gezielte Regressionstests für Pending-Messungen und Peer-Outbox ergänzt
+- Bluetooth-Aus-Zustand bleibt stabil sichtbar und erholt sich nach erneutem Einschalten automatisch ohne Dienst-Neustart
+- neue Peer-Outbox-Einträge stoßen die Zustellung unmittelbar an, statt auf den regulären Synchronisierungszyklus zu warten
+- Peer-Retries verwenden bei nicht erreichbaren Geräten einen gestaffelten Backoff bis 60 Sekunden und reduzieren wiederholte Warnmeldungen
+- Abbrechen-Schaltflächen in destruktiven Sicherheitsdialogen verwenden eine neutrale, Theme-kompatible Textfarbe
 
 ## 1.2.1
 

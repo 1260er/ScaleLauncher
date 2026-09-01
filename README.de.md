@@ -11,11 +11,11 @@
 
 > ScaleLauncher verbindet sich direkt per Bluetooth mit der Xiaomi S400, authentifiziert sich mit dem Login-Token der Waage, empfängt vollständige Messungen, ordnet sie dem richtigen lokalen oder entfernten Haushaltsbenutzer zu und speichert die lokal berechneten Körperwerte in openScale.
 
-> **Stand dieser Dokumentation: 27. August 2026**
+> **Stand dieser Dokumentation: 1. September 2026**
 
 ## Status
 
-Der aktuelle technische Kern wurde mit mehreren realen Android-Handys praktisch abgenommen.
+ScaleLauncher 1.3.0 wurde mit mehreren realen Android-Handys praktisch abgenommen.
 
 Geprüft wurden unter anderem:
 
@@ -345,13 +345,13 @@ Die praktische Abnahme ist in [TESTPLAN.md](TESTPLAN.md) dokumentiert.
 Abnahme-Build:
 
 ```text
-VersionCode: 199
-Branch: ui-v1.2.0
-Funktionaler Basis-Commit: 0e01dab
-Abnahmedatum: 2026-08-27
+Dev-Build: dev-255
+Branch: ui-v1.3.0
+Technischer Abnahme-Commit: d1d2a3d
+Abnahmedatum: 2026-09-01
 ```
 
-Dieser Eintrag dokumentiert die getestete technische Basis. Spätere reine UI-Änderungen können neuere Commits verwenden, ohne das getestete Routingverhalten zu verändern.
+Dieser Eintrag dokumentiert die praktisch getestete technische Basis. Spätere reine Dokumentationsänderungen können neuere Commits verwenden, ohne das getestete Anwendungsverhalten zu verändern.
 
 ## Projekt bauen
 

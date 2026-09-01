@@ -1,8 +1,12 @@
 # ScaleLauncher – Abnahme- und Regressionstestplan
 
-Stand: 29. August 2026
+Stand: 1. September 2026
 Branch: `ui-v1.3.0`
-Status: **Finale Gesamtabnahme noch ausstehend**
+Status: **Finale Gesamtabnahme erfolgreich abgeschlossen**
+
+Abnahme-Build: `dev-255`
+Technischer Abnahme-Commit: `d1d2a3d`
+Abnahmedatum: 1. September 2026
 
 ## Zweck
 
@@ -10,7 +14,7 @@ Dieser Plan ist die verbindliche vollständige Abnahme- und Regressionstestreihe
 
 Technisch gleiche Abläufe werden nicht mehrfach als eigene Tests geführt. Stattdessen werden unterschiedliche Entscheidungen desselben Grundzustands als Varianten innerhalb eines Testblocks geprüft.
 
-Die komplette Testreihe wird erneut durchgeführt, sobald die App funktional und hinsichtlich UI/UX fertiggestellt ist. Bis dahin werden bei Änderungen nur die direkt betroffenen Testblöcke gezielt wiederholt.
+Die vollständige Testreihe wurde vor der Freigabe durchgeführt. Nach den letzten Pre-Release-Korrekturen wurden die direkt betroffenen Testpfade erneut gezielt geprüft. Die Nachprüfung bestätigte die neutralen Abbrechen-Schaltflächen, den stabilen Bluetooth-AUS/AN-Zustand, den unmittelbaren Peer-Outbox-Versand, den gestaffelten Retry-Backoff und die selbstständige Zustellung nach Wiedererreichbarkeit.
 
 ## Testaufbau und Bezeichnungen
 
@@ -88,7 +92,7 @@ Ein vollständig eingerichtetes Handy, gültige S400-Konfiguration und mindesten
 
 **Soll:** Der laufende Collector bleibt unverändert aktiv. Die Statusanzeige darf nicht dauerhaft auf `STARTET` wechseln und das Waagensymbol darf nicht fälschlich einen Verbindungsverlust anzeigen.
 
-> Dieser Fall wurde am 29. August 2026 als reproduzierbare UI-/Statusabweichung gefunden und muss vor der finalen Abnahme behoben sein.
+> Dieser Fall wurde am 29. August 2026 als reproduzierbare UI-/Statusabweichung gefunden, vor der finalen Abnahme behoben und anschließend erfolgreich nachgeprüft.
 
 ---
 

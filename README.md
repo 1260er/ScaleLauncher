@@ -11,11 +11,11 @@
 
 > ScaleLauncher connects directly to the Xiaomi S400 over Bluetooth, authenticates with the scale login token, receives complete measurements, assigns them to the correct local or remote household user, and stores locally calculated body values in openScale.
 
-> **Documentation status: August 27, 2026**
+> **Documentation status: September 1, 2026**
 
 ## Status
 
-The current technical core has completed practical acceptance testing with multiple real Android phones.
+ScaleLauncher 1.3.0 has completed practical acceptance testing with multiple real Android phones.
 
 Validated areas include:
 
@@ -345,13 +345,13 @@ The practical acceptance baseline is documented in [TESTPLAN.md](TESTPLAN.md).
 Acceptance build:
 
 ```text
-VersionCode: 199
-Branch: ui-v1.2.0
-Functional baseline commit: 0e01dab
-Acceptance date: 2026-08-27
+Dev build: dev-255
+Branch: ui-v1.3.0
+Technical acceptance commit: d1d2a3d
+Acceptance date: 2026-09-01
 ```
 
-This records the tested technical baseline. Later UI-only changes may use newer commits without changing the tested routing behavior.
+This records the practically tested technical baseline. Later documentation-only changes may use newer commits without changing the tested application behavior.
 
 ## Building
 
