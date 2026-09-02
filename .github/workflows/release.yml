@@ -68,7 +68,7 @@ jobs:
         env:
           SCALELAUNCHER_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           SCALELAUNCHER_REQUIRE_RELEASE_SIGNING: "true"
-        run: gradle --no-daemon clean testDebugUnitTest assembleRelease
+        run: ./gradlew --no-daemon clean testDebugUnitTest assembleRelease
 
       - name: Verify APK signature
         shell: bash
