@@ -1,0 +1,1 @@
+Added the Gradle Wrapper for F-Droid so reproducible builds can be produced directly from the upstream repository.

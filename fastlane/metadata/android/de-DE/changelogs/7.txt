@@ -1,0 +1,1 @@
+Gradle Wrapper für F-Droid hinzugefügt, damit reproduzierbare Builds direkt aus dem Upstream-Repository möglich sind.

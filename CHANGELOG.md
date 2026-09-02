@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 1.5.1
+
+- Gradle Wrapper 8.9 ins Upstream-Repository aufgenommen, damit F-Droid direkt mit dem projektseitigen Wrapper bauen kann
+- Vorbereitung für weiterhin reproduzierbare F-Droid-Builds aus demselben Release-Commit
+- keine funktionalen Änderungen an Messlogik, Bluetooth-Routing oder Benutzerzuordnung gegenüber 1.5.0
+
 ## 1.5.0
 
 - Build-Toolchain auf Java 21 umgestellt
