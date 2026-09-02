@@ -1,1 +1,1 @@
-Added the Gradle Wrapper for F-Droid so reproducible builds can be produced directly from the upstream repository.
+Added the Gradle Wrapper for F-Droid and disabled VCS build metadata in the APK to enable reproducible builds directly from the upstream repository.

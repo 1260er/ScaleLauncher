@@ -3,7 +3,8 @@
 ## 1.5.1
 
 - Gradle Wrapper 8.9 ins Upstream-Repository aufgenommen, damit F-Droid direkt mit dem projektseitigen Wrapper bauen kann
-- Vorbereitung für weiterhin reproduzierbare F-Droid-Builds aus demselben Release-Commit
+- VCS-Buildmetadaten im APK deaktiviert, damit der Build nicht von der Git-Revision abhängt
+- Vorbereitung für weiterhin reproduzierbare F-Droid-Builds
 - keine funktionalen Änderungen an Messlogik, Bluetooth-Routing oder Benutzerzuordnung gegenüber 1.5.0
 
 ## 1.5.0

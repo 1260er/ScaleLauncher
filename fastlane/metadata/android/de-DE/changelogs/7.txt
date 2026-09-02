@@ -1,1 +1,1 @@
-Gradle Wrapper für F-Droid hinzugefügt, damit reproduzierbare Builds direkt aus dem Upstream-Repository möglich sind.
+Gradle Wrapper für F-Droid hinzugefügt und VCS-Buildmetadaten im APK deaktiviert, um reproduzierbare Builds direkt aus dem Upstream-Repository zu ermöglichen.
