@@ -133,7 +133,7 @@ Stable developer-signed APKs are published through GitHub Releases:
 
 https://github.com/1260er/ScaleLauncher/releases
 
-ScaleLauncher also contains the metadata and source-build support required for distribution through F-Droid and IzzyOnDroid. Availability in those repositories may follow a GitHub release later because repository inclusion and update processing are handled independently.
+ScaleLauncher also contains the metadata and source-build support required for distribution through F-Droid. Availability there may follow a GitHub release later because repository inclusion and update processing are handled independently.
 
 The GitHub repository can also be tracked with Obtainium:
 

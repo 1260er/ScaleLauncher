@@ -133,7 +133,7 @@ Stabile, vom Entwickler signierte APKs werden über GitHub Releases veröffentli
 
 https://github.com/1260er/ScaleLauncher/releases
 
-ScaleLauncher enthält außerdem die Metadaten und die Unterstützung für einen unabhängigen Quellbuild zur Verteilung über F-Droid und IzzyOnDroid. Die Verfügbarkeit in diesen Repositories kann einem GitHub-Release zeitlich folgen, da Aufnahme und Aktualisierung dort unabhängig verarbeitet werden.
+ScaleLauncher enthält außerdem die Metadaten und die Unterstützung für einen unabhängigen Quellbuild zur Verteilung über F-Droid. Die Verfügbarkeit dort kann einem GitHub-Release zeitlich folgen, da Aufnahme und Aktualisierung unabhängig verarbeitet werden.
 
 Alternativ kann Obtainium das GitHub-Repository überwachen:
 
