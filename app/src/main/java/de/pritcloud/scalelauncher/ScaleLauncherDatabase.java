@@ -12,9 +12,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
         entities = {
             MeasurementWriteJournalEntity.class,
             PendingMeasurementEntity.class,
-            PendingMeasurementClaimEntity.class
+            PendingMeasurementClaimEntity.class,
+            RemotePendingMeasurementEntity.class
         },
-        version = 2,
+        version = 3,
         exportSchema = true)
 public abstract class ScaleLauncherDatabase
         extends RoomDatabase {
@@ -53,6 +54,28 @@ public abstract class ScaleLauncherDatabase
                 }
             };
 
+    static final Migration MIGRATION_2_3 =
+            new Migration(2, 3) {
+                @Override
+                public void migrate(
+                        SupportSQLiteDatabase database) {
+                    database.execSQL(
+                            "CREATE TABLE IF NOT EXISTS `remote_pending_measurements` ("
+                                    + "`measurement_id` TEXT NOT NULL, "
+                                    + "`collector_device_id` TEXT NOT NULL, "
+                                    + "`scale_mac` TEXT NOT NULL, "
+                                    + "`timestamp_ms` INTEGER NOT NULL, "
+                                    + "`weight_kg` REAL NOT NULL, "
+                                    + "`impedance_high` REAL NOT NULL, "
+                                    + "`impedance_low` REAL NOT NULL, "
+                                    + "`scale_profile_id` INTEGER, "
+                                    + "`candidate_profile_ids_json` TEXT NOT NULL, "
+                                    + "`received_at_ms` INTEGER NOT NULL, "
+                                    + "`sort_order` INTEGER NOT NULL, "
+                                    + "PRIMARY KEY(`measurement_id`))");
+                }
+            };
+
     private static volatile ScaleLauncherDatabase instance;
 
     public abstract MeasurementWriteJournalDao
@@ -60,6 +83,9 @@ public abstract class ScaleLauncherDatabase
 
     public abstract PendingMeasurementDao
             pendingMeasurementDao();
+
+    public abstract RemotePendingMeasurementDao
+            remotePendingMeasurementDao();
 
     static ScaleLauncherDatabase get(
             Context context) {
@@ -79,7 +105,8 @@ public abstract class ScaleLauncherDatabase
                                         ScaleLauncherDatabase.class,
                                         "scalelauncher.db")
                                 .addMigrations(
-                                        MIGRATION_1_2)
+                                        MIGRATION_1_2,
+                                        MIGRATION_2_3)
                                 .build();
 
                 instance = current;
