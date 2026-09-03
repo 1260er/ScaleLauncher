@@ -1140,7 +1140,7 @@ public final class ScaleScanService extends Service {
 
             if (!duplicate) {
                 RemotePendingMeasurementStore.Item remote =
-                        RemotePendingMeasurementStore.find(
+                        RemotePendingMeasurementRoomStore.find(
                                 this,
                                 closed.measurementId);
 
@@ -1148,7 +1148,7 @@ public final class ScaleScanService extends Service {
                         remote != null
                                 && peer.deviceId.equals(
                                         remote.collectorDeviceId)
-                                && RemotePendingMeasurementStore.remove(
+                                && RemotePendingMeasurementRoomStore.remove(
                                         this,
                                         closed.measurementId);
 
@@ -1514,7 +1514,7 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        RemotePendingMeasurementStore.remove(
+        RemotePendingMeasurementRoomStore.remove(
                 this,
                 payload.measurementId);
 
@@ -1594,7 +1594,7 @@ public final class ScaleScanService extends Service {
         }
 
         if (!claimedProfileIds.isEmpty()) {
-            if (RemotePendingMeasurementStore.upsert(
+            if (RemotePendingMeasurementRoomStore.upsert(
                     this,
                     peer,
                     payload,
@@ -1643,7 +1643,7 @@ public final class ScaleScanService extends Service {
         }
 
         RemotePendingMeasurementStore.Item pending =
-                RemotePendingMeasurementStore.find(
+                RemotePendingMeasurementRoomStore.find(
                         this,
                         measurementId);
 
@@ -1697,7 +1697,7 @@ public final class ScaleScanService extends Service {
                 collector.deviceId,
                 decision);
 
-        RemotePendingMeasurementStore.remove(
+        RemotePendingMeasurementRoomStore.remove(
                 this,
                 pending.measurementId);
 
@@ -1723,7 +1723,7 @@ public final class ScaleScanService extends Service {
         }
 
         RemotePendingMeasurementStore.Item pending =
-                RemotePendingMeasurementStore.find(
+                RemotePendingMeasurementRoomStore.find(
                         this,
                         measurementId);
 
@@ -1763,7 +1763,7 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        RemotePendingMeasurementStore.remove(
+        RemotePendingMeasurementRoomStore.remove(
                 this,
                 pending.measurementId);
 
@@ -4507,7 +4507,7 @@ public final class ScaleScanService extends Service {
                 PendingMeasurementRoomStore.load(this);
 
         List<RemotePendingMeasurementStore.Item> remotePending =
-                RemotePendingMeasurementStore.load(
+                RemotePendingMeasurementRoomStore.load(
                         this);
 
         if (!pending.isEmpty()) {

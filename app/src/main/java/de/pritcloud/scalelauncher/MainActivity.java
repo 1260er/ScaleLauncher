@@ -1548,7 +1548,7 @@ public final class MainActivity extends Activity {
         refreshEmergencyCleanup();
 
         remotePendingMeasurements =
-                RemotePendingMeasurementStore.load(
+                RemotePendingMeasurementRoomStore.load(
                         this);
 
         pendingCandidates =

@@ -271,7 +271,7 @@ final class PeerTrustStore {
                 context,
                 deviceId);
 
-        RemotePendingMeasurementStore.removeCollector(
+        RemotePendingMeasurementRoomStore.removeCollector(
                 context,
                 deviceId);
     }
