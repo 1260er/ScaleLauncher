@@ -1415,10 +1415,7 @@ public final class MainActivity extends Activity {
         }
 
         List<PendingMeasurementStore.Item> items =
-                PendingMeasurementStore.load(
-                        getSharedPreferences(
-                                "prefs",
-                                MODE_PRIVATE));
+                PendingMeasurementRoomStore.load(this);
 
         list.removeAllViews();
 
@@ -1546,8 +1543,7 @@ public final class MainActivity extends Activity {
                         MODE_PRIVATE);
 
         pendingMeasurements =
-                PendingMeasurementStore.load(
-                        prefs);
+                PendingMeasurementRoomStore.load(this);
 
         refreshEmergencyCleanup();
 

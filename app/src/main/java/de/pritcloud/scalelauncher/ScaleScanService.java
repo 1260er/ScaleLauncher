@@ -956,16 +956,16 @@ public final class ScaleScanService extends Service {
                                     MODE_PRIVATE);
 
                     PendingMeasurementStore.Item pending =
-                            PendingMeasurementStore.find(
-                                    prefs,
+                            PendingMeasurementRoomStore.find(
+                                    this,
                                     measurementId);
 
                     if (pending != null
                             && pending.isResolved()
                             && peer.deviceId.equals(
                                     pending.selectedOwnerDeviceId)) {
-                        PendingMeasurementStore.remove(
-                                prefs,
+                        PendingMeasurementRoomStore.remove(
+                                this,
                                 measurementId);
 
                         EventLog.info(
@@ -1199,8 +1199,8 @@ public final class ScaleScanService extends Service {
                                 MODE_PRIVATE);
 
                 PendingMeasurementStore.Item pending =
-                        PendingMeasurementStore.find(
-                                prefs,
+                        PendingMeasurementRoomStore.find(
+                                this,
                                 decision.measurementId);
 
                 if (pending != null
@@ -1211,13 +1211,13 @@ public final class ScaleScanService extends Service {
                                 decision)) {
                     boolean changed =
                             decision.isAccepted()
-                                    ? PendingMeasurementStore.selectCandidate(
-                                            prefs,
+                                    ? PendingMeasurementRoomStore.selectCandidate(
+                                            this,
                                             decision.measurementId,
                                             decision.profileId,
                                             peer.deviceId)
-                                    : PendingMeasurementStore.rejectCandidate(
-                                            prefs,
+                                    : PendingMeasurementRoomStore.rejectCandidate(
+                                            this,
                                             decision.measurementId,
                                             decision.profileId);
 
@@ -1298,8 +1298,8 @@ public final class ScaleScanService extends Service {
                                 MODE_PRIVATE);
 
                 PendingMeasurementStore.Item pending =
-                        PendingMeasurementStore.find(
-                                prefs,
+                        PendingMeasurementRoomStore.find(
+                                this,
                                 claim.measurementId);
 
                 if (pending != null
@@ -1307,8 +1307,8 @@ public final class ScaleScanService extends Service {
                                 peer,
                                 pending,
                                 claim.claimedProfileIds)) {
-                    PendingMeasurementStore.recordClaimResponse(
-                            prefs,
+                    PendingMeasurementRoomStore.recordClaimResponse(
+                            this,
                             claim.measurementId,
                             peer.deviceId,
                             claim.claimedProfileIds);
@@ -1811,8 +1811,8 @@ public final class ScaleScanService extends Service {
                             profile.ownerDeviceId)
                     && !claimed.contains(
                             profileId)) {
-                PendingMeasurementStore.rejectCandidate(
-                        prefs,
+                PendingMeasurementRoomStore.rejectCandidate(
+                        this,
                         pending.id,
                         profileId);
             }
@@ -1861,8 +1861,8 @@ public final class ScaleScanService extends Service {
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -1879,8 +1879,8 @@ public final class ScaleScanService extends Service {
         broadcastMeasurementClosed(
                 pendingId);
 
-        PendingMeasurementStore.remove(
-                prefs,
+        PendingMeasurementRoomStore.remove(
+                this,
                 pendingId);
 
         EventLog.info(
@@ -1934,8 +1934,8 @@ public final class ScaleScanService extends Service {
         }
 
         for (PendingMeasurementStore.ClaimResponse response :
-                PendingMeasurementStore.claimResponses(
-                        prefs,
+                PendingMeasurementRoomStore.claimResponses(
+                        this,
                         pending.id)) {
             if (peer.deviceId.equals(
                         response.peerDeviceId)
@@ -2741,8 +2741,8 @@ public final class ScaleScanService extends Service {
 
         List<PendingMeasurementStore.Item> snapshot =
                 new java.util.ArrayList<>(
-                        PendingMeasurementStore.load(
-                                prefs));
+                        PendingMeasurementRoomStore.load(
+                                this));
 
         for (PendingMeasurementStore.Item pending :
                 snapshot) {
@@ -2752,16 +2752,16 @@ public final class ScaleScanService extends Service {
 
             for (PendingMeasurementStore.ClaimResponse response :
                     new java.util.ArrayList<>(
-                            PendingMeasurementStore.claimResponses(
-                                    prefs,
+                            PendingMeasurementRoomStore.claimResponses(
+                                    this,
                                     pending.id))) {
                 if (!localDeviceId.equals(
                                 response.peerDeviceId)
                         && PeerTrustStore.find(
                                 this,
                                 response.peerDeviceId) == null) {
-                    PendingMeasurementStore.removeClaimResponsesForPeer(
-                            prefs,
+                    PendingMeasurementRoomStore.removeClaimResponsesForPeer(
+                            this,
                             response.peerDeviceId);
                 }
             }
@@ -2772,16 +2772,16 @@ public final class ScaleScanService extends Service {
                     && PeerTrustStore.find(
                             this,
                             pending.selectedOwnerDeviceId) == null) {
-                PendingMeasurementStore.rejectSelectedCandidate(
-                        prefs,
+                PendingMeasurementRoomStore.rejectSelectedCandidate(
+                        this,
                         pending.id,
                         pending.selectedProfileId,
                         pending.selectedOwnerDeviceId);
             }
 
             PendingMeasurementStore.Item current =
-                    PendingMeasurementStore.find(
-                            prefs,
+                    PendingMeasurementRoomStore.find(
+                            this,
                             pending.id);
 
             if (current == null
@@ -2819,8 +2819,8 @@ public final class ScaleScanService extends Service {
                 }
 
                 if (!available) {
-                    PendingMeasurementStore.rejectCandidate(
-                            prefs,
+                    PendingMeasurementRoomStore.rejectCandidate(
+                            this,
                             current.id,
                             profileId);
                 }
@@ -2844,8 +2844,8 @@ public final class ScaleScanService extends Service {
 
         List<PendingMeasurementStore.Item> snapshot =
                 new java.util.ArrayList<>(
-                        PendingMeasurementStore.load(
-                                prefs));
+                        PendingMeasurementRoomStore.load(
+                                this));
 
         for (PendingMeasurementStore.Item pending :
                 snapshot) {
@@ -2859,8 +2859,8 @@ public final class ScaleScanService extends Service {
                     false;
 
             for (PendingMeasurementStore.ClaimResponse response :
-                    PendingMeasurementStore.claimResponses(
-                            prefs,
+                    PendingMeasurementRoomStore.claimResponses(
+                            this,
                             pending.id)) {
                 if (response.profileIds.isEmpty()) {
                     hasEmptyRemoteClaim =
@@ -2931,8 +2931,8 @@ public final class ScaleScanService extends Service {
             broadcastMeasurementClosed(
                     pending.id);
 
-            PendingMeasurementStore.remove(
-                    prefs,
+            PendingMeasurementRoomStore.remove(
+                    this,
                     pending.id);
 
             String reason =
@@ -2940,8 +2940,8 @@ public final class ScaleScanService extends Service {
                             R.string.pending_reason_no_weight_match);
 
             PendingMeasurementStore.Item repaired =
-                    PendingMeasurementStore.add(
-                            prefs,
+                    PendingMeasurementRoomStore.add(
+                            this,
                             pending.toMeasurement(),
                             reason,
                             candidateProfileIds,
@@ -3051,16 +3051,16 @@ public final class ScaleScanService extends Service {
                             this,
                             target.ownerDeviceId) != null) {
                 PendingMeasurementStore.Item pending =
-                        PendingMeasurementStore.add(
-                                prefs,
+                        PendingMeasurementRoomStore.add(
+                                this,
                                 measurement,
                                 getString(
                                         R.string.pending_reason_no_weight_match),
                                 List.of(
                                         target.profileId));
 
-                if (PendingMeasurementStore.selectCandidate(
-                        prefs,
+                if (PendingMeasurementRoomStore.selectCandidate(
+                        this,
                         pending.id,
                         target.profileId,
                         target.ownerDeviceId)) {
@@ -3070,8 +3070,8 @@ public final class ScaleScanService extends Service {
                     return;
                 }
 
-                PendingMeasurementStore.remove(
-                        prefs,
+                PendingMeasurementRoomStore.remove(
+                        this,
                         pending.id);
             }
         }
@@ -3084,8 +3084,8 @@ public final class ScaleScanService extends Service {
                             R.string.pending_reason_similar_users);
 
             PendingMeasurementStore.Item pending =
-                    PendingMeasurementStore.add(
-                            prefs,
+                    PendingMeasurementRoomStore.add(
+                            this,
                             measurement,
                             reason,
                             householdCandidateProfileIds);
@@ -3155,8 +3155,8 @@ public final class ScaleScanService extends Service {
             }
         }
 
-        PendingMeasurementStore.Item pending = PendingMeasurementStore.add(
-                prefs,
+        PendingMeasurementStore.Item pending = PendingMeasurementRoomStore.add(
+                this,
                 measurement,
                 reason,
                 pendingCandidateProfileIds,
@@ -3196,8 +3196,8 @@ public final class ScaleScanService extends Service {
                         MODE_PRIVATE);
 
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         String localDeviceId =
@@ -3221,8 +3221,8 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        if (!PendingMeasurementStore.selectCandidate(
-                prefs,
+        if (!PendingMeasurementRoomStore.selectCandidate(
+                this,
                 pendingId,
                 profileId,
                 ownerDeviceId)) {
@@ -3261,8 +3261,8 @@ public final class ScaleScanService extends Service {
                         MODE_PRIVATE);
 
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -3294,8 +3294,8 @@ public final class ScaleScanService extends Service {
                 continue;
             }
 
-            if (PendingMeasurementStore.rejectCandidate(
-                    prefs,
+            if (PendingMeasurementRoomStore.rejectCandidate(
+                    this,
                     pendingId,
                     profileId)) {
                 rejectedCount++;
@@ -3334,8 +3334,8 @@ public final class ScaleScanService extends Service {
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -3422,8 +3422,8 @@ public final class ScaleScanService extends Service {
         broadcastMeasurementClosed(
                 pending.id);
 
-        PendingMeasurementStore.remove(
-                prefs,
+        PendingMeasurementRoomStore.remove(
+                this,
                 pending.id);
 
         String reason =
@@ -3431,8 +3431,8 @@ public final class ScaleScanService extends Service {
                         R.string.pending_reason_no_weight_match);
 
         PendingMeasurementStore.Item rescue =
-                PendingMeasurementStore.add(
-                        prefs,
+                PendingMeasurementRoomStore.add(
+                        this,
                         measurement,
                         reason,
                         rescueCandidateProfileIds,
@@ -3449,8 +3449,8 @@ public final class ScaleScanService extends Service {
             if (profile != null
                     && localDeviceId.equals(
                             profile.ownerDeviceId)) {
-                PendingMeasurementStore.rejectCandidate(
-                        prefs,
+                PendingMeasurementRoomStore.rejectCandidate(
+                        this,
                         rescue.id,
                         profileId);
             }
@@ -3528,8 +3528,8 @@ public final class ScaleScanService extends Service {
         }
 
         for (PendingMeasurementStore.ClaimResponse response :
-                PendingMeasurementStore.claimResponses(
-                        prefs,
+                PendingMeasurementRoomStore.claimResponses(
+                        this,
                         pending.id)) {
             if (ownerDeviceId.equals(
                         response.peerDeviceId)
@@ -3546,8 +3546,8 @@ public final class ScaleScanService extends Service {
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -3584,8 +3584,8 @@ public final class ScaleScanService extends Service {
                 return;
             }
 
-            if (PendingMeasurementStore.selectCandidate(
-                    prefs,
+            if (PendingMeasurementRoomStore.selectCandidate(
+                    this,
                     pendingId,
                     profileId,
                     profile.ownerDeviceId)) {
@@ -3609,8 +3609,8 @@ public final class ScaleScanService extends Service {
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -3658,8 +3658,8 @@ public final class ScaleScanService extends Service {
                 broadcastMeasurementClosed(
                         pending.id);
 
-                PendingMeasurementStore.remove(
-                        prefs,
+                PendingMeasurementRoomStore.remove(
+                        this,
                         pending.id);
 
                 updateAssignmentNotification();
@@ -3696,7 +3696,7 @@ public final class ScaleScanService extends Service {
     private void assignPending(String pendingId, long userId) {
         if (pendingId == null || pendingId.isBlank() || userId < 0L) return;
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        PendingMeasurementStore.Item pending = PendingMeasurementStore.find(prefs, pendingId);
+        PendingMeasurementStore.Item pending = PendingMeasurementRoomStore.find(this, pendingId);
         UserProfile profile = UserProfileStore.find(UserProfileStore.load(prefs), userId);
         if (pending == null) {
             EventLog.warning(this, getString(R.string.log_pending_measurement_missing));
@@ -3720,8 +3720,8 @@ public final class ScaleScanService extends Service {
             broadcastMeasurementClosed(
                     pending.id);
 
-            PendingMeasurementStore.remove(
-                    prefs,
+            PendingMeasurementRoomStore.remove(
+                    this,
                     pending.id);
 
             updateAssignmentNotification();
@@ -4504,10 +4504,7 @@ public final class ScaleScanService extends Service {
                         NOTIFICATION_SERVICE);
 
         List<PendingMeasurementStore.Item> pending =
-                PendingMeasurementStore.load(
-                        getSharedPreferences(
-                                "prefs",
-                                MODE_PRIVATE));
+                PendingMeasurementRoomStore.load(this);
 
         List<RemotePendingMeasurementStore.Item> remotePending =
                 RemotePendingMeasurementStore.load(

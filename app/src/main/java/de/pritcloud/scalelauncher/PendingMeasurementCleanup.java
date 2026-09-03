@@ -54,10 +54,8 @@ final class PendingMeasurementCleanup {
         }
 
         Result result =
-                discardLocal(
-                        context.getSharedPreferences(
-                                "prefs",
-                                Context.MODE_PRIVATE),
+                discardLocalRoom(
+                        context,
                         PeerOutboxStore.prefs(
                                 context),
                         peerDeviceIds,
@@ -89,6 +87,77 @@ final class PendingMeasurementCleanup {
         }
 
         return result;
+    }
+
+    private static Result discardLocalRoom(
+            Context context,
+            SharedPreferences outboxPreferences,
+            List<String> peerDeviceIds,
+            String pendingId,
+            ErrorHandler errorHandler) {
+        if (context == null
+                || outboxPreferences == null
+                || peerDeviceIds == null
+                || pendingId == null
+                || pendingId.isBlank()) {
+            return new Result(
+                    Status.INVALID,
+                    0f,
+                    0);
+        }
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementRoomStore.find(
+                        context,
+                        pendingId);
+
+        if (pending == null) {
+            return new Result(
+                    Status.MISSING,
+                    0f,
+                    0);
+        }
+
+        if (pending.isResolved()) {
+            return new Result(
+                    Status.ALREADY_RESOLVED,
+                    pending.weightKg,
+                    0);
+        }
+
+        PeerOutboxStore.removeMeasurement(
+                outboxPreferences,
+                pendingId);
+
+        int queued = 0;
+
+        for (String peerDeviceId :
+                peerDeviceIds) {
+            try {
+                PeerMeasurementClosedPayload payload =
+                        PeerMeasurementClosedPayload.create(
+                                pendingId);
+
+                PeerOutboxStore.enqueueClosed(
+                        outboxPreferences,
+                        peerDeviceId,
+                        payload);
+
+                queued++;
+            } catch (RuntimeException exception) {
+                errorHandler.onError(
+                        exception);
+            }
+        }
+
+        PendingMeasurementRoomStore.remove(
+                context,
+                pendingId);
+
+        return new Result(
+                Status.DISCARDED,
+                pending.weightKg,
+                queued);
     }
 
     static Result discardLocal(

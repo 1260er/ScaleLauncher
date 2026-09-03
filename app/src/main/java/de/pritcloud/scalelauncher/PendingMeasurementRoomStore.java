@@ -85,6 +85,31 @@ final class PendingMeasurementRoomStore {
     static PendingMeasurementStore.Item add(
             Context context,
             S400FinalMeasurement measurement,
+            String reason) {
+        return add(
+                context,
+                measurement,
+                reason,
+                List.of(),
+                false);
+    }
+
+    static PendingMeasurementStore.Item add(
+            Context context,
+            S400FinalMeasurement measurement,
+            String reason,
+            List<String> candidateProfileIds) {
+        return add(
+                context,
+                measurement,
+                reason,
+                candidateProfileIds,
+                false);
+    }
+
+    static PendingMeasurementStore.Item add(
+            Context context,
+            S400FinalMeasurement measurement,
             String reason,
             List<String> candidateProfileIds,
             boolean manualRescue) {
@@ -693,6 +718,14 @@ final class PendingMeasurementRoomStore {
                                     index);
 
                     if (object == null) {
+                        return invalidLegacy();
+                    }
+
+                    if (!object.has("timestampMs")
+                            || object.isNull("timestampMs")
+                            || object.optLong(
+                                    "timestampMs",
+                                    0L) <= 0L) {
                         return invalidLegacy();
                     }
 

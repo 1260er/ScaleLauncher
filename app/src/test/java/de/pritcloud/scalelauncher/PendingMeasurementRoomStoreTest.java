@@ -82,6 +82,38 @@ public final class PendingMeasurementRoomStoreTest {
     }
 
     @Test
+    public void legacyWithoutTimestampFailsClosed() {
+        InMemorySharedPreferences prefs =
+                new InMemorySharedPreferences();
+
+        prefs.edit()
+                .putString(
+                        "pending_measurements_json",
+                        "[{\"id\":\"missing-timestamp\","
+                                + "\"weightKg\":70.0,"
+                                + "\"impedanceHigh\":510.0,"
+                                + "\"timedOut\":false,"
+                                + "\"reason\":\"test\","
+                                + "\"manualRescue\":false}]")
+                .commit();
+
+        FakeDao dao =
+                new FakeDao();
+
+        assertFalse(
+                PendingMeasurementRoomStore.migrateLegacyForTest(
+                        prefs,
+                        dao));
+
+        assertFalse(
+                PendingMeasurementRoomStore.isLegacyMigrationMarked(
+                        prefs));
+
+        assertTrue(
+                dao.loadPending().isEmpty());
+    }
+
+    @Test
     public void malformedLegacyFailsClosedWithoutMarker() {
         InMemorySharedPreferences prefs =
                 new InMemorySharedPreferences();
