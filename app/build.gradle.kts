@@ -24,6 +24,13 @@ android {
         includeInApk = false
         includeInBundle = false
     }
+
+    packaging {
+        resources {
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
+
     compileSdk = 35
 
     defaultConfig {
@@ -32,6 +39,12 @@ android {
         targetSdk = 35
         versionCode = providers.environmentVariable("SCALELAUNCHER_VERSION_CODE").orNull?.toIntOrNull() ?: 7
         versionName = "1.5.1"
+
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments["room.schemaLocation"] = "$projectDir/schemas"
+            }
+        }
     }
 
     signingConfigs {
@@ -94,6 +107,11 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
 }
 
 dependencies {
+    val roomVersion = "2.8.4"
+
+    implementation("androidx.room:room-runtime:$roomVersion")
+    annotationProcessor("androidx.room:room-compiler:$roomVersion")
+
     implementation("androidx.drawerlayout:drawerlayout:1.2.0")
     implementation("org.bouncycastle:bcprov-jdk18on:1.80")
     testImplementation("junit:junit:4.13.2")
