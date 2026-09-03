@@ -9,13 +9,13 @@
   <strong>Datenschutzfreundliche Android-App für die Xiaomi Body Composition Scale S400, openScale und optional Health Connect.</strong>
 </p>
 
-> ScaleLauncher verbindet sich direkt per Bluetooth mit der Xiaomi S400, authentifiziert sich mit dem Login-Token der Waage, empfängt vollständige Messungen, ordnet sie dem richtigen lokalen oder entfernten Haushaltsbenutzer zu und speichert die lokal berechneten Körperwerte in openScale.
+> **Kurz erklärt:** ScaleLauncher verbindet sich per authentifiziertem BLE-GATT mit der Xiaomi S400 und empfängt vollständige Messungen. In einem Haushalt mit mehreren ScaleLauncher-Handys hält jeweils ein Gerät als **Collector** die Verbindung zur Waage. Gehört die Messung einem Benutzer auf einem anderen Handy, wird sie verschlüsselt an dessen **Besitzer-Handy** weitergeleitet. Dort werden die Körperwerte berechnet und in openScale sowie optional in Health Connect gespeichert.
 
-> **Stand dieser Dokumentation: 2. September 2026**
+> **Stand dieser Dokumentation: 3. September 2026**
 
 ## Status
 
-ScaleLauncher 1.5.0 wurde mit dev-262 auf Commit `a97e872` praktisch abgenommen. Diese Version stellt die Build-Toolchain auf Java 21 um und deaktiviert Android-Abhängigkeitsmetadaten in APK und App Bundle zur besseren F-Droid-Kompatibilität und Unterstützung reproduzierbarer Builds. Messlogik, BLE-Verhalten, Routing und Benutzerzuordnung bleiben gegenüber 1.4.0 funktional unverändert.
+ScaleLauncher 1.5.1 ist der aktuelle stabile Stand. Die Messlogik, authentifizierte GATT-Kommunikation, Benutzerzuordnung und das Mehrgeräte-Routing entsprechen dem mit 1.5.0 und dev-262 praktisch abgenommenen Verhalten. Version 1.5.1 ergänzt den Gradle Wrapper für reproduzierbare und F-Droid-kompatible Builds.
 
 Geprüft wurden unter anderem:
 
@@ -52,6 +52,14 @@ Die App kann:
 - ausgewählte Werte optional an Health Connect übergeben
 - mehrere ScaleLauncher-Handys eines Haushalts sicher miteinander verbinden
 - Messungen an das richtige Besitzer-Handy weiterleiten, auch wenn ein anderes Handy gerade Collector ist
+
+### Messdaten von der S400
+
+Die Messwerte werden **nicht aus BLE-Werbepaketen** und nicht aus einem Paar „Paket A/Paket B“ zusammengesetzt.
+
+Nach dem Aufbau der BLE-GATT-Verbindung authentifiziert sich ScaleLauncher mit dem 12-Byte-Login-Token der Waage. Die S400 liefert anschließend verschlüsselte CMTP-Daten, die technisch aus mehreren GATT-Frames bestehen können. ScaleLauncher setzt diese Frames vollständig zusammen, entschlüsselt sie und verarbeitet daraus LIVE-Daten oder den finalen Messdatensatz.
+
+Für die endgültige Messung werden Gewicht und beide Impedanzwerte aus dem finalen Datensatz verwendet.
 
 Für die tägliche Messung benötigt ScaleLauncher **keine Xiaomi-Cloud und keine Internetberechtigung**.
 
@@ -104,7 +112,7 @@ TOKEN: 00112233445566778899AABB
 
 Der Token besteht aus genau **24 hexadezimalen Zeichen**.
 
-Der frühere 32-stellige BLE-Bind-Key wird von der aktuellen GATT-Anmeldung nicht als Zugangsdatenfeld verwendet.
+Für die aktuelle Einrichtung werden ausschließlich die MAC-Adresse und der 24-stellige Login-Token benötigt.
 
 Ein Token kann nach dem Hinzufügen der Waage zu Xiaomi Home / Mi Home mit einem geeigneten Xiaomi-Token-Werkzeug ausgelesen werden, zum Beispiel:
 
@@ -312,7 +320,7 @@ Prüfen:
 
 ### Überwachung funktioniert erst nach Stop/Start
 
-Das sollte im technisch abgenommenen Stand nicht erforderlich sein. Diagnoseprotokoll aktivieren und BLE-Scan, GATT, Collector/Standby und Peer-Transport prüfen.
+Das sollte im technisch abgenommenen Stand nicht erforderlich sein. Diagnoseprotokoll aktivieren und GATT-Verbindungsaufbau, Authentifizierung, CMTP-Empfang, Collector/Standby und Peer-Transport prüfen.
 
 ### Remote-Zuordnung dauert etwas länger
 
