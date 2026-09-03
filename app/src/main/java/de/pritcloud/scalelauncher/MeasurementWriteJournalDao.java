@@ -4,6 +4,7 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
+import androidx.room.Update;
 
 @Dao
 public interface MeasurementWriteJournalDao {
@@ -13,7 +14,11 @@ public interface MeasurementWriteJournalDao {
     MeasurementWriteJournalEntity findByMeasurementId(
             String measurementId);
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    void insert(
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    long insert(
+            MeasurementWriteJournalEntity entry);
+
+    @Update
+    int update(
             MeasurementWriteJournalEntity entry);
 }

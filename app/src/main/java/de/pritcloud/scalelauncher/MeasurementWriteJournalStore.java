@@ -8,7 +8,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 final class MeasurementWriteJournalStore {
     private static final String PREFS =
@@ -17,6 +22,23 @@ final class MeasurementWriteJournalStore {
     private static final String KEY =
             "entries";
 
+    private static final String MIGRATION_KEY =
+            "room_migration_complete_v1";
+
+    private static final ExecutorService DB_EXECUTOR =
+            Executors.newSingleThreadExecutor(
+                    runnable -> {
+                        Thread thread =
+                                new Thread(
+                                        runnable,
+                                        "ScaleLauncherJournal");
+
+                        thread.setDaemon(true);
+                        return thread;
+                    });
+
+    private static volatile boolean migrationVerified;
+
     enum Status {
         MISSING,
         PREPARED,
@@ -24,36 +46,20 @@ final class MeasurementWriteJournalStore {
         CONFLICT
     }
 
-    private static final class Entry {
-        final String measurementId;
-        final String authority;
-        final long userId;
-        final long timestampMs;
-        final Status status;
-        final long updatedAtMs;
+    private interface DaoOperation<T> {
+        T run(
+                MeasurementWriteJournalDao dao);
+    }
 
-        Entry(
-                String measurementId,
-                String authority,
-                long userId,
-                long timestampMs,
-                Status status,
-                long updatedAtMs) {
-            this.measurementId = measurementId;
-            this.authority = authority;
-            this.userId = userId;
-            this.timestampMs = timestampMs;
-            this.status = status;
-            this.updatedAtMs = updatedAtMs;
-        }
+    private static final class ParseResult {
+        final boolean valid;
+        final List<MeasurementWriteJournalEntity> entries;
 
-        boolean matches(
-                String expectedAuthority,
-                long expectedUserId,
-                long expectedTimestampMs) {
-            return authority.equals(expectedAuthority)
-                    && userId == expectedUserId
-                    && timestampMs == expectedTimestampMs;
+        ParseResult(
+                boolean valid,
+                List<MeasurementWriteJournalEntity> entries) {
+            this.valid = valid;
+            this.entries = entries;
         }
     }
 
@@ -65,35 +71,16 @@ final class MeasurementWriteJournalStore {
             String authority,
             long userId,
             long timestampMs) {
-        return status(
-                prefs(context),
-                measurementId,
-                authority,
-                userId,
-                timestampMs);
-    }
-
-    static Status status(
-            SharedPreferences preferences,
-            String measurementId,
-            String authority,
-            long userId,
-            long timestampMs) {
-        Entry entry =
-                find(
-                        preferences,
-                        measurementId);
-
-        if (entry == null) {
-            return Status.MISSING;
-        }
-
-        return entry.matches(
-                        authority,
-                        userId,
-                        timestampMs)
-                ? entry.status
-                : Status.CONFLICT;
+        return runRoom(
+                context,
+                dao ->
+                        status(
+                                dao,
+                                measurementId,
+                                authority,
+                                userId,
+                                timestampMs),
+                Status.CONFLICT);
     }
 
     static boolean prepare(
@@ -102,22 +89,80 @@ final class MeasurementWriteJournalStore {
             String authority,
             long userId,
             long timestampMs) {
-        return prepare(
-                prefs(context),
-                measurementId,
+        return runRoom(
+                context,
+                dao ->
+                        prepare(
+                                dao,
+                                measurementId,
+                                authority,
+                                userId,
+                                timestampMs),
+                false);
+    }
+
+    static boolean markStored(
+            Context context,
+            String measurementId,
+            String authority,
+            long userId,
+            long timestampMs) {
+        return runRoom(
+                context,
+                dao ->
+                        markStored(
+                                dao,
+                                measurementId,
+                                authority,
+                                userId,
+                                timestampMs),
+                false);
+    }
+
+    static Status status(
+            MeasurementWriteJournalDao dao,
+            String measurementId,
+            String authority,
+            long userId,
+            long timestampMs) {
+        if (measurementId == null
+                || measurementId.isBlank()) {
+            return Status.MISSING;
+        }
+
+        MeasurementWriteJournalEntity entry =
+                dao.findByMeasurementId(
+                        measurementId);
+
+        if (entry == null) {
+            return Status.MISSING;
+        }
+
+        if (!matches(
+                entry,
                 authority,
                 userId,
-                timestampMs);
+                timestampMs)) {
+            return Status.CONFLICT;
+        }
+
+        Status storedStatus =
+                storedStatus(
+                        entry.status);
+
+        return storedStatus == null
+                ? Status.CONFLICT
+                : storedStatus;
     }
 
     static boolean prepare(
-            SharedPreferences preferences,
+            MeasurementWriteJournalDao dao,
             String measurementId,
             String authority,
             long userId,
             long timestampMs) {
         return writeState(
-                preferences,
+                dao,
                 measurementId,
                 authority,
                 userId,
@@ -126,27 +171,13 @@ final class MeasurementWriteJournalStore {
     }
 
     static boolean markStored(
-            Context context,
-            String measurementId,
-            String authority,
-            long userId,
-            long timestampMs) {
-        return markStored(
-                prefs(context),
-                measurementId,
-                authority,
-                userId,
-                timestampMs);
-    }
-
-    static boolean markStored(
-            SharedPreferences preferences,
+            MeasurementWriteJournalDao dao,
             String measurementId,
             String authority,
             long userId,
             long timestampMs) {
         return writeState(
-                preferences,
+                dao,
                 measurementId,
                 authority,
                 userId,
@@ -154,88 +185,294 @@ final class MeasurementWriteJournalStore {
                 Status.STORED);
     }
 
-    private static boolean writeState(
+    static boolean migrateLegacyForTest(
             SharedPreferences preferences,
+            MeasurementWriteJournalDao dao) {
+        ParseResult parsed =
+                parseLegacy(
+                        preferences);
+
+        if (!parsed.valid
+                || !importLegacyEntries(
+                        dao,
+                        parsed.entries)) {
+            return false;
+        }
+
+        return preferences
+                .edit()
+                .putBoolean(
+                        MIGRATION_KEY,
+                        true)
+                .commit();
+    }
+
+    static boolean isLegacyMigrationMarked(
+            SharedPreferences preferences) {
+        return preferences.getBoolean(
+                MIGRATION_KEY,
+                false);
+    }
+
+    private static boolean writeState(
+            MeasurementWriteJournalDao dao,
             String measurementId,
             String authority,
             long userId,
             long timestampMs,
             Status newStatus) {
-        if (measurementId == null
-                || measurementId.isBlank()
-                || measurementId.length() > 200
-                || authority == null
-                || authority.isBlank()
-                || userId < 0L
-                || timestampMs <= 0L
-                || newStatus == null) {
+        if (!validIdentity(
+                measurementId,
+                authority,
+                userId,
+                timestampMs)
+                || newStatus == null
+                || (newStatus != Status.PREPARED
+                && newStatus != Status.STORED)) {
             return false;
         }
 
-        List<Entry> entries =
-                load(
-                        preferences);
+        MeasurementWriteJournalEntity existing =
+                dao.findByMeasurementId(
+                        measurementId);
 
-        for (Entry entry : entries) {
-            if (!entry.measurementId.equals(
-                    measurementId)) {
-                continue;
-            }
+        if (existing == null) {
+            MeasurementWriteJournalEntity entry =
+                    new MeasurementWriteJournalEntity(
+                            measurementId,
+                            authority,
+                            userId,
+                            timestampMs,
+                            newStatus.name(),
+                            System.currentTimeMillis());
 
-            if (!entry.matches(
-                    authority,
-                    userId,
-                    timestampMs)) {
-                return false;
-            }
+            long inserted =
+                    dao.insert(
+                            entry);
 
-            if (entry.status == Status.STORED
-                    && newStatus == Status.PREPARED) {
+            if (inserted != -1L) {
                 return true;
+            }
+
+            existing =
+                    dao.findByMeasurementId(
+                            measurementId);
+
+            if (existing == null) {
+                return false;
             }
         }
 
-        entries.removeIf(
-                entry ->
-                        entry.measurementId.equals(
-                                measurementId));
+        if (!matches(
+                existing,
+                authority,
+                userId,
+                timestampMs)) {
+            return false;
+        }
 
-        entries.add(
-                new Entry(
+        Status existingStatus =
+                storedStatus(
+                        existing.status);
+
+        if (existingStatus == null) {
+            return false;
+        }
+
+        if (existingStatus == Status.STORED
+                && newStatus == Status.PREPARED) {
+            return true;
+        }
+
+        MeasurementWriteJournalEntity updated =
+                new MeasurementWriteJournalEntity(
                         measurementId,
                         authority,
                         userId,
                         timestampMs,
-                        newStatus,
-                        System.currentTimeMillis()));
+                        newStatus.name(),
+                        System.currentTimeMillis());
 
-        return save(
-                preferences,
-                entries);
+        return dao.update(
+                updated) == 1;
     }
 
-    private static Entry find(
-            SharedPreferences preferences,
-            String measurementId) {
-        if (measurementId == null
-                || measurementId.isBlank()) {
-            return null;
+    private static <T> T runRoom(
+            Context context,
+            DaoOperation<T> operation,
+            T failureValue) {
+        if (context == null
+                || operation == null) {
+            return failureValue;
         }
 
-        for (Entry entry :
-                load(preferences)) {
-            if (entry.measurementId.equals(
-                    measurementId)) {
-                return entry;
+        Context appContext =
+                context.getApplicationContext();
+
+        try {
+            return DB_EXECUTOR
+                    .submit(
+                            () -> {
+                                ScaleLauncherDatabase database =
+                                        ScaleLauncherDatabase.get(
+                                                appContext);
+
+                                if (!ensureLegacyMigrated(
+                                        appContext,
+                                        database)) {
+                                    return failureValue;
+                                }
+
+                                return operation.run(
+                                        database.measurementWriteJournalDao());
+                            })
+                    .get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return failureValue;
+        } catch (ExecutionException | RuntimeException e) {
+            return failureValue;
+        }
+    }
+
+    private static boolean ensureLegacyMigrated(
+            Context context,
+            ScaleLauncherDatabase database) {
+        if (migrationVerified) {
+            return true;
+        }
+
+        SharedPreferences preferences =
+                prefs(
+                        context);
+
+        ParseResult parsed =
+                parseLegacy(
+                        preferences);
+
+        if (!parsed.valid) {
+            return false;
+        }
+
+        try {
+            database.runInTransaction(
+                    () -> {
+                        if (!importLegacyEntries(
+                                database.measurementWriteJournalDao(),
+                                parsed.entries)) {
+                            throw new IllegalStateException(
+                                    "Measurement journal migration conflict");
+                        }
+                    });
+        } catch (RuntimeException e) {
+            return false;
+        }
+
+        if (!preferences.getBoolean(
+                MIGRATION_KEY,
+                false)) {
+            boolean markerStored =
+                    preferences
+                            .edit()
+                            .putBoolean(
+                                    MIGRATION_KEY,
+                                    true)
+                            .commit();
+
+            if (!markerStored) {
+                return false;
             }
         }
 
-        return null;
+        migrationVerified = true;
+        return true;
     }
 
-    private static List<Entry> load(
+    private static boolean importLegacyEntries(
+            MeasurementWriteJournalDao dao,
+            List<MeasurementWriteJournalEntity> entries) {
+        for (MeasurementWriteJournalEntity legacy :
+                entries) {
+            MeasurementWriteJournalEntity existing =
+                    dao.findByMeasurementId(
+                            legacy.measurementId);
+
+            if (existing == null) {
+                long inserted =
+                        dao.insert(
+                                legacy);
+
+                if (inserted != -1L) {
+                    continue;
+                }
+
+                existing =
+                        dao.findByMeasurementId(
+                                legacy.measurementId);
+
+                if (existing == null) {
+                    return false;
+                }
+            }
+
+            if (!matches(
+                    existing,
+                    legacy.authority,
+                    legacy.userId,
+                    legacy.timestampMs)) {
+                return false;
+            }
+
+            Status existingStatus =
+                    storedStatus(
+                            existing.status);
+
+            Status legacyStatus =
+                    storedStatus(
+                            legacy.status);
+
+            if (existingStatus == null
+                    || legacyStatus == null) {
+                return false;
+            }
+
+            Status targetStatus =
+                    existingStatus == Status.STORED
+                            || legacyStatus == Status.STORED
+                            ? Status.STORED
+                            : Status.PREPARED;
+
+            long targetUpdatedAt =
+                    Math.max(
+                            existing.updatedAtMs,
+                            legacy.updatedAtMs);
+
+            if (existingStatus == targetStatus
+                    && existing.updatedAtMs == targetUpdatedAt) {
+                continue;
+            }
+
+            MeasurementWriteJournalEntity merged =
+                    new MeasurementWriteJournalEntity(
+                            existing.measurementId,
+                            existing.authority,
+                            existing.userId,
+                            existing.timestampMs,
+                            targetStatus.name(),
+                            targetUpdatedAt);
+
+            if (dao.update(
+                    merged) != 1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static ParseResult parseLegacy(
             SharedPreferences preferences) {
-        List<Entry> result =
+        List<MeasurementWriteJournalEntity> empty =
                 new ArrayList<>();
 
         String encoded =
@@ -245,13 +482,18 @@ final class MeasurementWriteJournalStore {
 
         if (encoded == null
                 || encoded.isBlank()) {
-            return result;
+            return new ParseResult(
+                    true,
+                    empty);
         }
 
         try {
             JSONArray array =
                     new JSONArray(
                             encoded);
+
+            Map<String, MeasurementWriteJournalEntity> byId =
+                    new LinkedHashMap<>();
 
             for (int index = 0;
                  index < array.length();
@@ -261,7 +503,9 @@ final class MeasurementWriteJournalStore {
                                 index);
 
                 if (object == null) {
-                    continue;
+                    return new ParseResult(
+                            false,
+                            empty);
                 }
 
                 String measurementId =
@@ -297,77 +541,128 @@ final class MeasurementWriteJournalStore {
                                     object.optString(
                                             "status",
                                             ""));
-                } catch (IllegalArgumentException ignored) {
-                    continue;
+                } catch (IllegalArgumentException e) {
+                    return new ParseResult(
+                            false,
+                            empty);
                 }
 
-                if (measurementId.isBlank()
-                        || measurementId.length() > 200
-                        || authority.isBlank()
-                        || userId < 0L
-                        || timestampMs <= 0L
-                        || updatedAtMs <= 0L) {
-                    continue;
+                if (!validIdentity(
+                        measurementId,
+                        authority,
+                        userId,
+                        timestampMs)
+                        || updatedAtMs <= 0L
+                        || (status != Status.PREPARED
+                        && status != Status.STORED)) {
+                    return new ParseResult(
+                            false,
+                            empty);
                 }
 
-                result.add(
-                        new Entry(
+                MeasurementWriteJournalEntity candidate =
+                        new MeasurementWriteJournalEntity(
                                 measurementId,
                                 authority,
                                 userId,
                                 timestampMs,
-                                status,
-                                updatedAtMs));
-            }
-        } catch (JSONException ignored) {
-        }
+                                status.name(),
+                                updatedAtMs);
 
-        return result;
+                MeasurementWriteJournalEntity previous =
+                        byId.get(
+                                measurementId);
+
+                if (previous == null) {
+                    byId.put(
+                            measurementId,
+                            candidate);
+                    continue;
+                }
+
+                if (!matches(
+                        previous,
+                        authority,
+                        userId,
+                        timestampMs)) {
+                    return new ParseResult(
+                            false,
+                            empty);
+                }
+
+                Status previousStatus =
+                        storedStatus(
+                                previous.status);
+
+                Status mergedStatus =
+                        previousStatus == Status.STORED
+                                || status == Status.STORED
+                                ? Status.STORED
+                                : Status.PREPARED;
+
+                byId.put(
+                        measurementId,
+                        new MeasurementWriteJournalEntity(
+                                measurementId,
+                                authority,
+                                userId,
+                                timestampMs,
+                                mergedStatus.name(),
+                                Math.max(
+                                        previous.updatedAtMs,
+                                        updatedAtMs)));
+            }
+
+            return new ParseResult(
+                    true,
+                    new ArrayList<>(
+                            byId.values()));
+        } catch (JSONException | RuntimeException e) {
+            return new ParseResult(
+                    false,
+                    empty);
+        }
     }
 
-    private static boolean save(
-            SharedPreferences preferences,
-            List<Entry> entries) {
-        JSONArray array =
-                new JSONArray();
+    private static boolean validIdentity(
+            String measurementId,
+            String authority,
+            long userId,
+            long timestampMs) {
+        return measurementId != null
+                && !measurementId.isBlank()
+                && measurementId.length() <= 200
+                && authority != null
+                && !authority.isBlank()
+                && userId >= 0L
+                && timestampMs > 0L;
+    }
 
-        for (Entry entry : entries) {
-            try {
-                JSONObject object =
-                        new JSONObject();
+    private static boolean matches(
+            MeasurementWriteJournalEntity entry,
+            String authority,
+            long userId,
+            long timestampMs) {
+        return entry != null
+                && entry.authority.equals(
+                        authority)
+                && entry.userId == userId
+                && entry.timestampMs == timestampMs;
+    }
 
-                object.put(
-                        "measurementId",
-                        entry.measurementId);
-                object.put(
-                        "authority",
-                        entry.authority);
-                object.put(
-                        "userId",
-                        entry.userId);
-                object.put(
-                        "timestampMs",
-                        entry.timestampMs);
-                object.put(
-                        "status",
-                        entry.status.name());
-                object.put(
-                        "updatedAtMs",
-                        entry.updatedAtMs);
-
-                array.put(
-                        object);
-            } catch (JSONException ignored) {
-                return false;
-            }
+    private static Status storedStatus(
+            String encoded) {
+        if (Status.PREPARED.name().equals(
+                encoded)) {
+            return Status.PREPARED;
         }
 
-        return preferences
-                .edit()
-                .putString(
-                        KEY,
-                        array.toString())
-                .commit();
+        if (Status.STORED.name().equals(
+                encoded)) {
+            return Status.STORED;
+        }
+
+        return null;
     }
 
     private static SharedPreferences prefs(
