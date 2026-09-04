@@ -848,6 +848,77 @@ public final class UserProfileRoomStoreTest {
     }
 
     @Test
+    public void cachedLoadReadsDaoOnceAndReturnsIndependentProfiles() {
+        UserProfileRoomStore.clearCacheForTest();
+
+        try {
+            FakeDao dao =
+                    new FakeDao();
+
+            UserProfile original =
+                    profile(
+                            7L,
+                            "Original",
+                            true);
+
+            original.referenceWeightKg =
+                    70.0f;
+
+            UserProfileRoomStore.save(
+                    dao,
+                    List.of(
+                            original));
+
+            List<UserProfile> first =
+                    UserProfileRoomStore.loadCachedForTest(
+                            dao);
+
+            assertEquals(
+                    1,
+                    dao.loadAllCalls);
+
+            first.get(0).name =
+                    "Nur lokale Aenderung";
+
+            first.get(0).referenceWeightKg =
+                    99.0f;
+
+            List<UserProfile> second =
+                    UserProfileRoomStore.loadCachedForTest(
+                            dao);
+
+            assertEquals(
+                    1,
+                    dao.loadAllCalls);
+
+            assertEquals(
+                    "Original",
+                    second.get(0).name);
+
+            assertEquals(
+                    70.0f,
+                    second.get(0).referenceWeightKg,
+                    0.001f);
+
+            UserProfileRoomStore.clearCacheForTest();
+
+            List<UserProfile> afterRestart =
+                    UserProfileRoomStore.loadCachedForTest(
+                            dao);
+
+            assertEquals(
+                    2,
+                    dao.loadAllCalls);
+
+            assertEquals(
+                    "Original",
+                    afterRestart.get(0).name);
+        } finally {
+            UserProfileRoomStore.clearCacheForTest();
+        }
+    }
+
+    @Test
     public void savesMoreThanThousandProfiles() {
         FakeDao dao =
                 new FakeDao();
@@ -951,8 +1022,12 @@ public final class UserProfileRoomStoreTest {
         private final Map<Long, UserProfileEntity> items =
                 new LinkedHashMap<>();
 
+        private int loadAllCalls;
+
         @Override
         public List<UserProfileEntity> loadAll() {
+            loadAllCalls++;
+
             List<UserProfileEntity> result =
                     new ArrayList<>(
                             items.values());

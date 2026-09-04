@@ -39,6 +39,14 @@ final class UserProfileRoomStore {
 
     private static volatile boolean migrationVerified;
 
+    /*
+     * Immutable Room-entity snapshot.
+     *
+     * UserProfile itself is mutable and therefore must never be cached.
+     * Every load returns fresh UserProfile objects built from this snapshot.
+     */
+    private static volatile List<UserProfileEntity> cachedEntities;
+
     private interface DatabaseOperation<T> {
         T run(ScaleLauncherDatabase database);
     }
@@ -60,16 +68,49 @@ final class UserProfileRoomStore {
 
     static List<UserProfile> load(
             Context context) {
+        List<UserProfileEntity> snapshot =
+                cachedEntities;
+
+        if (snapshot != null) {
+            return fromEntities(
+                    snapshot);
+        }
+
         return runRoom(
                 context,
-                database ->
-                        load(
-                                database.userProfileDao()));
+                database -> {
+                    List<UserProfileEntity> current =
+                            cachedEntities;
+
+                    if (current == null) {
+                        current =
+                                snapshotFromDao(
+                                        database.userProfileDao());
+
+                        /*
+                         * Validate before publishing the cache. An invalid
+                         * database row must never become a reusable snapshot.
+                         */
+                        List<UserProfile> profiles =
+                                fromEntities(
+                                        current);
+
+                        cachedEntities =
+                                current;
+
+                        return profiles;
+                    }
+
+                    return fromEntities(
+                            current);
+                });
     }
 
     static void save(
             Context context,
             List<UserProfile> profiles) {
+        invalidateCache();
+
         runRoom(
                 context,
                 database -> {
@@ -78,6 +119,9 @@ final class UserProfileRoomStore {
                                     save(
                                             database.userProfileDao(),
                                             profiles));
+
+                    refreshCache(
+                            database.userProfileDao());
 
                     return null;
                 });
@@ -88,6 +132,8 @@ final class UserProfileRoomStore {
             SharedPreferences preferences,
             List<OpenScaleProvider.User> users,
             String localDeviceId) {
+        invalidateCache();
+
         return runRoom(
                 context,
                 database -> {
@@ -103,6 +149,9 @@ final class UserProfileRoomStore {
                                                     users,
                                                     localDeviceId)));
 
+                    refreshCache(
+                            database.userProfileDao());
+
                     return result.get();
                 });
     }
@@ -111,6 +160,8 @@ final class UserProfileRoomStore {
             Context context,
             long userId,
             float referenceWeightKg) {
+        invalidateCache();
+
         runRoom(
                 context,
                 database -> {
@@ -121,8 +172,44 @@ final class UserProfileRoomStore {
                                             userId,
                                             referenceWeightKg));
 
+                    refreshCache(
+                            database.userProfileDao());
+
                     return null;
                 });
+    }
+
+    static List<UserProfile> loadCachedForTest(
+            UserProfileDao dao) {
+        if (dao == null) {
+            throw new IllegalArgumentException(
+                    "User profile DAO is required");
+        }
+
+        List<UserProfileEntity> snapshot =
+                cachedEntities;
+
+        if (snapshot == null) {
+            snapshot =
+                    snapshotFromDao(
+                            dao);
+
+            List<UserProfile> profiles =
+                    fromEntities(
+                            snapshot);
+
+            cachedEntities =
+                    snapshot;
+
+            return profiles;
+        }
+
+        return fromEntities(
+                snapshot);
+    }
+
+    static void clearCacheForTest() {
+        invalidateCache();
     }
 
     static List<UserProfile> load(
@@ -860,6 +947,53 @@ final class UserProfileRoomStore {
                 entity.householdUpdatedAtMs;
 
         return profile;
+    }
+
+    private static void invalidateCache() {
+        cachedEntities =
+                null;
+    }
+
+    private static void refreshCache(
+            UserProfileDao dao) {
+        List<UserProfileEntity> snapshot =
+                snapshotFromDao(
+                        dao);
+
+        /*
+         * Validate every row before making the refreshed snapshot visible.
+         */
+        fromEntities(
+                snapshot);
+
+        cachedEntities =
+                snapshot;
+    }
+
+    private static List<UserProfileEntity> snapshotFromDao(
+            UserProfileDao dao) {
+        if (dao == null) {
+            throw new IllegalArgumentException(
+                    "User profile DAO is required");
+        }
+
+        return List.copyOf(
+                dao.loadAll());
+    }
+
+    private static List<UserProfile> fromEntities(
+            List<UserProfileEntity> entities) {
+        List<UserProfile> result =
+                new ArrayList<>();
+
+        for (UserProfileEntity entity :
+                entities) {
+            result.add(
+                    fromEntity(
+                            entity));
+        }
+
+        return result;
     }
 
     private static boolean sameStoredData(
