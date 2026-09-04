@@ -16,9 +16,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
             RemotePendingMeasurementEntity.class,
             PeerOutboxEntity.class,
             PeerInboxDedupEntity.class,
-            HouseholdProfileEntity.class
+            HouseholdProfileEntity.class,
+            UserProfileEntity.class
         },
-        version = 6,
+        version = 7,
         exportSchema = true)
 public abstract class ScaleLauncherDatabase
         extends RoomDatabase {
@@ -130,6 +131,29 @@ public abstract class ScaleLauncherDatabase
                 }
             };
 
+    static final Migration MIGRATION_6_7 =
+            new Migration(6, 7) {
+                @Override
+                public void migrate(
+                        SupportSQLiteDatabase database) {
+                    database.execSQL(
+                            "CREATE TABLE IF NOT EXISTS `user_profiles` ("
+                                    + "`user_id` INTEGER NOT NULL, "
+                                    + "`name` TEXT NOT NULL, "
+                                    + "`enabled` INTEGER NOT NULL, "
+                                    + "`birth_date_iso` TEXT NOT NULL, "
+                                    + "`height_cm` REAL NOT NULL, "
+                                    + "`male` INTEGER NOT NULL, "
+                                    + "`reference_weight_kg` REAL NOT NULL, "
+                                    + "`tolerance_kg` REAL NOT NULL, "
+                                    + "`owner_device_id` TEXT NOT NULL, "
+                                    + "`household_profile_id` TEXT NOT NULL, "
+                                    + "`household_updated_at_ms` INTEGER NOT NULL, "
+                                    + "`sort_order` INTEGER NOT NULL, "
+                                    + "PRIMARY KEY(`user_id`))");
+                }
+            };
+
     private static volatile ScaleLauncherDatabase instance;
 
     public abstract MeasurementWriteJournalDao
@@ -149,6 +173,9 @@ public abstract class ScaleLauncherDatabase
 
     public abstract HouseholdProfileDao
             householdProfileDao();
+
+    public abstract UserProfileDao
+            userProfileDao();
 
     static ScaleLauncherDatabase get(
             Context context) {
@@ -172,7 +199,8 @@ public abstract class ScaleLauncherDatabase
                                         MIGRATION_2_3,
                                         MIGRATION_3_4,
                                         MIGRATION_4_5,
-                                        MIGRATION_5_6)
+                                        MIGRATION_5_6,
+                                        MIGRATION_6_7)
                                 .build();
 
                 instance = current;
