@@ -93,7 +93,7 @@ final class HouseholdProfileSync {
             SharedPreferences prefs,
             String peerDeviceId) {
         PeerTrustStore.Peer peer =
-                PeerTrustStore.find(
+                PeerTrustRoomStore.find(
                         context,
                         peerDeviceId);
 
@@ -372,7 +372,7 @@ final class HouseholdProfileSync {
                                 ownerProfileIds);
             } else {
                 for (PeerTrustStore.Peer peer :
-                        PeerTrustStore.load(context)) {
+                        PeerTrustRoomStore.load(context)) {
                     queued +=
                             enqueue(
                                     context,

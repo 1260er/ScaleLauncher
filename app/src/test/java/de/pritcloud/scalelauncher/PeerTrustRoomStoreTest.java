@@ -292,7 +292,7 @@ public final class PeerTrustRoomStoreTest {
     }
 
     @Test
-    public void encryptedTrustReplacementPreservesOrder() {
+    public void encryptedTrustReplacementMovesPeerToEnd() {
         FakeDao dao =
                 new FakeDao();
 
@@ -331,7 +331,7 @@ public final class PeerTrustRoomStoreTest {
                 replaced.encryptedSecret);
 
         assertEquals(
-                0L,
+                2L,
                 replaced.sortOrder);
 
         assertEquals(
@@ -339,6 +339,21 @@ public final class PeerTrustRoomStoreTest {
                 dao.find(
                         PEER_TWO)
                         .sortOrder);
+
+        List<PeerTrustEntity> ordered =
+                dao.loadAll();
+
+        assertEquals(
+                PEER_TWO,
+                ordered.get(
+                        0)
+                        .deviceId);
+
+        assertEquals(
+                PEER_ONE,
+                ordered.get(
+                        1)
+                        .deviceId);
     }
 
     @Test

@@ -778,7 +778,7 @@ public final class MainActivity extends Activity {
                         inlineAssignedUsersText(localEndpoint.deviceId)));
 
         List<PeerTrustStore.Peer> peers =
-                PeerTrustStore.load(this);
+                PeerTrustRoomStore.load(this);
 
         trustedInfo.setVisibility(View.GONE);
 
@@ -884,7 +884,7 @@ public final class MainActivity extends Activity {
                         (dialog, which) -> {
                             String label = peer.label;
 
-                            PeerTrustStore.remove(
+                            PeerTrustRoomStore.remove(
                                     this,
                                     peer.deviceId);
 
@@ -1156,7 +1156,7 @@ public final class MainActivity extends Activity {
                 continue;
             }
 
-            if (!PeerTrustStore.isTrusted(
+            if (!PeerTrustRoomStore.isTrusted(
                     this,
                     profile.ownerDeviceId)) {
                 continue;

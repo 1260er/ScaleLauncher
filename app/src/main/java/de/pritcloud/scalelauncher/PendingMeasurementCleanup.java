@@ -47,7 +47,7 @@ final class PendingMeasurementCleanup {
                 new ArrayList<>();
 
         for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         context)) {
             peerDeviceIds.add(
                     peer.deviceId);

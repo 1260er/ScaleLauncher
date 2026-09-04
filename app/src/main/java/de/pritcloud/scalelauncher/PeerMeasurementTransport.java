@@ -1705,7 +1705,7 @@ final class PeerMeasurementTransport {
         }
 
         PeerTrustStore.Peer peer =
-                PeerTrustStore.find(
+                PeerTrustRoomStore.find(
                         context,
                         senderDeviceId);
 
@@ -2071,7 +2071,7 @@ final class PeerMeasurementTransport {
                 new ArrayList<>();
 
         for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         context)) {
             refreshed.add(
                     new PresencePeer(

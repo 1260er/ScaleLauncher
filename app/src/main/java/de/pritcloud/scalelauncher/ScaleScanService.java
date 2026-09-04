@@ -460,7 +460,7 @@ public final class ScaleScanService extends Service {
         }
 
         List<PeerTrustStore.Peer> trustedPeers =
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         this);
 
         remoteCollectorLastSeenMs.keySet()
@@ -1686,7 +1686,7 @@ public final class ScaleScanService extends Service {
         }
 
         PeerTrustStore.Peer collector =
-                PeerTrustStore.find(
+                PeerTrustRoomStore.find(
                         this,
                         pending.collectorDeviceId);
 
@@ -1763,7 +1763,7 @@ public final class ScaleScanService extends Service {
         }
 
         PeerTrustStore.Peer collector =
-                PeerTrustStore.find(
+                PeerTrustRoomStore.find(
                         this,
                         pending.collectorDeviceId);
 
@@ -2036,7 +2036,7 @@ public final class ScaleScanService extends Service {
         }
 
         PeerTrustStore.Peer peer =
-                PeerTrustStore.find(
+                PeerTrustRoomStore.find(
                         this,
                         targetDeviceId);
 
@@ -2137,7 +2137,7 @@ public final class ScaleScanService extends Service {
                 0;
 
         for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         this)) {
             try {
                 PeerCollectorStatusPayload payload =
@@ -2177,7 +2177,7 @@ public final class ScaleScanService extends Service {
                 0;
 
         for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         this)) {
             try {
                 PeerMeasurementClosedPayload payload =
@@ -2241,7 +2241,7 @@ public final class ScaleScanService extends Service {
                 0;
 
         for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         this)) {
             List<String> peerCandidateProfileIds =
                     new java.util.ArrayList<>();
@@ -2339,7 +2339,7 @@ public final class ScaleScanService extends Service {
             }
 
             PeerTrustStore.Peer peer =
-                    PeerTrustStore.find(
+                    PeerTrustRoomStore.find(
                             this,
                             targetDeviceId);
 
@@ -2538,7 +2538,7 @@ public final class ScaleScanService extends Service {
                     peerDirectQueue.peek();
 
             PeerTrustStore.Peer peer =
-                    PeerTrustStore.find(
+                    PeerTrustRoomStore.find(
                             this,
                             direct.peerDeviceId);
 
@@ -2586,7 +2586,7 @@ public final class ScaleScanService extends Service {
         for (PeerOutboxStore.Item item :
                 items) {
             PeerTrustStore.Peer peer =
-                    PeerTrustStore.find(
+                    PeerTrustRoomStore.find(
                             this,
                             item.peerDeviceId);
 
@@ -2736,7 +2736,7 @@ public final class ScaleScanService extends Service {
                     0;
 
             for (PeerTrustStore.Peer peer :
-                    PeerTrustStore.load(this)) {
+                    PeerTrustRoomStore.load(this)) {
                 queuedProfiles +=
                         HouseholdProfileSync.enqueueAllProfilesForPeer(
                                 this,
@@ -2801,7 +2801,7 @@ public final class ScaleScanService extends Service {
                                     pending.id))) {
                 if (!localDeviceId.equals(
                                 response.peerDeviceId)
-                        && PeerTrustStore.find(
+                        && PeerTrustRoomStore.find(
                                 this,
                                 response.peerDeviceId) == null) {
                     PendingMeasurementRoomStore.removeClaimResponsesForPeer(
@@ -2813,7 +2813,7 @@ public final class ScaleScanService extends Service {
             if (pending.isResolved()
                     && !localDeviceId.equals(
                             pending.selectedOwnerDeviceId)
-                    && PeerTrustStore.find(
+                    && PeerTrustRoomStore.find(
                             this,
                             pending.selectedOwnerDeviceId) == null) {
                 PendingMeasurementRoomStore.rejectSelectedCandidate(
@@ -2851,7 +2851,7 @@ public final class ScaleScanService extends Service {
 
                         if (localDeviceId.equals(
                                         profile.ownerDeviceId)
-                                || PeerTrustStore.find(
+                                || PeerTrustRoomStore.find(
                                         this,
                                         profile.ownerDeviceId) != null) {
                             available =
@@ -3089,7 +3089,7 @@ public final class ScaleScanService extends Service {
 
             if (!localDeviceId.equals(
                         target.ownerDeviceId)
-                    && PeerTrustStore.find(
+                    && PeerTrustRoomStore.find(
                             this,
                             target.ownerDeviceId) != null) {
                 PendingMeasurementStore.Item pending =
@@ -3434,7 +3434,7 @@ public final class ScaleScanService extends Service {
                             profile.ownerDeviceId)
                     || pending.rejectedProfileIds.contains(
                             profile.profileId)
-                    || PeerTrustStore.find(
+                    || PeerTrustRoomStore.find(
                             this,
                             profile.ownerDeviceId) == null) {
                 continue;
@@ -3562,7 +3562,7 @@ public final class ScaleScanService extends Service {
                             pending.timestampMs);
         }
 
-        if (PeerTrustStore.find(
+        if (PeerTrustRoomStore.find(
                 this,
                 ownerDeviceId) == null) {
             return false;

@@ -239,7 +239,8 @@ final class PeerTrustRoomStore {
                             deviceId,
                             storedLabel,
                             encryptedSecret,
-                            existing.sortOrder);
+                            nextSortOrder(
+                                    dao));
 
             if (dao.update(
                     replacement) != 1) {
@@ -280,7 +281,8 @@ final class PeerTrustRoomStore {
                         deviceId,
                         storedLabel,
                         encryptedSecret,
-                        existing.sortOrder);
+                        nextSortOrder(
+                                dao));
 
         if (dao.update(
                 replacement) != 1) {
