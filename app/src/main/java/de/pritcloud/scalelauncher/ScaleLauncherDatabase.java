@@ -15,9 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
             PendingMeasurementClaimEntity.class,
             RemotePendingMeasurementEntity.class,
             PeerOutboxEntity.class,
-            PeerInboxDedupEntity.class
+            PeerInboxDedupEntity.class,
+            HouseholdProfileEntity.class
         },
-        version = 5,
+        version = 6,
         exportSchema = true)
 public abstract class ScaleLauncherDatabase
         extends RoomDatabase {
@@ -110,6 +111,25 @@ public abstract class ScaleLauncherDatabase
                 }
             };
 
+    static final Migration MIGRATION_5_6 =
+            new Migration(5, 6) {
+                @Override
+                public void migrate(
+                        SupportSQLiteDatabase database) {
+                    database.execSQL(
+                            "CREATE TABLE IF NOT EXISTS `household_profiles` ("
+                                    + "`profile_id` TEXT NOT NULL, "
+                                    + "`name` TEXT NOT NULL, "
+                                    + "`owner_device_id` TEXT NOT NULL, "
+                                    + "`reference_weight_kg` REAL NOT NULL, "
+                                    + "`tolerance_kg` REAL NOT NULL, "
+                                    + "`active` INTEGER NOT NULL, "
+                                    + "`updated_at_ms` INTEGER NOT NULL, "
+                                    + "`sort_order` INTEGER NOT NULL, "
+                                    + "PRIMARY KEY(`profile_id`))");
+                }
+            };
+
     private static volatile ScaleLauncherDatabase instance;
 
     public abstract MeasurementWriteJournalDao
@@ -126,6 +146,9 @@ public abstract class ScaleLauncherDatabase
 
     public abstract PeerInboxDedupDao
             peerInboxDedupDao();
+
+    public abstract HouseholdProfileDao
+            householdProfileDao();
 
     static ScaleLauncherDatabase get(
             Context context) {
@@ -148,7 +171,8 @@ public abstract class ScaleLauncherDatabase
                                         MIGRATION_1_2,
                                         MIGRATION_2_3,
                                         MIGRATION_3_4,
-                                        MIGRATION_4_5)
+                                        MIGRATION_4_5,
+                                        MIGRATION_5_6)
                                 .build();
 
                 instance = current;
