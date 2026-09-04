@@ -26,6 +26,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 public final class MainActivity extends Activity {
@@ -36,14 +39,31 @@ public final class MainActivity extends Activity {
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-F]{2}:){5}[0-9A-F]{2}$");
     private static final Pattern TOKEN_PATTERN = Pattern.compile("^[0-9a-fA-F]{24}$");
 
-    private final Handler refreshHandler = new Handler(Looper.getMainLooper());
+    private final Handler refreshHandler =
+            new Handler(Looper.getMainLooper());
+
+    private final ExecutorService uiDataRefreshExecutor =
+            Executors.newSingleThreadExecutor(
+                    runnable -> {
+                        Thread thread =
+                                new Thread(
+                                        runnable,
+                                        "ScaleLauncherUiDataRefresh");
+                        thread.setDaemon(true);
+                        return thread;
+                    });
+
+    private final AtomicBoolean uiDataRefreshRunning =
+            new AtomicBoolean(false);
+
+    private long uiDataRefreshGeneration;
+    private boolean activityResumed;
+
     private final Runnable refreshTask = new Runnable() {
         @Override public void run() {
-            refreshLog();
-            refreshPending();
             refreshRuntimeStatus();
             refreshReliabilityRequirements();
-            refreshHomeUserSummary();
+            requestPeriodicUiDataRefresh();
             refreshHandler.postDelayed(this, 1_000L);
         }
     };
@@ -887,12 +907,196 @@ public final class MainActivity extends Activity {
                         getColor(R.color.ui_text_secondary));
     }
 
+    private void requestPeriodicUiDataRefresh() {
+        if (!activityResumed) {
+            return;
+        }
+
+        View homePage =
+                findViewById(
+                        R.id.pageHome);
+
+        View emergencyPage =
+                findViewById(
+                        R.id.pageEmergencyCleanup);
+
+        View logPage =
+                findViewById(
+                        R.id.pageLog);
+
+        boolean homeVisible =
+                homePage != null
+                        && homePage.getVisibility()
+                                == View.VISIBLE;
+
+        boolean emergencyVisible =
+                emergencyPage != null
+                        && emergencyPage.getVisibility()
+                                == View.VISIBLE;
+
+        boolean logVisible =
+                logPage != null
+                        && logPage.getVisibility()
+                                == View.VISIBLE;
+
+        if (!homeVisible
+                && !emergencyVisible
+                && !logVisible) {
+            return;
+        }
+
+        if (!uiDataRefreshRunning.compareAndSet(
+                false,
+                true)) {
+            return;
+        }
+
+        long generation =
+                uiDataRefreshGeneration;
+
+        uiDataRefreshExecutor.execute(
+                () -> {
+                    try {
+                        boolean pendingNeeded =
+                                homeVisible
+                                        || emergencyVisible;
+
+                        List<PendingMeasurementStore.Item> pending =
+                                pendingNeeded
+                                        ? PendingMeasurementRoomStore.load(
+                                                this)
+                                        : List.of();
+
+                        List<RemotePendingMeasurementStore.Item> remotePending =
+                                homeVisible
+                                        ? RemotePendingMeasurementRoomStore.load(
+                                                this)
+                                        : List.of();
+
+                        List<HouseholdProfile> householdProfiles =
+                                homeVisible
+                                        ? HouseholdProfileRoomStore.load(
+                                                this)
+                                        : List.of();
+
+                        List<UserProfile> storedProfiles =
+                                homeVisible
+                                        ? UserProfileRoomStore.load(
+                                                this)
+                                        : List.of();
+
+                        int pendingSync =
+                                homeVisible
+                                        ? PeerOutboxRoomStore.count(
+                                                this)
+                                        : 0;
+
+                        String logText =
+                                logVisible
+                                        ? EventLog.read(
+                                                this)
+                                        : null;
+
+                        refreshHandler.post(
+                                () -> {
+                                    try {
+                                        if (!activityResumed
+                                                || generation
+                                                        != uiDataRefreshGeneration) {
+                                            return;
+                                        }
+
+                                        View currentHome =
+                                                findViewById(
+                                                        R.id.pageHome);
+
+                                        if (homeVisible
+                                                && currentHome != null
+                                                && currentHome.getVisibility()
+                                                        == View.VISIBLE) {
+                                            applyPendingSnapshot(
+                                                    pending,
+                                                    remotePending,
+                                                    householdProfiles,
+                                                    storedProfiles);
+
+                                            applyHomeUserSummarySnapshot(
+                                                    householdProfiles,
+                                                    storedProfiles,
+                                                    pendingSync);
+                                        }
+
+                                        View currentEmergency =
+                                                findViewById(
+                                                        R.id.pageEmergencyCleanup);
+
+                                        if (emergencyVisible
+                                                && currentEmergency != null
+                                                && currentEmergency.getVisibility()
+                                                        == View.VISIBLE) {
+                                            refreshEmergencyCleanup(
+                                                    pending);
+                                        }
+
+                                        View currentLog =
+                                                findViewById(
+                                                        R.id.pageLog);
+
+                                        if (logVisible
+                                                && logText != null
+                                                && currentLog != null
+                                                && currentLog.getVisibility()
+                                                        == View.VISIBLE) {
+                                            log.setText(
+                                                    logText);
+                                        }
+                                    } finally {
+                                        uiDataRefreshRunning.set(
+                                                false);
+                                    }
+                                });
+                    } catch (RuntimeException exception) {
+                        refreshHandler.post(
+                                () ->
+                                        uiDataRefreshRunning.set(
+                                                false));
+                    }
+                });
+    }
+
     private void refreshHomeUserSummary() {
-        TextView usersSummary = findViewById(R.id.homeUsersSummary);
-        TextView usersList = findViewById(R.id.homeUsersList);
-        TextView peerSyncStatus = findViewById(R.id.homePeerSyncStatus);
-        TextView healthConnectState = findViewById(R.id.homeHealthConnectState);
-        TextView healthConnectUser = findViewById(R.id.homeHealthConnectUser);
+        applyHomeUserSummarySnapshot(
+                HouseholdProfileRoomStore.load(
+                        this),
+                UserProfileRoomStore.load(
+                        this),
+                PeerOutboxRoomStore.count(
+                        this));
+    }
+
+    private void applyHomeUserSummarySnapshot(
+            List<HouseholdProfile> householdProfiles,
+            List<UserProfile> storedProfiles,
+            int pendingSync) {
+        TextView usersSummary =
+                findViewById(
+                        R.id.homeUsersSummary);
+
+        TextView usersList =
+                findViewById(
+                        R.id.homeUsersList);
+
+        TextView peerSyncStatus =
+                findViewById(
+                        R.id.homePeerSyncStatus);
+
+        TextView healthConnectState =
+                findViewById(
+                        R.id.homeHealthConnectState);
+
+        TextView healthConnectUser =
+                findViewById(
+                        R.id.homeHealthConnectUser);
 
         List<OpenScaleProvider.User> localUsers =
                 users == null
@@ -907,10 +1111,10 @@ public final class MainActivity extends Activity {
                 new ArrayList<>();
 
         for (HouseholdProfile profile :
-                HouseholdProfileRoomStore.active(
-                        this)) {
-            if (localDeviceId.equals(
-                    profile.ownerDeviceId)) {
+                householdProfiles) {
+            if (!profile.active
+                    || localDeviceId.equals(
+                            profile.ownerDeviceId)) {
                 continue;
             }
 
@@ -931,7 +1135,9 @@ public final class MainActivity extends Activity {
         if (totalUsers == 0) {
             usersSummary.setText(
                     R.string.home_users_none);
-            usersList.setText("");
+
+            usersList.setText(
+                    "");
         } else {
             usersSummary.setText(
                     getResources()
@@ -946,7 +1152,8 @@ public final class MainActivity extends Activity {
             for (OpenScaleProvider.User user :
                     localUsers) {
                 if (names.length() > 0) {
-                    names.append((char) 10);
+                    names.append(
+                            (char) 10);
                 }
 
                 names.append("• ")
@@ -960,7 +1167,8 @@ public final class MainActivity extends Activity {
             for (HouseholdProfile profile :
                     remoteUsers) {
                 if (names.length() > 0) {
-                    names.append((char) 10);
+                    names.append(
+                            (char) 10);
                 }
 
                 names.append("• ")
@@ -974,9 +1182,6 @@ public final class MainActivity extends Activity {
             usersList.setText(
                     names.toString());
         }
-
-        int pendingSync =
-                PeerOutboxRoomStore.count(this);
 
         peerSyncStatus.setText(
                 getResources()
@@ -999,9 +1204,6 @@ public final class MainActivity extends Activity {
                 healthConnectActive
                         ? R.string.home_health_connect_active
                         : R.string.home_health_connect_disabled);
-
-        List<UserProfile> storedProfiles =
-                UserProfileRoomStore.load(this);
 
         long healthUserId =
                 prefs.getLong(
@@ -1058,18 +1260,46 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        ScaleScanService.clearTransientNotifications(this);
+
+        activityResumed =
+                true;
+
+        uiDataRefreshGeneration++;
+
+        ScaleScanService.clearTransientNotifications(
+                this);
+
         refreshHealthConnectStatus();
         refreshInlinePeerSummary();
-        refreshPending();
         refreshRuntimeStatus();
         refreshReliabilityRequirements();
-        refreshHandler.post(refreshTask);
+
+        refreshHandler.removeCallbacks(
+                refreshTask);
+
+        refreshHandler.post(
+                refreshTask);
     }
 
     @Override protected void onPause() {
-        refreshHandler.removeCallbacks(refreshTask);
+        activityResumed =
+                false;
+
+        uiDataRefreshGeneration++;
+
+        refreshHandler.removeCallbacks(
+                refreshTask);
+
         super.onPause();
+    }
+
+    @Override protected void onDestroy() {
+        refreshHandler.removeCallbacks(
+                refreshTask);
+
+        uiDataRefreshExecutor.shutdownNow();
+
+        super.onDestroy();
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -1391,7 +1621,25 @@ public final class MainActivity extends Activity {
                         R.id.pageEmergencyCleanup);
 
         if (page == null
-                || page.getVisibility() != View.VISIBLE) {
+                || page.getVisibility()
+                        != View.VISIBLE) {
+            return;
+        }
+
+        refreshEmergencyCleanup(
+                PendingMeasurementRoomStore.load(
+                        this));
+    }
+
+    private void refreshEmergencyCleanup(
+            List<PendingMeasurementStore.Item> items) {
+        View page =
+                findViewById(
+                        R.id.pageEmergencyCleanup);
+
+        if (page == null
+                || page.getVisibility()
+                        != View.VISIBLE) {
             return;
         }
 
@@ -1408,12 +1656,10 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        List<PendingMeasurementStore.Item> items =
-                PendingMeasurementRoomStore.load(this);
-
         list.removeAllViews();
 
         int openCount = 0;
+
         long now =
                 System.currentTimeMillis();
 
@@ -1529,28 +1775,48 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshPending() {
-        if (pendingStatus == null) return;
+        if (pendingStatus == null) {
+            return;
+        }
 
-        SharedPreferences prefs =
-                getSharedPreferences(
-                        "prefs",
-                        MODE_PRIVATE);
+        applyPendingSnapshot(
+                PendingMeasurementRoomStore.load(
+                        this),
+                RemotePendingMeasurementRoomStore.load(
+                        this),
+                HouseholdProfileRoomStore.load(
+                        this),
+                UserProfileRoomStore.load(
+                        this));
+    }
+
+    private void applyPendingSnapshot(
+            List<PendingMeasurementStore.Item> pending,
+            List<RemotePendingMeasurementStore.Item> remotePending,
+            List<HouseholdProfile> householdProfiles,
+            List<UserProfile> storedProfiles) {
+        if (pendingStatus == null) {
+            return;
+        }
 
         pendingMeasurements =
-                PendingMeasurementRoomStore.load(this);
-
-        refreshEmergencyCleanup();
+                new ArrayList<>(
+                        pending);
 
         remotePendingMeasurements =
-                RemotePendingMeasurementRoomStore.load(
-                        this);
+                new ArrayList<>(
+                        remotePending);
+
+        refreshEmergencyCleanup(
+                pendingMeasurements);
 
         pendingCandidates =
                 new ArrayList<>();
 
         if (!pendingMeasurements.isEmpty()) {
             PendingMeasurementStore.Item item =
-                    pendingMeasurements.get(0);
+                    pendingMeasurements.get(
+                            0);
 
             String localDeviceId =
                     PeerTrustStore.localDeviceId(
@@ -1558,7 +1824,7 @@ public final class MainActivity extends Activity {
 
             List<UserProfile> localProfiles =
                     UserProfileRoomStore.enabled(
-                            UserProfileRoomStore.load(this));
+                            storedProfiles);
 
             List<String> remainingCandidateProfileIds =
                     item.remainingCandidateProfileIds();
@@ -1568,14 +1834,16 @@ public final class MainActivity extends Activity {
             for (String rejectedProfileId :
                     item.rejectedProfileIds) {
                 HouseholdProfile rejectedProfile =
-                        HouseholdProfileRoomStore.find(
-                                this,
+                        findHouseholdProfile(
+                                householdProfiles,
                                 rejectedProfileId);
 
                 if (rejectedProfile != null
                         && localDeviceId.equals(
                                 rejectedProfile.ownerDeviceId)) {
-                    localUsersRejected = true;
+                    localUsersRejected =
+                            true;
+
                     break;
                 }
             }
@@ -1600,8 +1868,8 @@ public final class MainActivity extends Activity {
                 HouseholdProfile household =
                         remainingCandidateProfileIds.contains(
                                 local.householdProfileId)
-                                ? HouseholdProfileRoomStore.find(
-                                        this,
+                                ? findHouseholdProfile(
+                                        householdProfiles,
                                         local.householdProfileId)
                                 : null;
 
@@ -1631,7 +1899,7 @@ public final class MainActivity extends Activity {
 
             List<UserProfile> localProfiles =
                     UserProfileRoomStore.enabled(
-                            UserProfileRoomStore.load(this));
+                            storedProfiles);
 
             for (String profileId :
                     item.candidateProfileIds) {
@@ -1666,25 +1934,25 @@ public final class MainActivity extends Activity {
                     .append("collector:")
                     .append(
                             pendingMeasurements.get(0).id)
-                    .append('|');
+                    .append("|");
         } else if (!remotePendingMeasurements.isEmpty()) {
             signatureBuilder
                     .append("remote:")
                     .append(
                             remotePendingMeasurements.get(0)
                                     .measurementId)
-                    .append('|');
+                    .append("|");
         }
 
         for (PendingCandidate candidate :
                 pendingCandidates) {
             signatureBuilder
                     .append(candidate.profileId)
-                    .append(':')
+                    .append(":")
                     .append(candidate.ownerDeviceId)
-                    .append(':')
+                    .append(":")
                     .append(candidate.name)
-                    .append('|');
+                    .append("|");
         }
 
         String signature =
@@ -1708,7 +1976,8 @@ public final class MainActivity extends Activity {
                     adapter);
 
             if (oldPosition >= 0
-                    && oldPosition < pendingCandidates.size()) {
+                    && oldPosition
+                            < pendingCandidates.size()) {
                 pendingUserSpinner.setSelection(
                         oldPosition);
             }
@@ -1758,6 +2027,7 @@ public final class MainActivity extends Activity {
         if (!hasPending) {
             pendingStatus.setText(
                     R.string.pending_none);
+
             return;
         }
 
@@ -1775,19 +2045,21 @@ public final class MainActivity extends Activity {
         }
 
         PendingMeasurementStore.Item item =
-                pendingMeasurements.get(0);
+                pendingMeasurements.get(
+                        0);
 
         if (item.isResolved()) {
             String selectedName =
                     item.selectedProfileId;
 
             for (HouseholdProfile profile :
-                    HouseholdProfileRoomStore.active(
-                            this)) {
-                if (item.selectedProfileId.equals(
-                        profile.profileId)) {
+                    householdProfiles) {
+                if (profile.active
+                        && item.selectedProfileId.equals(
+                                profile.profileId)) {
                     selectedName =
                             profile.name;
+
                     break;
                 }
             }
@@ -1797,6 +2069,7 @@ public final class MainActivity extends Activity {
                             R.string.pending_status_resolved,
                             item.weightKg,
                             selectedName));
+
             return;
         }
 
@@ -1809,7 +2082,8 @@ public final class MainActivity extends Activity {
 
         String candidateSummary =
                 pendingMatchingCandidateSummary(
-                        item);
+                        item,
+                        householdProfiles);
 
         String detail =
                 candidateSummary.isBlank()
@@ -1829,8 +2103,28 @@ public final class MainActivity extends Activity {
                         + detail);
     }
 
+    private HouseholdProfile findHouseholdProfile(
+            List<HouseholdProfile> householdProfiles,
+            String profileId) {
+        if (householdProfiles == null
+                || profileId == null) {
+            return null;
+        }
+
+        for (HouseholdProfile profile :
+                householdProfiles) {
+            if (profileId.equals(
+                    profile.profileId)) {
+                return profile;
+            }
+        }
+
+        return null;
+    }
+
     private String pendingMatchingCandidateSummary(
-            PendingMeasurementStore.Item item) {
+            PendingMeasurementStore.Item item,
+            List<HouseholdProfile> householdProfiles) {
         if (item == null
                 || item.manualRescue) {
             return "";
@@ -1853,8 +2147,8 @@ public final class MainActivity extends Activity {
         for (String profileId :
                 remaining) {
             HouseholdProfile profile =
-                    HouseholdProfileRoomStore.find(
-                            this,
+                    findHouseholdProfile(
+                            householdProfiles,
                             profileId);
 
             if (profile == null) {
@@ -1882,8 +2176,8 @@ public final class MainActivity extends Activity {
                 new StringBuilder();
 
         for (int i = 0;
-                i < labels.size();
-                i++) {
+             i < labels.size();
+             i++) {
             if (i > 0) {
                 names.append(
                         i == labels.size() - 1
@@ -2317,6 +2611,6 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshLog() {
-        log.setText(EventLog.read(this));
+        requestPeriodicUiDataRefresh();
     }
 }
