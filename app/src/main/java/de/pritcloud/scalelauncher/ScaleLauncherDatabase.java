@@ -13,9 +13,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
             MeasurementWriteJournalEntity.class,
             PendingMeasurementEntity.class,
             PendingMeasurementClaimEntity.class,
-            RemotePendingMeasurementEntity.class
+            RemotePendingMeasurementEntity.class,
+            PeerOutboxEntity.class
         },
-        version = 3,
+        version = 4,
         exportSchema = true)
 public abstract class ScaleLauncherDatabase
         extends RoomDatabase {
@@ -76,6 +77,24 @@ public abstract class ScaleLauncherDatabase
                 }
             };
 
+    static final Migration MIGRATION_3_4 =
+            new Migration(3, 4) {
+                @Override
+                public void migrate(
+                        SupportSQLiteDatabase database) {
+                    database.execSQL(
+                            "CREATE TABLE IF NOT EXISTS `peer_outbox` ("
+                                    + "`peer_device_id` TEXT NOT NULL, "
+                                    + "`message_id` TEXT NOT NULL, "
+                                    + "`kind` TEXT NOT NULL, "
+                                    + "`dedup_key` TEXT NOT NULL, "
+                                    + "`payload` TEXT NOT NULL, "
+                                    + "`created_at_ms` INTEGER NOT NULL, "
+                                    + "`sort_order` INTEGER NOT NULL, "
+                                    + "PRIMARY KEY(`peer_device_id`, `message_id`))");
+                }
+            };
+
     private static volatile ScaleLauncherDatabase instance;
 
     public abstract MeasurementWriteJournalDao
@@ -86,6 +105,9 @@ public abstract class ScaleLauncherDatabase
 
     public abstract RemotePendingMeasurementDao
             remotePendingMeasurementDao();
+
+    public abstract PeerOutboxDao
+            peerOutboxDao();
 
     static ScaleLauncherDatabase get(
             Context context) {
@@ -106,7 +128,8 @@ public abstract class ScaleLauncherDatabase
                                         "scalelauncher.db")
                                 .addMigrations(
                                         MIGRATION_1_2,
-                                        MIGRATION_2_3)
+                                        MIGRATION_2_3,
+                                        MIGRATION_3_4)
                                 .build();
 
                 instance = current;
