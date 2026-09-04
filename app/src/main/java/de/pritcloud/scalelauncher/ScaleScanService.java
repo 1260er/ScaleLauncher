@@ -598,7 +598,7 @@ public final class ScaleScanService extends Service {
         String authority =
                 prefs.getString("openscale_authority", "");
         List<UserProfile> profiles =
-                UserProfileStore.enabled(UserProfileStore.load(prefs));
+                UserProfileRoomStore.enabled(UserProfileRoomStore.load(this));
 
         if (!S400GattProtocol.isValidMacAddress(mac)) {
             enterTerminalError(
@@ -1507,12 +1507,11 @@ public final class ScaleScanService extends Service {
                         this);
 
         List<UserProfile> localProfiles =
-                UserProfileStore.enabled(
-                        UserProfileStore.load(
-                                prefs));
+                UserProfileRoomStore.enabled(
+                        UserProfileRoomStore.load(this));
 
         UserProfile target =
-                UserProfileStore.findByHouseholdProfileId(
+                UserProfileRoomStore.findByHouseholdProfileId(
                         localProfiles,
                         payload.targetProfileId);
 
@@ -1583,9 +1582,8 @@ public final class ScaleScanService extends Service {
                         this);
 
         List<UserProfile> localProfiles =
-                UserProfileStore.enabled(
-                        UserProfileStore.load(
-                                prefs));
+                UserProfileRoomStore.enabled(
+                        UserProfileRoomStore.load(this));
 
         List<String> claimedProfileIds =
                 new java.util.ArrayList<>();
@@ -1593,7 +1591,7 @@ public final class ScaleScanService extends Service {
         for (String candidateProfileId :
                 payload.candidateProfileIds) {
             UserProfile profile =
-                    UserProfileStore.findByHouseholdProfileId(
+                    UserProfileRoomStore.findByHouseholdProfileId(
                             localProfiles,
                             candidateProfileId);
 
@@ -1702,10 +1700,9 @@ public final class ScaleScanService extends Service {
                         MODE_PRIVATE);
 
         UserProfile local =
-                UserProfileStore.findByHouseholdProfileId(
-                        UserProfileStore.enabled(
-                                UserProfileStore.load(
-                                        prefs)),
+                UserProfileRoomStore.findByHouseholdProfileId(
+                        UserProfileRoomStore.enabled(
+                                UserProfileRoomStore.load(this)),
                         profileId);
 
         String localDeviceId =
@@ -2721,11 +2718,12 @@ public final class ScaleScanService extends Service {
         if (authority == null || authority.isBlank()) return;
 
         try {
-            int previousCount = UserProfileStore.load(prefs).size();
+            int previousCount = UserProfileRoomStore.load(this).size();
             List<OpenScaleProvider.User> currentUsers =
                     OpenScaleProvider.loadUsers(this, authority);
             List<UserProfile> synchronizedProfiles =
-                    UserProfileStore.synchronize(
+                    UserProfileRoomStore.synchronize(
+                            this,
                             prefs,
                             currentUsers,
                             PeerTrustStore.localDeviceId(this));
@@ -2782,9 +2780,8 @@ public final class ScaleScanService extends Service {
                         this);
 
         List<UserProfile> localProfiles =
-                UserProfileStore.enabled(
-                        UserProfileStore.load(
-                                prefs));
+                UserProfileRoomStore.enabled(
+                        UserProfileRoomStore.load(this));
 
         List<PendingMeasurementStore.Item> snapshot =
                 new java.util.ArrayList<>(
@@ -2840,7 +2837,7 @@ public final class ScaleScanService extends Service {
                     new java.util.ArrayList<>(
                             current.remainingCandidateProfileIds())) {
                 boolean available =
-                        UserProfileStore.findByHouseholdProfileId(
+                        UserProfileRoomStore.findByHouseholdProfileId(
                                 localProfiles,
                                 profileId) != null;
 
@@ -2921,9 +2918,8 @@ public final class ScaleScanService extends Service {
             }
 
             List<UserProfile> localProfiles =
-                    UserProfileStore.enabled(
-                            UserProfileStore.load(
-                                    prefs));
+                    UserProfileRoomStore.enabled(
+                            UserProfileRoomStore.load(this));
 
             UserMatcher.Result localMatch =
                     UserMatcher.match(
@@ -3017,9 +3013,8 @@ public final class ScaleScanService extends Service {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
 
         List<UserProfile> profiles =
-                UserProfileStore.enabled(
-                        UserProfileStore.load(
-                                prefs));
+                UserProfileRoomStore.enabled(
+                        UserProfileRoomStore.load(this));
 
         UserMatcher.Result match =
                 UserMatcher.match(
@@ -3557,10 +3552,9 @@ public final class ScaleScanService extends Service {
         if (localDeviceId.equals(
                 ownerDeviceId)) {
             UserProfile local =
-                    UserProfileStore.findByHouseholdProfileId(
-                            UserProfileStore.enabled(
-                                    UserProfileStore.load(
-                                            prefs)),
+                    UserProfileRoomStore.findByHouseholdProfileId(
+                            UserProfileRoomStore.enabled(
+                                    UserProfileRoomStore.load(this)),
                             profileId);
 
             return local != null
@@ -3672,10 +3666,9 @@ public final class ScaleScanService extends Service {
         if (localDeviceId.equals(
                 pending.selectedOwnerDeviceId)) {
             UserProfile target =
-                    UserProfileStore.findByHouseholdProfileId(
-                            UserProfileStore.enabled(
-                                    UserProfileStore.load(
-                                            prefs)),
+                    UserProfileRoomStore.findByHouseholdProfileId(
+                            UserProfileRoomStore.enabled(
+                                    UserProfileRoomStore.load(this)),
                             pending.selectedProfileId);
 
             if (target == null
@@ -3744,7 +3737,7 @@ public final class ScaleScanService extends Service {
         if (pendingId == null || pendingId.isBlank() || userId < 0L) return;
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         PendingMeasurementStore.Item pending = PendingMeasurementRoomStore.find(this, pendingId);
-        UserProfile profile = UserProfileStore.find(UserProfileStore.load(prefs), userId);
+        UserProfile profile = UserProfileRoomStore.find(UserProfileRoomStore.load(this), userId);
         if (pending == null) {
             EventLog.warning(this, getString(R.string.log_pending_measurement_missing));
             updateAssignmentNotification();

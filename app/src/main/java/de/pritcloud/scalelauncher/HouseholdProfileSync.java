@@ -13,10 +13,10 @@ final class HouseholdProfileSync {
             SharedPreferences prefs,
             long userId) {
         List<UserProfile> profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         UserProfile profile =
-                UserProfileStore.find(
+                UserProfileRoomStore.find(
                         profiles,
                         userId);
 
@@ -32,8 +32,8 @@ final class HouseholdProfileSync {
                         true);
 
         if (changed) {
-            UserProfileStore.save(
-                    prefs,
+            UserProfileRoomStore.save(
+                    context,
                     profiles);
         }
 
@@ -59,10 +59,10 @@ final class HouseholdProfileSync {
         }
 
         List<UserProfile> profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         UserProfile profile =
-                UserProfileStore.find(
+                UserProfileRoomStore.find(
                         profiles,
                         userId);
 
@@ -78,8 +78,8 @@ final class HouseholdProfileSync {
                 profile,
                 true);
 
-        UserProfileStore.save(
-                prefs,
+        UserProfileRoomStore.save(
+                    context,
                 profiles);
 
         return publishPrepared(
@@ -102,7 +102,7 @@ final class HouseholdProfileSync {
         }
 
         List<UserProfile> profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         boolean changed = false;
         int queued = 0;
@@ -121,8 +121,8 @@ final class HouseholdProfileSync {
         }
 
         if (changed) {
-            UserProfileStore.save(
-                    prefs,
+            UserProfileRoomStore.save(
+                    context,
                     profiles);
         }
 
@@ -206,7 +206,7 @@ final class HouseholdProfileSync {
                         peer.deviceId);
 
         List<UserProfile> localProfiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         boolean localChanged =
                 false;
@@ -259,8 +259,8 @@ final class HouseholdProfileSync {
         }
 
         if (localChanged) {
-            UserProfileStore.save(
-                    prefs,
+            UserProfileRoomStore.save(
+                    context,
                     localProfiles);
         }
 
@@ -356,10 +356,7 @@ final class HouseholdProfileSync {
             int queued = 0;
 
             List<UserProfile> currentProfiles =
-                    UserProfileStore.load(
-                            context.getSharedPreferences(
-                                    "prefs",
-                                    Context.MODE_PRIVATE));
+                    UserProfileRoomStore.load(context);
 
             List<String> ownerProfileIds =
                     currentOwnedProfileIds(
@@ -440,7 +437,7 @@ final class HouseholdProfileSync {
         }
 
         List<UserProfile> profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         List<String> ownerProfileIds =
                 currentOwnedProfileIds(

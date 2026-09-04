@@ -445,7 +445,8 @@ public final class MainActivity extends Activity {
             openScaleMeta = OpenScaleProvider.readMeta(this, openScaleAuthority);
             users = OpenScaleProvider.loadUsers(this, openScaleAuthority);
             SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-            profiles = UserProfileStore.synchronize(
+            profiles = UserProfileRoomStore.synchronize(
+                    this,
                     prefs,
                     users,
                     PeerTrustStore.localDeviceId(this));
@@ -461,7 +462,7 @@ public final class MainActivity extends Activity {
                     }
                 }
             }
-            if (changed) UserProfileStore.save(prefs, profiles);
+            if (changed) UserProfileRoomStore.save(this, profiles);
 
             long storedUser = prefs.getLong(
                     "profile_editor_user_id",
@@ -522,10 +523,7 @@ public final class MainActivity extends Activity {
 
     private void openUserDetail(long userId) {
         profiles =
-                UserProfileStore.load(
-                        getSharedPreferences(
-                                "prefs",
-                                MODE_PRIVATE));
+                UserProfileRoomStore.load(this);
 
         for (int position = 0; position < users.size(); position++) {
             OpenScaleProvider.User user = users.get(position);
@@ -565,7 +563,7 @@ public final class MainActivity extends Activity {
     private void loadProfileForPosition(int position) {
         if (loadingProfile || position < 0 || position >= users.size()) return;
         OpenScaleProvider.User user = users.get(position);
-        UserProfile profile = UserProfileStore.find(profiles, user.id);
+        UserProfile profile = UserProfileRoomStore.find(profiles, user.id);
         if (profile == null) return;
 
         loadingProfile = true;
@@ -612,7 +610,7 @@ public final class MainActivity extends Activity {
             return false;
         }
         OpenScaleProvider.User user = users.get(position);
-        UserProfile profile = UserProfileStore.find(profiles, user.id);
+        UserProfile profile = UserProfileRoomStore.find(profiles, user.id);
         if (profile == null) {
             profile = new UserProfile(user.id, user.name);
             profiles.add(profile);
@@ -673,7 +671,7 @@ public final class MainActivity extends Activity {
             editor.remove("health_connect_user_id");
         }
         editor.putLong("profile_editor_user_id", profile.userId).apply();
-        UserProfileStore.save(prefs, profiles);
+        UserProfileRoomStore.save(this, profiles);
 
         boolean profilePublished =
                 HouseholdProfileSync.publishProfile(
@@ -704,7 +702,7 @@ public final class MainActivity extends Activity {
         }
 
         profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(this);
 
         updateProfileStatus();
         refreshHomeUserSummary();
@@ -783,10 +781,7 @@ public final class MainActivity extends Activity {
 
         if (localDeviceId.equals(deviceId)) {
             List<UserProfile> storedProfiles =
-                    UserProfileStore.load(
-                            getSharedPreferences(
-                                    "prefs",
-                                    MODE_PRIVATE));
+                    UserProfileRoomStore.load(this);
 
             for (UserProfile profile : storedProfiles) {
                 if (!profile.enabled) {
@@ -1006,8 +1001,7 @@ public final class MainActivity extends Activity {
                         : R.string.home_health_connect_disabled);
 
         List<UserProfile> storedProfiles =
-                UserProfileStore.load(
-                        prefs);
+                UserProfileRoomStore.load(this);
 
         long healthUserId =
                 prefs.getLong(
@@ -1015,7 +1009,7 @@ public final class MainActivity extends Activity {
                         -1L);
 
         UserProfile healthProfile =
-                UserProfileStore.find(
+                UserProfileRoomStore.find(
                         storedProfiles,
                         healthUserId);
 
@@ -1031,7 +1025,7 @@ public final class MainActivity extends Activity {
         for (UserProfile profile : profiles) if (profile.enabled) enabledCount++;
         long healthUserId = getSharedPreferences("prefs", MODE_PRIVATE)
                 .getLong("health_connect_user_id", -1L);
-        UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
+        UserProfile healthProfile = UserProfileRoomStore.find(profiles, healthUserId);
         String healthName = healthProfile == null
                 ? getString(R.string.profile_health_user_not_set)
                 : healthProfile.name;
@@ -1200,8 +1194,8 @@ public final class MainActivity extends Activity {
         }
         if (!saveCurrentProfile(false)) return;
 
-        profiles = UserProfileStore.load(getSharedPreferences("prefs", MODE_PRIVATE));
-        List<UserProfile> enabledProfiles = UserProfileStore.enabled(profiles);
+        profiles = UserProfileRoomStore.load(this);
+        List<UserProfile> enabledProfiles = UserProfileRoomStore.enabled(profiles);
         if (enabledProfiles.isEmpty()) {
             LoggedToast.makeText(this,
                     getString(R.string.start_error_no_active_profile),
@@ -1228,7 +1222,7 @@ public final class MainActivity extends Activity {
                         Toast.LENGTH_LONG).show();
                 return;
             }
-            UserProfile healthProfile = UserProfileStore.find(enabledProfiles, healthUserId);
+            UserProfile healthProfile = UserProfileRoomStore.find(enabledProfiles, healthUserId);
             if (healthProfile == null) {
                 LoggedToast.makeText(this,
                         getString(R.string.health_connect_error_main_user),
@@ -1283,11 +1277,11 @@ public final class MainActivity extends Activity {
             }
 
             List<UserProfile> currentProfiles = profiles.isEmpty()
-                    ? UserProfileStore.load(prefs)
+                    ? UserProfileRoomStore.load(this)
                     : profiles;
             long healthUserId = prefs.getLong("health_connect_user_id", -1L);
             UserProfile healthProfile =
-                    UserProfileStore.find(currentProfiles, healthUserId);
+                    UserProfileRoomStore.find(currentProfiles, healthUserId);
 
             if (healthProfile == null) {
                 LoggedToast.makeText(
@@ -1373,7 +1367,7 @@ public final class MainActivity extends Activity {
         int granted = HealthConnectSupport.grantedWritePermissionCount(this, selection);
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         long healthUserId = prefs.getLong("health_connect_user_id", -1L);
-        UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
+        UserProfile healthProfile = UserProfileRoomStore.find(profiles, healthUserId);
         String userText = healthProfile == null
                 ? getString(R.string.health_connect_main_user_missing)
                 : getString(R.string.health_connect_user_name, healthProfile.name);
@@ -1563,9 +1557,8 @@ public final class MainActivity extends Activity {
                             this);
 
             List<UserProfile> localProfiles =
-                    UserProfileStore.enabled(
-                            UserProfileStore.load(
-                                    prefs));
+                    UserProfileRoomStore.enabled(
+                            UserProfileRoomStore.load(this));
 
             List<String> remainingCandidateProfileIds =
                     item.remainingCandidateProfileIds();
@@ -1637,14 +1630,13 @@ public final class MainActivity extends Activity {
                             this);
 
             List<UserProfile> localProfiles =
-                    UserProfileStore.enabled(
-                            UserProfileStore.load(
-                                    prefs));
+                    UserProfileRoomStore.enabled(
+                            UserProfileRoomStore.load(this));
 
             for (String profileId :
                     item.candidateProfileIds) {
                 UserProfile local =
-                        UserProfileStore.findByHouseholdProfileId(
+                        UserProfileRoomStore.findByHouseholdProfileId(
                                 localProfiles,
                                 profileId);
 
