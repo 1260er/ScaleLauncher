@@ -1030,7 +1030,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             payload.messageId);
@@ -1043,7 +1043,7 @@ public final class ScaleScanService extends Service {
                     return;
                 }
 
-                PeerInboxDedupStore.mark(
+                PeerInboxDedupRoomStore.mark(
                         this,
                         peer.deviceId,
                         payload.messageId);
@@ -1066,7 +1066,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             payload.messageId);
@@ -1086,7 +1086,7 @@ public final class ScaleScanService extends Service {
                     return;
                 }
 
-                PeerInboxDedupStore.mark(
+                PeerInboxDedupRoomStore.mark(
                         this,
                         peer.deviceId,
                         payload.messageId);
@@ -1117,7 +1117,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             status.messageId);
@@ -1131,7 +1131,7 @@ public final class ScaleScanService extends Service {
                             peer.deviceId);
                 }
 
-                PeerInboxDedupStore.mark(
+                PeerInboxDedupRoomStore.mark(
                         this,
                         peer.deviceId,
                         status.messageId);
@@ -1167,7 +1167,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             closed.messageId);
@@ -1186,7 +1186,7 @@ public final class ScaleScanService extends Service {
                                         this,
                                         closed.measurementId);
 
-                PeerInboxDedupStore.mark(
+                PeerInboxDedupRoomStore.mark(
                         this,
                         peer.deviceId,
                         closed.messageId);
@@ -1221,7 +1221,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             decision.messageId);
@@ -1255,7 +1255,7 @@ public final class ScaleScanService extends Service {
                                             decision.measurementId,
                                             decision.profileId);
 
-                    PeerInboxDedupStore.mark(
+                    PeerInboxDedupRoomStore.mark(
                             this,
                             peer.deviceId,
                             decision.messageId);
@@ -1320,7 +1320,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             claim.messageId);
@@ -1361,7 +1361,7 @@ public final class ScaleScanService extends Service {
                             prefs,
                             claim.measurementId);
 
-                    PeerInboxDedupStore.mark(
+                    PeerInboxDedupRoomStore.mark(
                             this,
                             peer.deviceId,
                             claim.messageId);
@@ -1411,7 +1411,7 @@ public final class ScaleScanService extends Service {
                                     + payload.measurementId;
 
                 boolean duplicate =
-                        PeerInboxDedupStore.contains(
+                        PeerInboxDedupRoomStore.contains(
                                 this,
                                 peer.deviceId,
                                 dedupKey);
@@ -1434,7 +1434,7 @@ public final class ScaleScanService extends Service {
                      * restart/retry we can therefore safely suppress another
                      * response and only ACK the repeated request.
                      */
-                    PeerInboxDedupStore.mark(
+                    PeerInboxDedupRoomStore.mark(
                             this,
                             peer.deviceId,
                             dedupKey);
@@ -1482,7 +1482,7 @@ public final class ScaleScanService extends Service {
                 "routed-measurement:"
                         + payload.measurementId;
 
-        if (PeerInboxDedupStore.contains(
+        if (PeerInboxDedupRoomStore.contains(
                 this,
                 peer.deviceId,
                 dedupKey)) {
@@ -1554,7 +1554,7 @@ public final class ScaleScanService extends Service {
 
         updateAssignmentNotification();
 
-        PeerInboxDedupStore.mark(
+        PeerInboxDedupRoomStore.mark(
                 this,
                 peer.deviceId,
                 dedupKey);

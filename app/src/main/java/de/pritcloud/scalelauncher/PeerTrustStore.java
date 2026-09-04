@@ -263,7 +263,7 @@ final class PeerTrustStore {
                 context,
                 deviceId);
 
-        PeerInboxDedupStore.removePeer(
+        PeerInboxDedupRoomStore.removePeer(
                 context,
                 deviceId);
 
