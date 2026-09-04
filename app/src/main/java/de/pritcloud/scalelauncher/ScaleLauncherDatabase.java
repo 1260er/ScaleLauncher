@@ -14,9 +14,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
             PendingMeasurementEntity.class,
             PendingMeasurementClaimEntity.class,
             RemotePendingMeasurementEntity.class,
-            PeerOutboxEntity.class
+            PeerOutboxEntity.class,
+            PeerInboxDedupEntity.class
         },
-        version = 4,
+        version = 5,
         exportSchema = true)
 public abstract class ScaleLauncherDatabase
         extends RoomDatabase {
@@ -95,6 +96,20 @@ public abstract class ScaleLauncherDatabase
                 }
             };
 
+    static final Migration MIGRATION_4_5 =
+            new Migration(4, 5) {
+                @Override
+                public void migrate(
+                        SupportSQLiteDatabase database) {
+                    database.execSQL(
+                            "CREATE TABLE IF NOT EXISTS `peer_inbox_dedup` ("
+                                    + "`sender_device_id` TEXT NOT NULL, "
+                                    + "`message_id` TEXT NOT NULL, "
+                                    + "`seen_at_ms` INTEGER NOT NULL, "
+                                    + "PRIMARY KEY(`sender_device_id`, `message_id`))");
+                }
+            };
+
     private static volatile ScaleLauncherDatabase instance;
 
     public abstract MeasurementWriteJournalDao
@@ -108,6 +123,9 @@ public abstract class ScaleLauncherDatabase
 
     public abstract PeerOutboxDao
             peerOutboxDao();
+
+    public abstract PeerInboxDedupDao
+            peerInboxDedupDao();
 
     static ScaleLauncherDatabase get(
             Context context) {
@@ -129,7 +147,8 @@ public abstract class ScaleLauncherDatabase
                                 .addMigrations(
                                         MIGRATION_1_2,
                                         MIGRATION_2_3,
-                                        MIGRATION_3_4)
+                                        MIGRATION_3_4,
+                                        MIGRATION_4_5)
                                 .build();
 
                 instance = current;
