@@ -36,6 +36,7 @@ public final class MainActivity extends Activity {
     private static final int REQ_SCAN = 101;
     private static final int REQ_OPENSCALE_PERMISSION = 102;
     private static final int REQ_HEALTH_CONNECT = 103;
+    private static final long LOG_REFRESH_INTERVAL_MS = 3_000L;
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-F]{2}:){5}[0-9A-F]{2}$");
     private static final Pattern TOKEN_PATTERN = Pattern.compile("^[0-9a-fA-F]{24}$");
 
@@ -58,6 +59,8 @@ public final class MainActivity extends Activity {
 
     private long uiDataRefreshGeneration;
     private boolean activityResumed;
+    private long lastLogRefreshRequestMs;
+    private String renderedLogText;
 
     private final Runnable refreshTask = new Runnable() {
         @Override public void run() {
@@ -939,9 +942,17 @@ public final class MainActivity extends Activity {
                         && logPage.getVisibility()
                                 == View.VISIBLE;
 
+        long now =
+                System.currentTimeMillis();
+
+        boolean logRefreshDue =
+                logVisible
+                        && now - lastLogRefreshRequestMs
+                                >= LOG_REFRESH_INTERVAL_MS;
+
         if (!homeVisible
                 && !emergencyVisible
-                && !logVisible) {
+                && !logRefreshDue) {
             return;
         }
 
@@ -949,6 +960,11 @@ public final class MainActivity extends Activity {
                 false,
                 true)) {
             return;
+        }
+
+        if (logRefreshDue) {
+            lastLogRefreshRequestMs =
+                    now;
         }
 
         long generation =
@@ -992,7 +1008,7 @@ public final class MainActivity extends Activity {
                                         : 0;
 
                         String logText =
-                                logVisible
+                                logRefreshDue
                                         ? EventLog.read(
                                                 this)
                                         : null;
@@ -1042,13 +1058,18 @@ public final class MainActivity extends Activity {
                                                 findViewById(
                                                         R.id.pageLog);
 
-                                        if (logVisible
+                                        if (logRefreshDue
                                                 && logText != null
                                                 && currentLog != null
                                                 && currentLog.getVisibility()
-                                                        == View.VISIBLE) {
+                                                        == View.VISIBLE
+                                                && !logText.equals(
+                                                        renderedLogText)) {
                                             log.setText(
                                                     logText);
+
+                                            renderedLogText =
+                                                    logText;
                                         }
                                     } finally {
                                         uiDataRefreshRunning.set(
@@ -2611,6 +2632,9 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshLog() {
+        lastLogRefreshRequestMs =
+                0L;
+
         requestPeriodicUiDataRefresh();
     }
 }
