@@ -1836,7 +1836,7 @@ public final class ScaleScanService extends Service {
                 new java.util.ArrayList<>(
                         pending.remainingCandidateProfileIds())) {
             HouseholdProfile profile =
-                    HouseholdProfileStore.find(
+                    HouseholdProfileRoomStore.find(
                             this,
                             profileId);
 
@@ -1943,7 +1943,7 @@ public final class ScaleScanService extends Service {
                 false;
 
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (decision.profileId.equals(
                         profile.profileId)
@@ -1993,7 +1993,7 @@ public final class ScaleScanService extends Service {
         }
 
         List<HouseholdProfile> householdProfiles =
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this);
 
         for (String profileId :
@@ -2252,7 +2252,7 @@ public final class ScaleScanService extends Service {
             for (String profileId :
                     candidateProfileIds) {
                 HouseholdProfile profile =
-                        HouseholdProfileStore.find(
+                        HouseholdProfileRoomStore.find(
                                 this,
                                 profileId);
 
@@ -2778,7 +2778,7 @@ public final class ScaleScanService extends Service {
                         this);
 
         List<HouseholdProfile> activeProfiles =
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this);
 
         List<UserProfile> localProfiles =
@@ -2939,7 +2939,7 @@ public final class ScaleScanService extends Service {
                     new java.util.ArrayList<>();
 
             for (HouseholdProfile profile :
-                    HouseholdProfileStore.active(
+                    HouseholdProfileRoomStore.active(
                             this)) {
                 if (profile != null
                         && UserProfile.isValidHouseholdProfileId(
@@ -3036,7 +3036,7 @@ public final class ScaleScanService extends Service {
 
         HouseholdMeasurementRouter.Result householdMatch =
                 HouseholdMeasurementRouter.match(
-                        HouseholdProfileStore.active(
+                        HouseholdProfileRoomStore.active(
                                 this),
                         measurement.weightKg);
 
@@ -3192,7 +3192,7 @@ public final class ScaleScanService extends Service {
         if (match.status
                 == UserMatcher.Status.NO_MATCH) {
             for (HouseholdProfile profile :
-                    HouseholdProfileStore.active(
+                    HouseholdProfileRoomStore.active(
                             this)) {
                 if (UserProfile.isValidHouseholdProfileId(
                         profile.profileId)) {
@@ -3331,7 +3331,7 @@ public final class ScaleScanService extends Service {
         for (String profileId :
                 remaining) {
             HouseholdProfile household =
-                    HouseholdProfileStore.find(
+                    HouseholdProfileRoomStore.find(
                             this,
                             profileId);
 
@@ -3406,7 +3406,7 @@ public final class ScaleScanService extends Service {
         for (String profileId :
                 pending.candidateProfileIds) {
             HouseholdProfile profile =
-                    HouseholdProfileStore.find(
+                    HouseholdProfileRoomStore.find(
                             this,
                             profileId);
 
@@ -3430,7 +3430,7 @@ public final class ScaleScanService extends Service {
          * measurement must not be asked again.
          */
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (profile == null
                     || !UserProfile.isValidHouseholdProfileId(
@@ -3489,7 +3489,7 @@ public final class ScaleScanService extends Service {
                 new java.util.ArrayList<>(
                         rescue.candidateProfileIds)) {
             HouseholdProfile profile =
-                    HouseholdProfileStore.find(
+                    HouseholdProfileRoomStore.find(
                             this,
                             profileId);
 
@@ -3534,7 +3534,7 @@ public final class ScaleScanService extends Service {
                 null;
 
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (profileId.equals(
                         profile.profileId)
@@ -3616,7 +3616,7 @@ public final class ScaleScanService extends Service {
                 remaining.get(0);
 
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (!profileId.equals(
                     profile.profileId)) {
@@ -3729,7 +3729,7 @@ public final class ScaleScanService extends Service {
     private String pendingDisplayName(
             String profileId) {
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (profileId.equals(
                     profile.profileId)) {

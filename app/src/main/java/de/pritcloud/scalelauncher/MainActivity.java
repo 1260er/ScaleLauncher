@@ -801,7 +801,7 @@ public final class MainActivity extends Activity {
             }
         } else {
             for (HouseholdProfile profile :
-                    HouseholdProfileStore.load(this)) {
+                    HouseholdProfileRoomStore.load(this)) {
                 if (!profile.active
                         || !deviceId.equals(profile.ownerDeviceId)) {
                     continue;
@@ -912,7 +912,7 @@ public final class MainActivity extends Activity {
                 new ArrayList<>();
 
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (localDeviceId.equals(
                     profile.ownerDeviceId)) {
@@ -1575,7 +1575,7 @@ public final class MainActivity extends Activity {
             for (String rejectedProfileId :
                     item.rejectedProfileIds) {
                 HouseholdProfile rejectedProfile =
-                        HouseholdProfileStore.find(
+                        HouseholdProfileRoomStore.find(
                                 this,
                                 rejectedProfileId);
 
@@ -1607,7 +1607,7 @@ public final class MainActivity extends Activity {
                 HouseholdProfile household =
                         remainingCandidateProfileIds.contains(
                                 local.householdProfileId)
-                                ? HouseholdProfileStore.find(
+                                ? HouseholdProfileRoomStore.find(
                                         this,
                                         local.householdProfileId)
                                 : null;
@@ -1790,7 +1790,7 @@ public final class MainActivity extends Activity {
                     item.selectedProfileId;
 
             for (HouseholdProfile profile :
-                    HouseholdProfileStore.active(
+                    HouseholdProfileRoomStore.active(
                             this)) {
                 if (item.selectedProfileId.equals(
                         profile.profileId)) {
@@ -1861,7 +1861,7 @@ public final class MainActivity extends Activity {
         for (String profileId :
                 remaining) {
             HouseholdProfile profile =
-                    HouseholdProfileStore.find(
+                    HouseholdProfileRoomStore.find(
                             this,
                             profileId);
 

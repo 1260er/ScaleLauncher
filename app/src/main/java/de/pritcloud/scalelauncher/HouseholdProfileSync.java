@@ -147,7 +147,7 @@ final class HouseholdProfileSync {
                                         context),
                                 profile.householdUpdatedAtMs);
 
-                HouseholdProfileStore.upsert(
+                HouseholdProfileRoomStore.upsert(
                         context,
                         household);
 
@@ -264,7 +264,7 @@ final class HouseholdProfileSync {
                     localProfiles);
         }
 
-        HouseholdProfileStore.upsert(
+        HouseholdProfileRoomStore.upsert(
                 context,
                 incoming);
 
@@ -274,7 +274,7 @@ final class HouseholdProfileSync {
                 && ownerProfileIds.contains(
                         incoming.profileId)) {
             int removed =
-                    HouseholdProfileStore.removeOwnerExcept(
+                    HouseholdProfileRoomStore.removeOwnerExcept(
                             context,
                             peer.deviceId,
                             ownerProfileIds);
@@ -320,7 +320,7 @@ final class HouseholdProfileSync {
         }
 
         int removed =
-                HouseholdProfileStore.removeOwnerExcept(
+                HouseholdProfileRoomStore.removeOwnerExcept(
                         context,
                         peer.deviceId,
                         ownerProfileIds);
@@ -349,7 +349,7 @@ final class HouseholdProfileSync {
                                     context),
                             profile.householdUpdatedAtMs);
 
-            HouseholdProfileStore.upsert(
+            HouseholdProfileRoomStore.upsert(
                     context,
                     household);
 
@@ -447,7 +447,7 @@ final class HouseholdProfileSync {
                         context,
                         profiles);
 
-        return HouseholdProfileStore.removeOwnerExcept(
+        return HouseholdProfileRoomStore.removeOwnerExcept(
                 context,
                 PeerTrustStore.localDeviceId(
                         context),

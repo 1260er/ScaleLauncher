@@ -267,7 +267,7 @@ final class PeerTrustStore {
                 context,
                 deviceId);
 
-        HouseholdProfileStore.removeOwner(
+        HouseholdProfileRoomStore.removeOwner(
                 context,
                 deviceId);
 
