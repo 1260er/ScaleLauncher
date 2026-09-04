@@ -327,7 +327,7 @@ final class PeerTrustStore {
         }
     }
 
-    private static String encryptSecret(
+    static String encryptSecret(
             byte[] secret) {
         try {
             Cipher cipher =
@@ -355,7 +355,7 @@ final class PeerTrustStore {
         }
     }
 
-    private static byte[] decryptSecret(
+    static byte[] decryptSecret(
             String encoded) {
         try {
             String[] parts =
