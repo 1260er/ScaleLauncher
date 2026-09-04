@@ -28,6 +28,27 @@ public final class EventLogTest {
     }
 
     @Test
+    public void newestFirstLimitsVisibleEntries() {
+        String stored =
+                "entry-1\n"
+                        + "entry-2\n"
+                        + "entry-3\n"
+                        + "entry-4";
+
+        assertEquals(
+                "entry-4\nentry-3",
+                EventLog.newestFirst(
+                        stored,
+                        2));
+
+        assertEquals(
+                "entry-4\nentry-3\nentry-2\nentry-1",
+                EventLog.newestFirst(
+                        stored,
+                        10));
+    }
+
+    @Test
     public void pruneRespects512KiBCharacterLimit() {
         StringBuilder stored = new StringBuilder();
         String payload = "x".repeat(4096);

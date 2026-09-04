@@ -37,6 +37,7 @@ public final class MainActivity extends Activity {
     private static final int REQ_OPENSCALE_PERMISSION = 102;
     private static final int REQ_HEALTH_CONNECT = 103;
     private static final long LOG_REFRESH_INTERVAL_MS = 3_000L;
+    private static final int LOG_VISIBLE_LINES = 250;
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-F]{2}:){5}[0-9A-F]{2}$");
     private static final Pattern TOKEN_PATTERN = Pattern.compile("^[0-9a-fA-F]{24}$");
 
@@ -1024,8 +1025,9 @@ public final class MainActivity extends Activity {
 
                         String logText =
                                 logRefreshDue
-                                        ? EventLog.read(
-                                                this)
+                                        ? EventLog.readRecent(
+                                                this,
+                                                LOG_VISIBLE_LINES)
                                         : null;
 
                         refreshHandler.post(
