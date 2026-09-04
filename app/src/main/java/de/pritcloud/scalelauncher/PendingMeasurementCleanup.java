@@ -56,8 +56,6 @@ final class PendingMeasurementCleanup {
         Result result =
                 discardLocalRoom(
                         context,
-                        PeerOutboxStore.prefs(
-                                context),
                         peerDeviceIds,
                         pendingId,
                         exception ->
@@ -91,12 +89,10 @@ final class PendingMeasurementCleanup {
 
     private static Result discardLocalRoom(
             Context context,
-            SharedPreferences outboxPreferences,
             List<String> peerDeviceIds,
             String pendingId,
             ErrorHandler errorHandler) {
         if (context == null
-                || outboxPreferences == null
                 || peerDeviceIds == null
                 || pendingId == null
                 || pendingId.isBlank()) {
@@ -125,8 +121,8 @@ final class PendingMeasurementCleanup {
                     0);
         }
 
-        PeerOutboxStore.removeMeasurement(
-                outboxPreferences,
+        PeerOutboxRoomStore.removeMeasurement(
+                context,
                 pendingId);
 
         int queued = 0;
@@ -138,8 +134,8 @@ final class PendingMeasurementCleanup {
                         PeerMeasurementClosedPayload.create(
                                 pendingId);
 
-                PeerOutboxStore.enqueueClosed(
-                        outboxPreferences,
+                PeerOutboxRoomStore.enqueueClosed(
+                        context,
                         peerDeviceId,
                         payload);
 

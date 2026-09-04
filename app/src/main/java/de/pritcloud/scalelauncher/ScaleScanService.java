@@ -87,14 +87,14 @@ public final class ScaleScanService extends Service {
     private final Runnable peerSyncRunnable =
             this::dispatchPeerOutbox;
 
-    private SharedPreferences peerOutboxPreferences;
-
-    private final SharedPreferences.OnSharedPreferenceChangeListener
+    private final PeerOutboxRoomStore.ChangeListener
             peerOutboxListener =
-            (preferences, key) -> {
-                peerErrorRetryAttempt = 0;
-                schedulePeerSync(0L);
-            };
+            () ->
+                    handler.post(
+                            () -> {
+                                peerErrorRetryAttempt = 0;
+                                schedulePeerSync(0L);
+                            });
 
     private final ArrayDeque<DirectPeerMessage> peerDirectQueue =
             new ArrayDeque<>();
@@ -212,11 +212,8 @@ public final class ScaleScanService extends Service {
 
         registerBluetoothStateReceiver();
 
-        peerOutboxPreferences =
-                PeerOutboxStore.prefs(this);
-        peerOutboxPreferences
-                .registerOnSharedPreferenceChangeListener(
-                        peerOutboxListener);
+        PeerOutboxRoomStore.registerChangeListener(
+                peerOutboxListener);
 
         startPeerTransport();
 
@@ -971,7 +968,7 @@ public final class ScaleScanService extends Service {
                 return;
             }
 
-            if (PeerOutboxStore.remove(
+            if (PeerOutboxRoomStore.remove(
                     this,
                     peer.deviceId,
                     ack.acknowledgedMessageId)) {
@@ -1652,7 +1649,7 @@ public final class ScaleScanService extends Service {
                         payload.measurementId,
                         claimedProfileIds);
 
-        PeerOutboxStore.enqueueClaim(
+        PeerOutboxRoomStore.enqueueClaim(
                 this,
                 peer.deviceId,
                 claim);
@@ -1729,7 +1726,7 @@ public final class ScaleScanService extends Service {
                         profileId,
                         true);
 
-        PeerOutboxStore.enqueueDecision(
+        PeerOutboxRoomStore.enqueueDecision(
                 this,
                 collector.deviceId,
                 decision);
@@ -1788,7 +1785,7 @@ public final class ScaleScanService extends Service {
                             profileId,
                             false);
 
-            PeerOutboxStore.enqueueDecision(
+            PeerOutboxRoomStore.enqueueDecision(
                     this,
                     collector.deviceId,
                     decision);
@@ -1909,7 +1906,7 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        PeerOutboxStore.removeMeasurement(
+        PeerOutboxRoomStore.removeMeasurement(
                 this,
                 pendingId);
 
@@ -2072,7 +2069,7 @@ public final class ScaleScanService extends Service {
                             pending.toMeasurement(),
                             targetProfileId);
 
-            PeerOutboxStore.enqueueMeasurement(
+            PeerOutboxRoomStore.enqueueMeasurement(
                     this,
                     targetDeviceId,
                     payload);
@@ -2150,7 +2147,7 @@ public final class ScaleScanService extends Service {
                         PeerCollectorStatusPayload.create(
                                 collector);
 
-                PeerOutboxStore.enqueueCollectorStatus(
+                PeerOutboxRoomStore.enqueueCollectorStatus(
                         this,
                         peer.deviceId,
                         payload);
@@ -2190,7 +2187,7 @@ public final class ScaleScanService extends Service {
                         PeerMeasurementClosedPayload.create(
                                 measurementId);
 
-                PeerOutboxStore.enqueueClosed(
+                PeerOutboxRoomStore.enqueueClosed(
                         this,
                         peer.deviceId,
                         payload);
@@ -2278,7 +2275,7 @@ public final class ScaleScanService extends Service {
                                 measurement,
                                 peerCandidateProfileIds);
 
-                PeerOutboxStore.enqueueMeasurement(
+                PeerOutboxRoomStore.enqueueMeasurement(
                         this,
                         peer.deviceId,
                         payload);
@@ -2368,7 +2365,7 @@ public final class ScaleScanService extends Service {
                                 measurement,
                                 candidateProfileIds);
 
-                PeerOutboxStore.enqueueMeasurement(
+                PeerOutboxRoomStore.enqueueMeasurement(
                         this,
                         targetDeviceId,
                         payload);
@@ -2568,7 +2565,7 @@ public final class ScaleScanService extends Service {
         }
 
         List<PeerOutboxStore.Item> items =
-                PeerOutboxStore.load(
+                PeerOutboxRoomStore.load(
                         this);
 
         items.sort(
@@ -2597,7 +2594,7 @@ public final class ScaleScanService extends Service {
                             item.peerDeviceId);
 
             if (peer == null) {
-                PeerOutboxStore.removePeer(
+                PeerOutboxRoomStore.removePeer(
                         this,
                         item.peerDeviceId);
                 continue;
@@ -2974,7 +2971,7 @@ public final class ScaleScanService extends Service {
              * Remove the obsolete normal CLAIM from the outbox before
              * queuing CLOSED + the new rescue request.
              */
-            PeerOutboxStore.removeMeasurement(
+            PeerOutboxRoomStore.removeMeasurement(
                     this,
                     pending.id);
 
@@ -3465,7 +3462,7 @@ public final class ScaleScanService extends Service {
         S400FinalMeasurement measurement =
                 pending.toMeasurement();
 
-        PeerOutboxStore.removeMeasurement(
+        PeerOutboxRoomStore.removeMeasurement(
                 this,
                 pending.id);
 
@@ -3701,7 +3698,7 @@ public final class ScaleScanService extends Service {
             if (processMeasurement(
                     pending.toMeasurement(),
                     target)) {
-                PeerOutboxStore.removeMeasurement(
+                PeerOutboxRoomStore.removeMeasurement(
                         this,
                         pending.id);
 
@@ -3763,7 +3760,7 @@ public final class ScaleScanService extends Service {
                 pending.weightKg,
                 profile.name));
         if (processMeasurement(pending.toMeasurement(), profile)) {
-            PeerOutboxStore.removeMeasurement(
+            PeerOutboxRoomStore.removeMeasurement(
                     this,
                     pending.id);
 
@@ -4712,12 +4709,8 @@ public final class ScaleScanService extends Service {
     }
 
     @Override public void onDestroy() {
-        if (peerOutboxPreferences != null) {
-            peerOutboxPreferences
-                    .unregisterOnSharedPreferenceChangeListener(
-                            peerOutboxListener);
-            peerOutboxPreferences = null;
-        }
+        PeerOutboxRoomStore.unregisterChangeListener(
+                peerOutboxListener);
 
         if (bluetoothStateReceiverRegistered) {
             try {

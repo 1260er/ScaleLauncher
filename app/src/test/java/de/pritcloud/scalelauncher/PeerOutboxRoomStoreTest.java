@@ -20,6 +20,35 @@ public final class PeerOutboxRoomStoreTest {
             "22222222-2222-2222-2222-222222222222";
 
     @Test
+    public void changeListenerCanBeRegisteredAndRemoved() {
+        int[] changes =
+                new int[1];
+
+        PeerOutboxRoomStore.ChangeListener listener =
+                () -> changes[0]++;
+
+        try {
+            PeerOutboxRoomStore.registerChangeListener(
+                    listener);
+
+            PeerOutboxRoomStore.notifyChanged();
+
+            assertEquals(
+                    1,
+                    changes[0]);
+        } finally {
+            PeerOutboxRoomStore.unregisterChangeListener(
+                    listener);
+        }
+
+        PeerOutboxRoomStore.notifyChanged();
+
+        assertEquals(
+                1,
+                changes[0]);
+    }
+
+    @Test
     public void migratesLegacyAndKeepsLegacyJson() {
         InMemorySharedPreferences prefs =
                 new InMemorySharedPreferences();

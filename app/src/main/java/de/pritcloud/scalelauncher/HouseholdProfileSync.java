@@ -151,7 +151,7 @@ final class HouseholdProfileSync {
                         context,
                         household);
 
-                PeerOutboxStore.enqueueProfile(
+                PeerOutboxRoomStore.enqueueProfile(
                         context,
                         peer.deviceId,
                         PeerProfilePayload.fromProfile(
@@ -169,7 +169,7 @@ final class HouseholdProfileSync {
         }
 
         try {
-            PeerOutboxStore.enqueueProfileManifest(
+            PeerOutboxRoomStore.enqueueProfileManifest(
                     context,
                     peer.deviceId,
                     PeerProfileManifestPayload.create(
@@ -412,7 +412,7 @@ final class HouseholdProfileSync {
             HouseholdProfile profile,
             List<String> ownerProfileIds) {
         try {
-            PeerOutboxStore.enqueueProfile(
+            PeerOutboxRoomStore.enqueueProfile(
                     context,
                     peer.deviceId,
                     PeerProfilePayload.fromProfile(

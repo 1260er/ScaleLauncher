@@ -981,7 +981,7 @@ public final class MainActivity extends Activity {
         }
 
         int pendingSync =
-                PeerOutboxStore.count(this);
+                PeerOutboxRoomStore.count(this);
 
         peerSyncStatus.setText(
                 getResources()

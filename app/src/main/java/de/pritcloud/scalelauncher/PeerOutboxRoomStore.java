@@ -37,6 +37,11 @@ final class PeerOutboxRoomStore {
                     });
 
     private static volatile boolean migrationVerified;
+    private static volatile ChangeListener changeListener;
+
+    interface ChangeListener {
+        void onPeerOutboxChanged();
+    }
 
     private interface DatabaseOperation<T> {
         T run(ScaleLauncherDatabase database);
@@ -55,6 +60,34 @@ final class PeerOutboxRoomStore {
     }
 
     private PeerOutboxRoomStore() {
+    }
+
+    static synchronized void registerChangeListener(
+            ChangeListener listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException(
+                    "Change listener is required");
+        }
+
+        changeListener =
+                listener;
+    }
+
+    static synchronized void unregisterChangeListener(
+            ChangeListener listener) {
+        if (changeListener == listener) {
+            changeListener =
+                    null;
+        }
+    }
+
+    static void notifyChanged() {
+        ChangeListener listener =
+                changeListener;
+
+        if (listener != null) {
+            listener.onPeerOutboxChanged();
+        }
     }
 
     static void enqueueProfile(
@@ -244,13 +277,20 @@ final class PeerOutboxRoomStore {
             Context context,
             String peerDeviceId,
             String messageId) {
-        return runRoom(
-                context,
-                database ->
-                        remove(
-                                database.peerOutboxDao(),
-                                peerDeviceId,
-                                messageId));
+        boolean removed =
+                runRoom(
+                        context,
+                        database ->
+                                remove(
+                                        database.peerOutboxDao(),
+                                        peerDeviceId,
+                                        messageId));
+
+        if (removed) {
+            notifyChanged();
+        }
+
+        return removed;
     }
 
     static int count(
@@ -264,42 +304,67 @@ final class PeerOutboxRoomStore {
     static int removeMeasurement(
             Context context,
             String measurementId) {
-        return runRoom(
-                context,
-                database ->
-                        removeMeasurement(
-                                database.peerOutboxDao(),
-                                measurementId));
+        int removed =
+                runRoom(
+                        context,
+                        database ->
+                                removeMeasurement(
+                                        database.peerOutboxDao(),
+                                        measurementId));
+
+        if (removed > 0) {
+            notifyChanged();
+        }
+
+        return removed;
     }
 
     static int removePeer(
             Context context,
             String peerDeviceId) {
-        return runRoom(
-                context,
-                database ->
-                        removePeer(
-                                database.peerOutboxDao(),
-                                peerDeviceId));
+        int removed =
+                runRoom(
+                        context,
+                        database ->
+                                removePeer(
+                                        database.peerOutboxDao(),
+                                        peerDeviceId));
+
+        if (removed > 0) {
+            notifyChanged();
+        }
+
+        return removed;
     }
 
     private static void enqueue(
             Context context,
             PeerOutboxStore.Item incoming,
             boolean coalesce) {
-        runRoom(
-                context,
-                database -> {
-                    database.runInTransaction(
-                            () -> enqueue(
-                                    database.peerOutboxDao(),
-                                    incoming,
-                                    coalesce));
-                    return null;
-                });
+        boolean changed =
+                runRoom(
+                        context,
+                        database -> {
+                            boolean[] result =
+                                    new boolean[1];
+
+                            database.runInTransaction(
+                                    () ->
+                                            result[0] =
+                                                    enqueue(
+                                                            database.peerOutboxDao(),
+                                                            incoming,
+                                                            coalesce));
+
+                            return result[0];
+                        });
+
+        if (changed) {
+            notifyChanged();
+        }
     }
 
-    static void enqueue(
+    static boolean enqueue(
             PeerOutboxDao dao,
             PeerOutboxStore.Item incoming,
             boolean coalesce) {
@@ -315,14 +380,18 @@ final class PeerOutboxRoomStore {
                         incoming.messageId);
 
         if (existing != null) {
-            return;
+            return false;
         }
 
+        int removed =
+                0;
+
         if (coalesce) {
-            dao.deleteCoalesced(
-                    incoming.peerDeviceId,
-                    incoming.kind,
-                    incoming.dedupKey);
+            removed =
+                    dao.deleteCoalesced(
+                            incoming.peerDeviceId,
+                            incoming.kind,
+                            incoming.dedupKey);
         }
 
         PeerOutboxEntity entity =
@@ -334,13 +403,13 @@ final class PeerOutboxRoomStore {
                 dao.insert(entity);
 
         if (inserted != -1L) {
-            return;
+            return true;
         }
 
         if (dao.find(
                 incoming.peerDeviceId,
                 incoming.messageId) != null) {
-            return;
+            return removed > 0;
         }
 
         throw new IllegalStateException(

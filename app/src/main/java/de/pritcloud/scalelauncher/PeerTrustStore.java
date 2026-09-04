@@ -259,7 +259,7 @@ final class PeerTrustStore {
                         array.toString())
                 .commit();
 
-        PeerOutboxStore.removePeer(
+        PeerOutboxRoomStore.removePeer(
                 context,
                 deviceId);
 
