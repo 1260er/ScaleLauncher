@@ -29,6 +29,10 @@ public interface PeerInboxDedupDao {
     long upsert(
             PeerInboxDedupEntity entity);
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    long insert(
+            PeerInboxDedupEntity entity);
+
     @Query(
             "DELETE FROM peer_inbox_dedup "
                     + "WHERE sender_device_id = :peerDeviceId")
