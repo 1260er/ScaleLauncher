@@ -15,8 +15,8 @@ final class EventLog {
     private static final String KEY = "lines";
     private static final String APP_PREFS = "prefs";
     private static final String PREF_DIAGNOSTIC = "diagnostic_logging";
-    private static final int MAX_LINES = 150;
-    private static final int MAX_CHARS = 48 * 1024;
+    private static final int MAX_LINES = 3000;
+    private static final int MAX_CHARS = 512 * 1024;
 
     static void info(Context context, String message) {
         append(context, context.getString(R.string.log_level_info), message);
@@ -94,7 +94,7 @@ final class EventLog {
         prefs.edit().putString(KEY, String.join("\n", lines)).apply();
     }
 
-    private static String prune(String stored) {
+    static String prune(String stored) {
         List<String> lines = new ArrayList<>();
         for (String line : stored.split("\\n")) {
             if (!line.isEmpty()) lines.add(line);

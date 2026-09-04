@@ -28,6 +28,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelUuid;
+import android.os.SystemClock;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -120,6 +121,10 @@ final class PeerMeasurementTransport {
     private boolean advertisingStarting;
     private boolean advertisingUpdatePending;
     private boolean presenceScanActive;
+    private boolean sendScanActive;
+    private long advertisingStartedElapsedMs;
+    private long lastPresenceResultElapsedMs;
+    private long lastMatchedPresenceElapsedMs;
 
     private BluetoothGatt sendGatt;
     private BluetoothGattCharacteristic sendCharacteristic;
@@ -184,6 +189,10 @@ final class PeerMeasurementTransport {
 
         transportActive =
                 true;
+        sendScanActive = false;
+        advertisingStartedElapsedMs = 0L;
+        lastPresenceResultElapsedMs = 0L;
+        lastMatchedPresenceElapsedMs = 0L;
 
         try {
             server =
@@ -248,12 +257,26 @@ final class PeerMeasurementTransport {
             return;
         }
 
+        boolean previousCollector =
+                advertisingCollector;
+
         advertisingCollector =
                 collector;
+
+        EventLog.debug(
+                context,
+                "Peer-Diagnose: Collector-Advertising "
+                        + previousCollector
+                        + " -> "
+                        + collector);
 
         if (advertisingStarting) {
             advertisingUpdatePending =
                     true;
+
+            EventLog.debug(
+                    context,
+                    "Peer-Diagnose: Advertising-Aktualisierung vorgemerkt");
             return;
         }
 
@@ -261,6 +284,10 @@ final class PeerMeasurementTransport {
                 || advertiser == null) {
             return;
         }
+
+        EventLog.debug(
+                context,
+                "Peer-Diagnose: Advertising-Neustart wegen Collector-Status");
 
         try {
             advertiser.stopAdvertising(
@@ -270,6 +297,8 @@ final class PeerMeasurementTransport {
 
         advertisingActive =
                 false;
+        advertisingStartedElapsedMs =
+                0L;
 
         startAdvertising();
     }
@@ -385,6 +414,8 @@ final class PeerMeasurementTransport {
                     settings,
                     scanCallback);
 
+            sendScanActive =
+                    true;
             sendStage = "scanning";
 
             EventLog.debug(
@@ -495,6 +526,10 @@ final class PeerMeasurementTransport {
     }
 
     void stop() {
+        EventLog.debug(
+                context,
+                "Peer-Diagnose: Transport wird gestoppt");
+
         transportActive =
                 false;
         advertisingStarting =
@@ -523,6 +558,8 @@ final class PeerMeasurementTransport {
 
             advertisingActive =
                     false;
+            advertisingStartedElapsedMs =
+                    0L;
         }
 
         if (sendGatt != null) {
@@ -828,6 +865,11 @@ final class PeerMeasurementTransport {
             advertisingStarting =
                     true;
 
+            EventLog.debug(
+                    context,
+                    "Peer-Diagnose: Advertising-Start angefordert – collector="
+                            + advertisingCollector);
+
             advertiser.startAdvertising(
                     settings,
                     data,
@@ -862,6 +904,8 @@ final class PeerMeasurementTransport {
 
                                     advertisingActive =
                                             false;
+                                    advertisingStartedElapsedMs =
+                                            0L;
                                     advertisingUpdatePending =
                                             false;
                                     return;
@@ -869,6 +913,8 @@ final class PeerMeasurementTransport {
 
                                 advertisingActive =
                                         true;
+                                advertisingStartedElapsedMs =
+                                        SystemClock.elapsedRealtime();
 
                                 if (advertisingUpdatePending) {
                                     advertisingUpdatePending =
@@ -882,6 +928,12 @@ final class PeerMeasurementTransport {
 
                                     advertisingActive =
                                             false;
+                                    advertisingStartedElapsedMs =
+                                            0L;
+
+                                    EventLog.debug(
+                                            context,
+                                            "Peer-Diagnose: Advertising-Neustart nach vorgemerkter Aktualisierung");
 
                                     startAdvertising();
                                     return;
@@ -889,7 +941,8 @@ final class PeerMeasurementTransport {
 
                                 EventLog.debug(
                                         context,
-                                        "Peer-Transport: Advertising aktiv");
+                                        "Peer-Transport: Advertising aktiv – collector="
+                                                + advertisingCollector);
                             });
                 }
 
@@ -904,6 +957,8 @@ final class PeerMeasurementTransport {
                                         false;
                                 advertisingActive =
                                         false;
+                                advertisingStartedElapsedMs =
+                                        0L;
 
                                 reportError(
                                         "BLE-Peer-Advertising Fehler "
@@ -924,6 +979,9 @@ final class PeerMeasurementTransport {
                                         || result.getScanRecord() == null) {
                                     return;
                                 }
+
+                                lastPresenceResultElapsedMs =
+                                        SystemClock.elapsedRealtime();
 
                                 byte[] advertisedData =
                                         result.getScanRecord()
@@ -948,6 +1006,9 @@ final class PeerMeasurementTransport {
                                     boolean collector =
                                             advertisedData[8] == 1;
 
+                                    lastMatchedPresenceElapsedMs =
+                                            lastPresenceResultElapsedMs;
+
                                     handler.post(
                                             () -> listener.onPeerPresence(
                                                     presence.peer,
@@ -962,8 +1023,15 @@ final class PeerMeasurementTransport {
                 public void onScanFailed(
                         int errorCode) {
                     runOnTransportThread(
-                            () -> presenceScanActive =
-                                    false);
+                            () -> {
+                                presenceScanActive =
+                                        false;
+
+                                EventLog.debug(
+                                        context,
+                                        "Peer-Diagnose: Presence-Scan Fehler "
+                                                + errorCode);
+                            });
                 }
             };
 
@@ -1030,9 +1098,14 @@ final class PeerMeasurementTransport {
                 public void onScanFailed(
                         int errorCode) {
                     runOnTransportThread(
-                            () -> failSend(
-                                    "BLE-Peer-Suche Fehler "
-                                            + errorCode));
+                            () -> {
+                                sendScanActive =
+                                        false;
+
+                                failSend(
+                                        "BLE-Peer-Suche Fehler "
+                                                + errorCode);
+                            });
                 }
             };
 
@@ -1825,9 +1898,18 @@ final class PeerMeasurementTransport {
 
             presenceScanActive =
                     true;
+
+            EventLog.debug(
+                    context,
+                    "Peer-Diagnose: Presence-Scan gestartet");
         } catch (RuntimeException exception) {
             presenceScanActive =
                     false;
+
+            EventLog.debug(
+                    context,
+                    "Peer-Diagnose: Presence-Scan Start fehlgeschlagen – "
+                            + exception.getClass().getSimpleName());
         }
     }
 
@@ -1845,16 +1927,80 @@ final class PeerMeasurementTransport {
 
         presenceScanActive =
                 false;
+
+        EventLog.debug(
+                context,
+                "Peer-Diagnose: Presence-Scan gestoppt");
     }
 
     private void stopSendScan() {
-        if (scanner == null) return;
+        boolean wasActive =
+                sendScanActive;
+
+        if (scanner == null) {
+            sendScanActive =
+                    false;
+            return;
+        }
 
         try {
             scanner.stopScan(
                     scanCallback);
         } catch (RuntimeException ignored) {
         }
+
+        sendScanActive =
+                false;
+
+        if (wasActive) {
+            EventLog.debug(
+                    context,
+                    "Peer-Diagnose: Send-Scan gestoppt – stage="
+                            + sendStage);
+        }
+    }
+
+    void logDiagnosticState() {
+        long now =
+                SystemClock.elapsedRealtime();
+
+        EventLog.debug(
+                context,
+                "Peer-Diagnose: active="
+                        + transportActive
+                        + " advertising="
+                        + advertisingActive
+                        + " advertisingStarting="
+                        + advertisingStarting
+                        + " collector="
+                        + advertisingCollector
+                        + " advertisingAge="
+                        + elapsedAge(now, advertisingStartedElapsedMs)
+                        + " presenceScan="
+                        + presenceScanActive
+                        + " lastPresence="
+                        + elapsedAge(now, lastPresenceResultElapsedMs)
+                        + " lastMatchedPeer="
+                        + elapsedAge(now, lastMatchedPresenceElapsedMs)
+                        + " sendScan="
+                        + sendScanActive
+                        + " sendStage="
+                        + sendStage
+                        + " sendGatt="
+                        + (sendGatt != null));
+    }
+
+    private static String elapsedAge(
+            long now,
+            long timestamp) {
+        if (timestamp <= 0L) {
+            return "-";
+        }
+
+        return Math.max(
+                        0L,
+                        (now - timestamp) / 1000L)
+                + "s";
     }
 
     private boolean hasBlePermissions() {

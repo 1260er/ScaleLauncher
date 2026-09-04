@@ -193,7 +193,7 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="state_enabled">enabled</string>
     <string name="state_disabled">disabled</string>
     <string name="log_empty">No events yet.</string>
-    <string name="log_limit_description">maximum %1$d entries / 48 KB</string>
+    <string name="log_limit_description">maximum %1$d entries / 512 KB</string>
     <string name="log_level_info">INFO</string>
     <string name="log_level_warning">WARNING</string>
     <string name="log_level_error">ERROR</string>

@@ -57,6 +57,7 @@ public final class ScaleScanService extends Service {
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
     private static final long PEER_SYNC_RETRY_MS = 30_000L;
+    private static final long PEER_DIAGNOSTIC_INTERVAL_MS = 15 * 60_000L;
     private static final boolean ENABLE_REVERSE_ACK_FALLBACK = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -180,6 +181,7 @@ public final class ScaleScanService extends Service {
     private boolean gattReconnectScheduled;
     private int gattReconnectAttempt;
     private long lastGattFinalTimestampSeconds;
+    private long lastPeerDiagnosticLogMs;
     private boolean explicitStop;
     private boolean terminalError;
     private String monitorText = "";
@@ -350,19 +352,44 @@ public final class ScaleScanService extends Service {
                                 ServiceState.CollectorSource previousSource =
                                         collectorSource();
 
+                                boolean wasRemoteCollector =
+                                        remoteCollectorLastSeenMs.containsKey(
+                                                peer.deviceId);
+
                                 if (collector) {
                                     remoteCollectorLastSeenMs.put(
                                             peer.deviceId,
                                             SystemClock.elapsedRealtime());
+
+                                    if (!wasRemoteCollector) {
+                                        EventLog.debug(
+                                                ScaleScanService.this,
+                                                "Peer-Diagnose: "
+                                                        + peer.label
+                                                        + " als Remote-Collector erkannt");
+                                    }
                                 } else {
                                     remoteCollectorLastSeenMs.remove(
                                             peer.deviceId);
+
+                                    if (wasRemoteCollector) {
+                                        EventLog.debug(
+                                                ScaleScanService.this,
+                                                "Peer-Diagnose: "
+                                                        + peer.label
+                                                        + " meldet nicht mehr Collector");
+                                    }
                                 }
 
                                 ServiceState.CollectorSource currentSource =
                                         collectorSource();
 
                                 if (currentSource != previousSource) {
+                                    logCollectorTransition(
+                                            previousSource,
+                                            currentSource,
+                                            "Peer-Präsenz " + peer.label);
+
                                     ServiceState.heartbeat(
                                             ScaleScanService.this,
                                             gattCollectorOwned,
@@ -452,6 +479,11 @@ public final class ScaleScanService extends Service {
                 collectorSource();
 
         if (currentSource != previousSource) {
+            logCollectorTransition(
+                    previousSource,
+                    currentSource,
+                    "Peer-Liste aktualisiert");
+
             ServiceState.heartbeat(
                     this,
                     gattCollectorOwned,
@@ -496,6 +528,11 @@ public final class ScaleScanService extends Service {
                     collectorSource();
 
             if (currentSource != previousSource) {
+                logCollectorTransition(
+                        previousSource,
+                        currentSource,
+                        "Peer-Transport gestoppt");
+
                 ServiceState.heartbeat(
                         this,
                         gattCollectorOwned,
@@ -2065,6 +2102,9 @@ public final class ScaleScanService extends Service {
     private void setCollectorOwned(
             boolean collector,
             boolean forceAnnounce) {
+        ServiceState.CollectorSource previousSource =
+                collectorSource();
+
         boolean changed =
                 gattCollectorOwned != collector;
 
@@ -2074,6 +2114,16 @@ public final class ScaleScanService extends Service {
         if (peerTransport != null) {
             peerTransport.setCollectorAdvertising(
                     collector);
+        }
+
+        ServiceState.CollectorSource currentSource =
+                collectorSource();
+
+        if (currentSource != previousSource) {
+            logCollectorTransition(
+                    previousSource,
+                    currentSource,
+                    "S400-Collector=" + collector);
         }
 
         if (changed
@@ -4210,6 +4260,52 @@ public final class ScaleScanService extends Service {
         return ServiceState.CollectorSource.NONE;
     }
 
+    private void logCollectorTransition(
+            ServiceState.CollectorSource previousSource,
+            ServiceState.CollectorSource currentSource,
+            String reason) {
+        if (previousSource == currentSource) {
+            return;
+        }
+
+        EventLog.debug(
+                this,
+                "Collector-Diagnose: "
+                        + previousSource
+                        + " -> "
+                        + currentSource
+                        + " – "
+                        + reason);
+    }
+
+    private void logPeerDiagnosticSnapshot() {
+        if (peerTransport != null) {
+            peerTransport.logDiagnosticState();
+        }
+
+        String gattState =
+                gattClient == null
+                        ? "none"
+                        : gattClient.getState().name();
+
+        EventLog.debug(
+                this,
+                "Collector-Diagnose: source="
+                        + collectorSource()
+                        + " localOwned="
+                        + gattCollectorOwned
+                        + " remoteCollectors="
+                        + remoteCollectorLastSeenMs.size()
+                        + " gattMonitoring="
+                        + gattMonitoringActive
+                        + " gattState="
+                        + gattState
+                        + " reconnectScheduled="
+                        + gattReconnectScheduled
+                        + " reconnectAttempt="
+                        + gattReconnectAttempt);
+    }
+
     private void expireRemoteCollectorPresence() {
         ServiceState.CollectorSource previousSource =
                 collectorSource();
@@ -4217,16 +4313,35 @@ public final class ScaleScanService extends Service {
         long now =
                 SystemClock.elapsedRealtime();
 
+        int previousCount =
+                remoteCollectorLastSeenMs.size();
+
         remoteCollectorLastSeenMs.entrySet()
                 .removeIf(
                         entry ->
                                 now - entry.getValue()
                                         >= REMOTE_COLLECTOR_REACHABLE_MS);
 
+        int expiredCount =
+                previousCount - remoteCollectorLastSeenMs.size();
+
+        if (expiredCount > 0) {
+            EventLog.debug(
+                    this,
+                    "Peer-Diagnose: "
+                            + expiredCount
+                            + " Remote-Collector-Präsenz nach 60 s abgelaufen");
+        }
+
         ServiceState.CollectorSource currentSource =
                 collectorSource();
 
         if (currentSource != previousSource) {
+            logCollectorTransition(
+                    previousSource,
+                    currentSource,
+                    "Remote-Collector nicht mehr gesehen");
+
             ServiceState.heartbeat(
                     this,
                     gattCollectorOwned,
@@ -4241,6 +4356,19 @@ public final class ScaleScanService extends Service {
         if (explicitStop) return;
 
         expireRemoteCollectorPresence();
+
+        long diagnosticNow =
+                SystemClock.elapsedRealtime();
+
+        if (EventLog.isDiagnosticEnabled(this)
+                && (lastPeerDiagnosticLogMs == 0L
+                    || diagnosticNow - lastPeerDiagnosticLogMs
+                            >= PEER_DIAGNOSTIC_INTERVAL_MS)) {
+            lastPeerDiagnosticLogMs =
+                    diagnosticNow;
+
+            logPeerDiagnosticSnapshot();
+        }
 
         if (terminalError) {
             ServiceState.heartbeat(
