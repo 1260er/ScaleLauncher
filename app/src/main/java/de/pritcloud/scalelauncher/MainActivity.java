@@ -207,16 +207,31 @@ public final class MainActivity extends Activity {
         });
 
         findViewById(R.id.navLog).setOnClickListener(view -> {
-            pageHome.setVisibility(View.GONE);
-            pageScale.setVisibility(View.GONE);
-            pagePermissions.setVisibility(View.GONE);
-            pageUsers.setVisibility(View.GONE);
-            pageUserDetail.setVisibility(View.GONE);
-            pageHealthConnect.setVisibility(View.GONE);
-            pageEmergencyCleanup.setVisibility(View.GONE);
-            pageLog.setVisibility(View.VISIBLE);
-            refreshLog();
-            drawerLayout.closeDrawer(android.view.Gravity.END);
+            androidx.drawerlayout.widget.DrawerLayout.SimpleDrawerListener listener =
+                    new androidx.drawerlayout.widget.DrawerLayout.SimpleDrawerListener() {
+                        @Override
+                        public void onDrawerClosed(View drawerView) {
+                            drawerLayout.removeDrawerListener(
+                                    this);
+
+                            pageHome.setVisibility(View.GONE);
+                            pageScale.setVisibility(View.GONE);
+                            pagePermissions.setVisibility(View.GONE);
+                            pageUsers.setVisibility(View.GONE);
+                            pageUserDetail.setVisibility(View.GONE);
+                            pageHealthConnect.setVisibility(View.GONE);
+                            pageEmergencyCleanup.setVisibility(View.GONE);
+                            pageLog.setVisibility(View.VISIBLE);
+
+                            refreshLog();
+                        }
+                    };
+
+            drawerLayout.addDrawerListener(
+                    listener);
+
+            drawerLayout.closeDrawer(
+                    android.view.Gravity.END);
         });
 
         findViewById(R.id.navHelp).setOnClickListener(view -> {
