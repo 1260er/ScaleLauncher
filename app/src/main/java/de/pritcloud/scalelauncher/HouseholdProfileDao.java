@@ -4,6 +4,7 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
+import androidx.room.Update;
 
 import java.util.List;
 
@@ -23,6 +24,10 @@ public interface HouseholdProfileDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     long insert(
+            HouseholdProfileEntity entity);
+
+    @Update
+    int update(
             HouseholdProfileEntity entity);
 
     @Query(
