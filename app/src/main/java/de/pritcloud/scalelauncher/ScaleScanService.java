@@ -57,10 +57,16 @@ public final class ScaleScanService extends Service {
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
     private static final long PEER_SYNC_RETRY_MS = 30_000L;
+    private static final long OPEN_SCALE_RETRY_DELAY_MS = 2_000L;
     private static final long PEER_DIAGNOSTIC_INTERVAL_MS = 15 * 60_000L;
     private static final boolean ENABLE_REVERSE_ACK_FALLBACK = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private final java.util.Set<String>
+            openScaleProcessingMeasurements =
+            new java.util.HashSet<>();
+
     private final Runnable watchdogRunnable = this::runWatchdog;
     private final Runnable gattReconnectRunnable = this::runGattReconnect;
     private boolean userSyncCompletedOnce;
@@ -3707,22 +3713,23 @@ public final class ScaleScanService extends Service {
                             pending.weightKg,
                             target.name));
 
-            if (processMeasurement(
+            processMeasurement(
                     pending.toMeasurement(),
-                    target)) {
-                PeerOutboxRoomStore.removeMeasurement(
-                        this,
-                        pending.id);
+                    target,
+                    () -> {
+                        PeerOutboxRoomStore.removeMeasurement(
+                                this,
+                                pending.id);
 
-                broadcastMeasurementClosed(
-                        pending.id);
+                        broadcastMeasurementClosed(
+                                pending.id);
 
-                PendingMeasurementRoomStore.remove(
-                        this,
-                        pending.id);
+                        PendingMeasurementRoomStore.remove(
+                                this,
+                                pending.id);
 
-                updateAssignmentNotification();
-            }
+                        updateAssignmentNotification();
+                    });
 
             return;
         }
@@ -3771,70 +3778,122 @@ public final class ScaleScanService extends Service {
                 R.string.log_measurement_manually_assigned,
                 pending.weightKg,
                 profile.name));
-        if (processMeasurement(pending.toMeasurement(), profile)) {
-            PeerOutboxRoomStore.removeMeasurement(
-                    this,
-                    pending.id);
+        processMeasurement(
+                pending.toMeasurement(),
+                profile,
+                () -> {
+                    PeerOutboxRoomStore.removeMeasurement(
+                            this,
+                            pending.id);
 
-            broadcastMeasurementClosed(
-                    pending.id);
+                    broadcastMeasurementClosed(
+                            pending.id);
 
-            PendingMeasurementRoomStore.remove(
-                    this,
-                    pending.id);
+                    PendingMeasurementRoomStore.remove(
+                            this,
+                            pending.id);
 
-            updateAssignmentNotification();
-        }
+                    updateAssignmentNotification();
+                });
     }
 
-    private boolean processMeasurement(S400FinalMeasurement measurement,
-                                       UserProfile profile) {
-        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        String authority = prefs.getString("openscale_authority", "");
-        LocalDate birthDate = BirthDateUtils.parseIso(profile.birthDateIso);
-        long timestamp = measurement.timestampMs > 0L
-                ? measurement.timestampMs
-                : System.currentTimeMillis();
-        int age = BirthDateUtils.ageOn(birthDate, timestamp);
+    private void processMeasurement(
+            S400FinalMeasurement measurement,
+            UserProfile profile) {
+        processMeasurement(
+                measurement,
+                profile,
+                null);
+    }
 
-        if (age < 18 || age > 120) {
-            rejectMeasurement(getString(
-                    R.string.service_error_invalid_birth_date,
-                    profile.name));
-            return false;
+    private void processMeasurement(
+            S400FinalMeasurement measurement,
+            UserProfile profile,
+            Runnable onSuccess) {
+        SharedPreferences prefs =
+                getSharedPreferences(
+                        "prefs",
+                        MODE_PRIVATE);
+
+        String authority =
+                prefs.getString(
+                        "openscale_authority",
+                        "");
+
+        LocalDate birthDate =
+                BirthDateUtils.parseIso(
+                        profile.birthDateIso);
+
+        long timestamp =
+                measurement.timestampMs > 0L
+                        ? measurement.timestampMs
+                        : System.currentTimeMillis();
+
+        int age =
+                BirthDateUtils.ageOn(
+                        birthDate,
+                        timestamp);
+
+        if (age < 18
+                || age > 120) {
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_invalid_birth_date,
+                            profile.name));
+            return;
         }
 
-        if (!measurement.isComplete() || measurement.impedanceLow == null) {
-            rejectMeasurement(getString(R.string.service_error_measurement_incomplete));
-            return false;
+        if (!measurement.isComplete()
+                || measurement.impedanceLow == null) {
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_measurement_incomplete));
+            return;
         }
-        S400BodyComposition.Result composition = S400BodyComposition.compute(
-                new S400BodyComposition.Inputs(
-                        age,
-                        profile.male,
-                        profile.heightCm,
-                        measurement.weightKg,
-                        measurement.impedanceHigh,
-                        measurement.impedanceLow));
 
-        String compositionError = validateCompleteComposition(composition);
+        S400BodyComposition.Result composition =
+                S400BodyComposition.compute(
+                        new S400BodyComposition.Inputs(
+                                age,
+                                profile.male,
+                                profile.heightCm,
+                                measurement.weightKg,
+                                measurement.impedanceHigh,
+                                measurement.impedanceLow));
+
+        String compositionError =
+                validateCompleteComposition(
+                        composition);
+
         if (compositionError != null) {
-            rejectMeasurement(getString(
-                    R.string.service_error_incomplete_composition,
-                    compositionError));
-            return false;
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_incomplete_composition,
+                            compositionError));
+            return;
         }
+
         if (composition.impedanceLabelsSwapped) {
-            EventLog.debug(this, getString(R.string.log_impedance_labels_swapped));
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_impedance_labels_swapped));
         }
-        EventLog.debug(this, buildCalculationLog(profile.name, age, measurement, composition));
+
+        EventLog.debug(
+                this,
+                buildCalculationLog(
+                        profile.name,
+                        age,
+                        measurement,
+                        composition));
 
         if (!UserProfile.isValidHouseholdProfileId(
                 profile.householdProfileId)) {
             rejectMeasurement(
                     getString(
                             R.string.service_error_selected_profile));
-            return false;
+            return;
         }
 
         try {
@@ -3850,13 +3909,19 @@ public final class ScaleScanService extends Service {
                             R.string.service_error_openscale_transfer,
                             exception.getClass().getSimpleName(),
                             safeMessage(exception)));
+
             rejectMeasurement(
                     getString(
                             R.string.service_error_openscale_unconfirmed));
-            return false;
+            return;
         }
 
-        OpenScaleWriteAttempt openScaleAttempt =
+        if (!openScaleProcessingMeasurements.add(
+                measurement.measurementId)) {
+            return;
+        }
+
+        OpenScaleWriteAttempt firstAttempt =
                 attemptOpenScaleWrite(
                         prefs,
                         authority,
@@ -3865,50 +3930,150 @@ public final class ScaleScanService extends Service {
                         measurement,
                         composition);
 
-        if (!openScaleAttempt.stored) {
-            rejectMeasurement(
-                    openScaleAttempt.failureReason);
-            return false;
+        if (firstAttempt.stored) {
+            completeMeasurementAfterOpenScale(
+                    prefs,
+                    profile,
+                    timestamp,
+                    measurement,
+                    composition,
+                    onSuccess);
+            return;
         }
 
+        if (!firstAttempt.retryable) {
+            openScaleProcessingMeasurements.remove(
+                    measurement.measurementId);
+
+            rejectMeasurement(
+                    firstAttempt.failureReason);
+            return;
+        }
+
+        scheduleOpenScaleRetry(
+                prefs,
+                authority,
+                profile,
+                timestamp,
+                measurement,
+                composition,
+                onSuccess,
+                firstAttempt.failureReason);
+    }
+
+    private void scheduleOpenScaleRetry(
+            SharedPreferences prefs,
+            String authority,
+            UserProfile profile,
+            long timestamp,
+            S400FinalMeasurement measurement,
+            S400BodyComposition.Result composition,
+            Runnable onSuccess,
+            String firstFailureReason) {
+        boolean scheduled =
+                handler.postDelayed(
+                        () -> {
+                            OpenScaleWriteAttempt retryAttempt =
+                                    attemptOpenScaleWrite(
+                                            prefs,
+                                            authority,
+                                            profile,
+                                            timestamp,
+                                            measurement,
+                                            composition);
+
+                            if (!retryAttempt.stored) {
+                                openScaleProcessingMeasurements.remove(
+                                        measurement.measurementId);
+
+                                rejectMeasurement(
+                                        retryAttempt.failureReason);
+                                return;
+                            }
+
+                            completeMeasurementAfterOpenScale(
+                                    prefs,
+                                    profile,
+                                    timestamp,
+                                    measurement,
+                                    composition,
+                                    onSuccess);
+                        },
+                        OPEN_SCALE_RETRY_DELAY_MS);
+
+        if (!scheduled) {
+            openScaleProcessingMeasurements.remove(
+                    measurement.measurementId);
+
+            rejectMeasurement(
+                    firstFailureReason);
+        }
+    }
+
+    private void completeMeasurementAfterOpenScale(
+            SharedPreferences prefs,
+            UserProfile profile,
+            long timestamp,
+            S400FinalMeasurement measurement,
+            S400BodyComposition.Result composition,
+            Runnable onSuccess) {
         try {
-            boolean referenceUpdated =
-                    HouseholdProfileSync.updateReferenceWeight(
+            try {
+                boolean referenceUpdated =
+                        HouseholdProfileSync.updateReferenceWeight(
+                                this,
+                                prefs,
+                                profile.userId,
+                                measurement.weightKg);
+
+                if (referenceUpdated) {
+                    profile.referenceWeightKg =
+                            measurement.weightKg;
+
+                    EventLog.debug(
                             this,
-                            prefs,
-                            profile.userId,
-                            measurement.weightKg);
+                            getString(
+                                    R.string.log_reference_weight_updated,
+                                    profile.name,
+                                    measurement.weightKg));
 
-            if (referenceUpdated) {
-                profile.referenceWeightKg =
-                        measurement.weightKg;
-
-                EventLog.debug(this, getString(
-                        R.string.log_reference_weight_updated,
-                        profile.name,
-                        measurement.weightKg));
-
-                schedulePeerSync(
-                        100L);
+                    schedulePeerSync(
+                            100L);
+                }
+            } catch (SecurityException exception) {
+                rejectMeasurement(
+                        getString(
+                                R.string.service_error_openscale_access));
+                return;
+            } catch (RuntimeException exception) {
+                rejectMeasurement(
+                        getString(
+                                R.string.service_error_openscale_transfer,
+                                exception.getClass().getSimpleName(),
+                                safeMessage(exception)));
+                return;
             }
-        } catch (SecurityException exception) {
-            rejectMeasurement(
-                    getString(
-                            R.string.service_error_openscale_access));
-            return false;
-        } catch (RuntimeException exception) {
-            rejectMeasurement(
-                    getString(
-                            R.string.service_error_openscale_transfer,
-                            exception.getClass().getSimpleName(),
-                            safeMessage(exception)));
-            return false;
-        }
 
-        boolean healthConnectStarted = writeToHealthConnect(
-                prefs, profile, timestamp, measurement, composition);
-        if (!healthConnectStarted) markMeasurementSuccess(profile.name);
-        return true;
+            boolean healthConnectStarted =
+                    writeToHealthConnect(
+                            prefs,
+                            profile,
+                            timestamp,
+                            measurement,
+                            composition);
+
+            if (!healthConnectStarted) {
+                markMeasurementSuccess(
+                        profile.name);
+            }
+
+            if (onSuccess != null) {
+                onSuccess.run();
+            }
+        } finally {
+            openScaleProcessingMeasurements.remove(
+                    measurement.measurementId);
+        }
     }
 
     private static final class OpenScaleWriteAttempt {
@@ -4837,6 +5002,8 @@ public final class ScaleScanService extends Service {
     }
 
     @Override public void onDestroy() {
+        openScaleProcessingMeasurements.clear();
+
         PeerOutboxRoomStore.unregisterChangeListener(
                 peerOutboxListener);
 
