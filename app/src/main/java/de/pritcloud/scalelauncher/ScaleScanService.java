@@ -645,7 +645,7 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        if (!providerMeta.supportsGenericValues()) {
+        if (!providerMeta.supportsRequiredApi()) {
             enterTerminalError(
                     getString(R.string.service_error_provider_api));
             return;
@@ -4466,7 +4466,7 @@ public final class ScaleScanService extends Service {
                             this,
                             authority);
 
-            if (!meta.supportsGenericValues()) {
+            if (!meta.supportsRequiredApi()) {
                 return new OpenScaleWriteAttempt(
                         false,
                         false,
@@ -4804,9 +4804,9 @@ public final class ScaleScanService extends Service {
             return true;
         }
 
-        String missing = result.missingValueKeys == null || result.missingValueKeys.isEmpty()
+        String missing = result.missingValueIdentities == null || result.missingValueIdentities.isEmpty()
                 ? getString(R.string.log_openscale_unknown_values)
-                : String.join(", ", result.missingValueKeys);
+                : String.join(", ", result.missingValueIdentities);
         EventLog.error(this, getString(
                 result.rollbackPerformed
                         ? R.string.log_openscale_incomplete_deleted

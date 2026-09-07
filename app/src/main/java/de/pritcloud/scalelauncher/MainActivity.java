@@ -1454,7 +1454,7 @@ public final class MainActivity extends Activity {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        if (!openScaleMeta.supportsGenericValues()) {
+        if (!openScaleMeta.supportsRequiredApi()) {
             LoggedToast.makeText(this,
                     getString(R.string.start_error_provider_api),
                     Toast.LENGTH_LONG).show();
