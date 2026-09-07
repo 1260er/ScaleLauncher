@@ -4302,21 +4302,20 @@ public final class ScaleScanService extends Service {
                                 removals));
             }
         } catch (RuntimeException exception) {
+            /*
+             * openScale has already been durably confirmed at this point.
+             * A failure while removing the local pending rows must therefore
+             * not turn that external success into a measurement failure.
+             *
+             * Keep the queue conservative. The STORED journal entry makes a
+             * later retry idempotent and prevents a duplicate openScale row.
+             */
             EventLog.error(
                     this,
                     getString(
                             R.string.service_error_openscale_transfer,
                             exception.getClass().getSimpleName(),
                             safeMessage(exception)));
-
-            rejectMeasurement(
-                    getString(
-                            R.string.service_error_openscale_unconfirmed));
-
-            finishOpenScaleQueueRequest(
-                    run.queueKey,
-                    run.request);
-            return;
         }
 
         try {
