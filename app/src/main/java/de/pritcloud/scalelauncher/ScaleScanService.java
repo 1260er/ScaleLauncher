@@ -3856,15 +3856,104 @@ public final class ScaleScanService extends Service {
             return false;
         }
 
-        boolean openScaleStored = false;
+        OpenScaleWriteAttempt openScaleAttempt =
+                attemptOpenScaleWrite(
+                        prefs,
+                        authority,
+                        profile,
+                        timestamp,
+                        measurement,
+                        composition);
+
+        if (!openScaleAttempt.stored) {
+            rejectMeasurement(
+                    openScaleAttempt.failureReason);
+            return false;
+        }
+
         try {
-            OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
+            boolean referenceUpdated =
+                    HouseholdProfileSync.updateReferenceWeight(
+                            this,
+                            prefs,
+                            profile.userId,
+                            measurement.weightKg);
+
+            if (referenceUpdated) {
+                profile.referenceWeightKg =
+                        measurement.weightKg;
+
+                EventLog.debug(this, getString(
+                        R.string.log_reference_weight_updated,
+                        profile.name,
+                        measurement.weightKg));
+
+                schedulePeerSync(
+                        100L);
+            }
+        } catch (SecurityException exception) {
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_openscale_access));
+            return false;
+        } catch (RuntimeException exception) {
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_openscale_transfer,
+                            exception.getClass().getSimpleName(),
+                            safeMessage(exception)));
+            return false;
+        }
+
+        boolean healthConnectStarted = writeToHealthConnect(
+                prefs, profile, timestamp, measurement, composition);
+        if (!healthConnectStarted) markMeasurementSuccess(profile.name);
+        return true;
+    }
+
+    private static final class OpenScaleWriteAttempt {
+        final boolean stored;
+        final String failureReason;
+
+        OpenScaleWriteAttempt(
+                boolean stored,
+                String failureReason) {
+            this.stored = stored;
+            this.failureReason =
+                    failureReason == null
+                            ? ""
+                            : failureReason;
+        }
+    }
+
+    private OpenScaleWriteAttempt attemptOpenScaleWrite(
+            SharedPreferences prefs,
+            String authority,
+            UserProfile profile,
+            long timestamp,
+            S400FinalMeasurement measurement,
+            S400BodyComposition.Result composition) {
+        boolean openScaleStored =
+                false;
+
+        try {
+            OpenScaleProvider.Meta meta =
+                    OpenScaleProvider.readMeta(
+                            this,
+                            authority);
+
             if (!meta.supportsGenericValues()) {
-                rejectMeasurement(getString(R.string.service_error_provider_api));
-                return false;
+                return new OpenScaleWriteAttempt(
+                        false,
+                        getString(
+                                R.string.service_error_provider_api));
             }
 
-            prefs.edit().putInt("openscale_api_version", meta.apiVersion).apply();
+            prefs.edit()
+                    .putInt(
+                            "openscale_api_version",
+                            meta.apiVersion)
+                    .apply();
 
             MeasurementWriteJournalStore.Status journalStatus =
                     MeasurementWriteJournalStore.status(
@@ -3876,14 +3965,16 @@ public final class ScaleScanService extends Service {
 
             if (journalStatus
                     == MeasurementWriteJournalStore.Status.CONFLICT) {
-                rejectMeasurement(
-                        getString(R.string.service_error_openscale_unconfirmed));
-                return false;
+                return new OpenScaleWriteAttempt(
+                        false,
+                        getString(
+                                R.string.service_error_openscale_unconfirmed));
             }
 
             if (journalStatus
                     == MeasurementWriteJournalStore.Status.STORED) {
-                openScaleStored = true;
+                openScaleStored =
+                        true;
             } else {
                 if (journalStatus
                         == MeasurementWriteJournalStore.Status.PREPARED) {
@@ -3903,17 +3994,20 @@ public final class ScaleScanService extends Service {
                                 authority,
                                 profile.userId,
                                 timestamp)) {
-                            rejectMeasurement(
-                                    getString(R.string.service_error_openscale_unconfirmed));
-                            return false;
+                            return new OpenScaleWriteAttempt(
+                                    false,
+                                    getString(
+                                            R.string.service_error_openscale_unconfirmed));
                         }
 
-                        openScaleStored = true;
+                        openScaleStored =
+                                true;
                     } else if (existing
                             == OpenScaleProvider.ExistingMeasurementStatus.UNKNOWN) {
-                        rejectMeasurement(
-                                getString(R.string.service_error_openscale_unconfirmed));
-                        return false;
+                        return new OpenScaleWriteAttempt(
+                                false,
+                                getString(
+                                        R.string.service_error_openscale_unconfirmed));
                     }
                 } else if (!MeasurementWriteJournalStore.prepare(
                         this,
@@ -3921,9 +4015,10 @@ public final class ScaleScanService extends Service {
                         authority,
                         profile.userId,
                         timestamp)) {
-                    rejectMeasurement(
-                            getString(R.string.service_error_openscale_unconfirmed));
-                    return false;
+                    return new OpenScaleWriteAttempt(
+                            false,
+                            getString(
+                                    R.string.service_error_openscale_unconfirmed));
                 }
 
                 if (!openScaleStored) {
@@ -3949,55 +4044,33 @@ public final class ScaleScanService extends Service {
                                     authority,
                                     profile.userId,
                                     timestamp)) {
-                        rejectMeasurement(
-                                getString(R.string.service_error_openscale_unconfirmed));
-                        return false;
+                        return new OpenScaleWriteAttempt(
+                                false,
+                                getString(
+                                        R.string.service_error_openscale_unconfirmed));
                     }
                 }
             }
 
-            if (openScaleStored) {
-                boolean referenceUpdated =
-                        HouseholdProfileSync.updateReferenceWeight(
-                                this,
-                                prefs,
-                                profile.userId,
-                                measurement.weightKg);
-
-                if (referenceUpdated) {
-                    profile.referenceWeightKg =
-                            measurement.weightKg;
-
-                    EventLog.debug(this, getString(
-                            R.string.log_reference_weight_updated,
-                            profile.name,
-                            measurement.weightKg));
-
-                    schedulePeerSync(
-                            100L);
-                }
-            }
-        } catch (SecurityException e) {
-            rejectMeasurement(
-                    getString(R.string.service_error_openscale_access));
-            return false;
-        } catch (RuntimeException e) {
-            rejectMeasurement(getString(
-                    R.string.service_error_openscale_transfer,
-                    e.getClass().getSimpleName(),
-                    safeMessage(e)));
-            return false;
+            return new OpenScaleWriteAttempt(
+                    openScaleStored,
+                    openScaleStored
+                            ? ""
+                            : getString(
+                                    R.string.service_error_openscale_unconfirmed));
+        } catch (SecurityException exception) {
+            return new OpenScaleWriteAttempt(
+                    false,
+                    getString(
+                            R.string.service_error_openscale_access));
+        } catch (RuntimeException exception) {
+            return new OpenScaleWriteAttempt(
+                    false,
+                    getString(
+                            R.string.service_error_openscale_transfer,
+                            exception.getClass().getSimpleName(),
+                            safeMessage(exception)));
         }
-
-        if (!openScaleStored) {
-            rejectMeasurement(getString(R.string.service_error_openscale_unconfirmed));
-            return false;
-        }
-
-        boolean healthConnectStarted = writeToHealthConnect(
-                prefs, profile, timestamp, measurement, composition);
-        if (!healthConnectStarted) markMeasurementSuccess(profile.name);
-        return true;
     }
 
     private boolean writeToHealthConnect(SharedPreferences prefs,
