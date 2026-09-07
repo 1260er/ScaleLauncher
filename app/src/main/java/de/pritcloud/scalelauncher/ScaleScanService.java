@@ -4547,6 +4547,21 @@ public final class ScaleScanService extends Service {
                 }
 
                 if (!openScaleStored) {
+                    if (OpenScaleDebugFaults.consume(
+                            getCacheDir(),
+                            (getApplicationInfo().flags
+                                    & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)
+                                    != 0)) {
+                        EventLog.warning(
+                                this,
+                                "DEBUG: openScale-Schreibversuch absichtlich fehlgeschlagen");
+
+                        return new OpenScaleWriteAttempt(
+                                false,
+                                true,
+                                "DEBUG: erzwungener openScale-Testfehler");
+                    }
+
                     OpenScaleProvider.InsertResult result =
                             OpenScaleProvider.insertMeasurement(
                                     this,
