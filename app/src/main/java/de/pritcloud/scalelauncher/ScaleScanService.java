@@ -1482,16 +1482,6 @@ public final class ScaleScanService extends Service {
                 "routed-measurement:"
                         + payload.measurementId;
 
-        if (PeerInboxDedupRoomStore.contains(
-                this,
-                peer.deviceId,
-                dedupKey)) {
-            queuePeerAck(
-                    peer,
-                    ackId);
-            return;
-        }
-
         SharedPreferences prefs =
                 getSharedPreferences(
                         "prefs",
@@ -1533,6 +1523,52 @@ public final class ScaleScanService extends Service {
             return;
         }
 
+        S400FinalMeasurement measurement =
+                payload.toMeasurement();
+
+        try {
+            OpenScalePendingRoomStore.add(
+                    this,
+                    target.userId,
+                    payload.targetProfileId,
+                    measurement);
+        } catch (RuntimeException exception) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_peer_routed_measurement_rejected,
+                            peer.label,
+                            payload.measurementId));
+            return;
+        }
+
+        boolean alreadyAccepted =
+                PeerInboxDedupRoomStore.contains(
+                        this,
+                        peer.deviceId,
+                        dedupKey);
+
+        if (!alreadyAccepted) {
+            PeerInboxDedupRoomStore.mark(
+                    this,
+                    peer.deviceId,
+                    dedupKey);
+        }
+
+        queuePeerAck(
+                peer,
+                ackId);
+
+        RemotePendingMeasurementRoomStore.remove(
+                this,
+                payload.measurementId);
+
+        updateAssignmentNotification();
+
+        if (alreadyAccepted) {
+            return;
+        }
+
         EventLog.info(
                 this,
                 getString(
@@ -1541,26 +1577,9 @@ public final class ScaleScanService extends Service {
                         target.name,
                         payload.weightKg));
 
-        if (!processMeasurement(
-                payload.toMeasurement(),
-                target)) {
-            return;
-        }
-
-        RemotePendingMeasurementRoomStore.remove(
-                this,
-                payload.measurementId);
-
-        updateAssignmentNotification();
-
-        PeerInboxDedupRoomStore.mark(
-                this,
-                peer.deviceId,
-                dedupKey);
-
-        queuePeerAck(
-                peer,
-                ackId);
+        processMeasurement(
+                measurement,
+                target);
     }
 
     private void handleIncomingClaimRequest(
