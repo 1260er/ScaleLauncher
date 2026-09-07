@@ -295,7 +295,7 @@ UUIDs: %1$s</string>
     <string name="log_health_connect_values_saved">Health Connect: %1$s – %2$d Werte gespeichert</string>
     <string name="log_health_connect_written">Health Connect geschrieben: %1$s</string>
     <string name="log_health_connect_failed">Health Connect fehlgeschlagen: %1$s</string>
-    <string name="transfer_health_connect_permissions">openScale wurde gespeichert, Health Connect jedoch nicht. Bitte Berechtigungen prüfen.</string>
+    <string name="transfer_health_connect_failed">openScale wurde gespeichert, Health Connect jedoch nicht. Bitte Health Connect prüfen; Details stehen im Protokoll.</string>
     <string name="service_health_connect_failed">openScale gespeichert – Health Connect fehlgeschlagen</string>
     <string name="service_error_measurement_incomplete">Messdaten waren unvollständig</string>
     <string name="log_measurement_rejected">Messung vollständig verworfen – %1$s</string>

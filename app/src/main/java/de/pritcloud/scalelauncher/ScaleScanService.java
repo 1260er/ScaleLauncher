@@ -4656,7 +4656,7 @@ public final class ScaleScanService extends Service {
                                         R.string.log_health_connect_failed,
                                         message));
                         notifyTransferFailure(
-                                getString(R.string.transfer_health_connect_permissions));
+                                getString(R.string.transfer_health_connect_failed));
                         updateMonitor(getString(R.string.service_health_connect_failed));
                     }
                 });
