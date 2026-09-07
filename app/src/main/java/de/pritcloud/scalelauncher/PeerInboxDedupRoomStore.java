@@ -559,7 +559,7 @@ final class PeerInboxDedupRoomStore {
         return true;
     }
 
-    private static FingerprintStatus compareFingerprint(
+    static FingerprintStatus compareFingerprint(
             PeerInboxDedupEntity existing,
             String payloadFingerprint) {
         if (existing.payloadFingerprint == null

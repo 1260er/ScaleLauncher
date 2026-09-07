@@ -1484,10 +1484,6 @@ public final class ScaleScanService extends Service {
                 "route:"
                         + payload.measurementId;
 
-        String dedupKey =
-                "routed-measurement:"
-                        + payload.measurementId;
-
         SharedPreferences prefs =
                 getSharedPreferences(
                         "prefs",
@@ -1532,12 +1528,16 @@ public final class ScaleScanService extends Service {
         S400FinalMeasurement measurement =
                 payload.toMeasurement();
 
+        PeerInboxDedupRoomStore.FingerprintStatus
+                acceptanceStatus;
+
         try {
-            OpenScalePendingRoomStore.add(
-                    this,
-                    target.userId,
-                    payload.targetProfileId,
-                    measurement);
+            acceptanceStatus =
+                    RoutedMeasurementAcceptanceRoomStore.accept(
+                            this,
+                            peer.deviceId,
+                            target.userId,
+                            payload);
         } catch (RuntimeException exception) {
             EventLog.warning(
                     this,
@@ -1548,17 +1548,17 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        boolean alreadyAccepted =
-                PeerInboxDedupRoomStore.contains(
-                        this,
-                        peer.deviceId,
-                        dedupKey);
-
-        if (!alreadyAccepted) {
-            PeerInboxDedupRoomStore.mark(
+        if (acceptanceStatus
+                == PeerInboxDedupRoomStore.FingerprintStatus.CONFLICT
+                || acceptanceStatus
+                == PeerInboxDedupRoomStore.FingerprintStatus.LEGACY_UNKNOWN) {
+            EventLog.warning(
                     this,
-                    peer.deviceId,
-                    dedupKey);
+                    getString(
+                            R.string.log_peer_routed_measurement_rejected,
+                            peer.label,
+                            payload.measurementId));
+            return;
         }
 
         queuePeerAck(
@@ -1571,7 +1571,8 @@ public final class ScaleScanService extends Service {
 
         updateAssignmentNotification();
 
-        if (alreadyAccepted) {
+        if (acceptanceStatus
+                == PeerInboxDedupRoomStore.FingerprintStatus.MATCH) {
             return;
         }
 
