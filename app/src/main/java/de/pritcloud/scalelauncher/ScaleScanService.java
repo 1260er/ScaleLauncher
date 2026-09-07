@@ -3829,6 +3829,33 @@ public final class ScaleScanService extends Service {
         }
         EventLog.debug(this, buildCalculationLog(profile.name, age, measurement, composition));
 
+        if (!UserProfile.isValidHouseholdProfileId(
+                profile.householdProfileId)) {
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_selected_profile));
+            return false;
+        }
+
+        try {
+            OpenScalePendingRoomStore.add(
+                    this,
+                    profile.userId,
+                    profile.householdProfileId,
+                    measurement);
+        } catch (RuntimeException exception) {
+            EventLog.error(
+                    this,
+                    getString(
+                            R.string.service_error_openscale_transfer,
+                            exception.getClass().getSimpleName(),
+                            safeMessage(exception)));
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_openscale_unconfirmed));
+            return false;
+        }
+
         boolean openScaleStored = false;
         try {
             OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
