@@ -18,9 +18,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
             PeerInboxDedupEntity.class,
             HouseholdProfileEntity.class,
             UserProfileEntity.class,
-            PeerTrustEntity.class
+            PeerTrustEntity.class,
+            OpenScalePendingEntity.class
         },
-        version = 8,
+        version = 9,
         exportSchema = true)
 public abstract class ScaleLauncherDatabase
         extends RoomDatabase {
@@ -170,6 +171,26 @@ public abstract class ScaleLauncherDatabase
                 }
             };
 
+    static final Migration MIGRATION_8_9 =
+            new Migration(8, 9) {
+                @Override
+                public void migrate(
+                        SupportSQLiteDatabase database) {
+                    database.execSQL(
+                            "CREATE TABLE IF NOT EXISTS `openscale_pending` ("
+                                    + "`measurement_id` TEXT NOT NULL, "
+                                    + "`user_id` INTEGER NOT NULL, "
+                                    + "`household_profile_id` TEXT NOT NULL, "
+                                    + "`weight_kg` REAL NOT NULL, "
+                                    + "`impedance_high` REAL NOT NULL, "
+                                    + "`impedance_low` REAL, "
+                                    + "`scale_profile_id` INTEGER, "
+                                    + "`timestamp_ms` INTEGER NOT NULL, "
+                                    + "`queued_at_ms` INTEGER NOT NULL, "
+                                    + "PRIMARY KEY(`measurement_id`))");
+                }
+            };
+
     private static volatile ScaleLauncherDatabase instance;
 
     public abstract MeasurementWriteJournalDao
@@ -196,6 +217,9 @@ public abstract class ScaleLauncherDatabase
     public abstract PeerTrustDao
             peerTrustDao();
 
+    public abstract OpenScalePendingDao
+            openScalePendingDao();
+
     static ScaleLauncherDatabase get(
             Context context) {
         ScaleLauncherDatabase current = instance;
@@ -220,7 +244,8 @@ public abstract class ScaleLauncherDatabase
                                         MIGRATION_4_5,
                                         MIGRATION_5_6,
                                         MIGRATION_6_7,
-                                        MIGRATION_7_8)
+                                        MIGRATION_7_8,
+                                        MIGRATION_8_9)
                                 .build();
 
                 instance = current;
