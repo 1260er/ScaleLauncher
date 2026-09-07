@@ -86,6 +86,168 @@ public final class PeerMeasurementPayloadTest {
     }
 
     @Test
+    public void routedFingerprintSurvivesEncodeDecode() {
+        PeerMeasurementPayload original =
+                PeerMeasurementPayload.forUniqueTarget(
+                        SCALE_MAC,
+                        measurement(
+                                "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"),
+                        PROFILE_A);
+
+        PeerMeasurementPayload decoded =
+                PeerMeasurementPayload.decode(
+                        original.encode());
+
+        assertTrue(
+                decoded != null);
+
+        assertEquals(
+                original.routedPayloadFingerprint(),
+                decoded.routedPayloadFingerprint());
+    }
+
+    @Test
+    public void routedFingerprintChangesWithMeasurementData() {
+        String measurementId =
+                "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb";
+
+        S400FinalMeasurement first =
+                new S400FinalMeasurement(
+                        measurementId,
+                        70.7f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        null);
+
+        S400FinalMeasurement changed =
+                new S400FinalMeasurement(
+                        measurementId,
+                        70.8f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        null);
+
+        PeerMeasurementPayload firstPayload =
+                PeerMeasurementPayload.forUniqueTarget(
+                        SCALE_MAC,
+                        first,
+                        PROFILE_A);
+
+        PeerMeasurementPayload changedPayload =
+                PeerMeasurementPayload.forUniqueTarget(
+                        SCALE_MAC,
+                        changed,
+                        PROFILE_A);
+
+        assertFalse(
+                firstPayload.routedPayloadFingerprint()
+                        .equals(
+                                changedPayload.routedPayloadFingerprint()));
+    }
+
+    @Test
+    public void routedFingerprintChangesWithTargetProfile() {
+        S400FinalMeasurement measurement =
+                measurement(
+                        "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb");
+
+        PeerMeasurementPayload first =
+                PeerMeasurementPayload.forUniqueTarget(
+                        SCALE_MAC,
+                        measurement,
+                        PROFILE_A);
+
+        PeerMeasurementPayload second =
+                PeerMeasurementPayload.forUniqueTarget(
+                        SCALE_MAC,
+                        measurement,
+                        PROFILE_B);
+
+        assertFalse(
+                first.routedPayloadFingerprint()
+                        .equals(
+                                second.routedPayloadFingerprint()));
+    }
+
+    @Test
+    public void routedFingerprintCoversCompleteRoutedIdentity() {
+        String measurementId =
+                "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb";
+
+        S400FinalMeasurement baseMeasurement =
+                new S400FinalMeasurement(
+                        measurementId,
+                        70.7f,
+                        510.0f,
+                        490.0f,
+                        1_700_000_000_000L,
+                        7);
+
+        String baseFingerprint =
+                PeerMeasurementPayload.forUniqueTarget(
+                                SCALE_MAC,
+                                baseMeasurement,
+                                PROFILE_A)
+                        .routedPayloadFingerprint();
+
+        List<PeerMeasurementPayload> changedPayloads =
+                List.of(
+                        PeerMeasurementPayload.forUniqueTarget(
+                                "04:AE:47:67:4E:08",
+                                baseMeasurement,
+                                PROFILE_A),
+                        PeerMeasurementPayload.forUniqueTarget(
+                                SCALE_MAC,
+                                new S400FinalMeasurement(
+                                        measurementId,
+                                        70.7f,
+                                        510.0f,
+                                        490.0f,
+                                        1_700_000_000_001L,
+                                        7),
+                                PROFILE_A),
+                        PeerMeasurementPayload.forUniqueTarget(
+                                SCALE_MAC,
+                                new S400FinalMeasurement(
+                                        measurementId,
+                                        70.7f,
+                                        511.0f,
+                                        490.0f,
+                                        1_700_000_000_000L,
+                                        7),
+                                PROFILE_A),
+                        PeerMeasurementPayload.forUniqueTarget(
+                                SCALE_MAC,
+                                new S400FinalMeasurement(
+                                        measurementId,
+                                        70.7f,
+                                        510.0f,
+                                        491.0f,
+                                        1_700_000_000_000L,
+                                        7),
+                                PROFILE_A),
+                        PeerMeasurementPayload.forUniqueTarget(
+                                SCALE_MAC,
+                                new S400FinalMeasurement(
+                                        measurementId,
+                                        70.7f,
+                                        510.0f,
+                                        490.0f,
+                                        1_700_000_000_000L,
+                                        8),
+                                PROFILE_A));
+
+        for (PeerMeasurementPayload changed :
+                changedPayloads) {
+            assertFalse(
+                    baseFingerprint.equals(
+                            changed.routedPayloadFingerprint()));
+        }
+    }
+
+    @Test
     public void claimRejectsDuplicateCandidateIds() {
         S400FinalMeasurement measurement =
                 measurement(

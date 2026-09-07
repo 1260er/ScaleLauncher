@@ -4,6 +4,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -291,6 +294,80 @@ final class PeerMeasurementPayload {
         return "route:" + measurementId;
     }
 
+    String routedPayloadFingerprint() {
+        if (!isValid()
+                || requiresClaim) {
+            throw new IllegalStateException(
+                    "Fingerprint requires routed peer measurement");
+        }
+
+        try {
+            MessageDigest digest =
+                    MessageDigest.getInstance(
+                            "SHA-256");
+
+            updateFingerprintString(
+                    digest,
+                    "scalelauncher-routed-measurement-v1");
+
+            updateFingerprintInt(
+                    digest,
+                    VERSION);
+
+            updateFingerprintString(
+                    digest,
+                    measurementId);
+
+            updateFingerprintString(
+                    digest,
+                    scaleMac);
+
+            updateFingerprintLong(
+                    digest,
+                    timestampMs);
+
+            updateFingerprintInt(
+                    digest,
+                    Float.floatToIntBits(
+                            weightKg));
+
+            updateFingerprintInt(
+                    digest,
+                    Float.floatToIntBits(
+                            impedanceHigh));
+
+            updateFingerprintInt(
+                    digest,
+                    Float.floatToIntBits(
+                            impedanceLow));
+
+            if (scaleProfileId == null) {
+                updateFingerprintInt(
+                        digest,
+                        0);
+            } else {
+                updateFingerprintInt(
+                        digest,
+                        1);
+
+                updateFingerprintInt(
+                        digest,
+                        scaleProfileId);
+            }
+
+            updateFingerprintString(
+                    digest,
+                    targetProfileId);
+
+            return fingerprintHex(
+                    digest.digest());
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(
+                    "SHA-256 unavailable",
+                    exception);
+        }
+    }
+
     S400FinalMeasurement toMeasurement() {
         if (!isValid()) {
             throw new IllegalStateException(
@@ -328,6 +405,89 @@ final class PeerMeasurementPayload {
                     : UserProfile.isValidHouseholdProfileId(
                             targetProfileId)
                         && candidateProfileIds.isEmpty());
+    }
+
+    private static void updateFingerprintString(
+            MessageDigest digest,
+            String value) {
+        byte[] bytes =
+                value.getBytes(
+                        StandardCharsets.UTF_8);
+
+        updateFingerprintInt(
+                digest,
+                bytes.length);
+
+        digest.update(
+                bytes);
+    }
+
+    private static void updateFingerprintInt(
+            MessageDigest digest,
+            int value) {
+        digest.update(
+                (byte) (value >>> 24));
+
+        digest.update(
+                (byte) (value >>> 16));
+
+        digest.update(
+                (byte) (value >>> 8));
+
+        digest.update(
+                (byte) value);
+    }
+
+    private static void updateFingerprintLong(
+            MessageDigest digest,
+            long value) {
+        digest.update(
+                (byte) (value >>> 56));
+
+        digest.update(
+                (byte) (value >>> 48));
+
+        digest.update(
+                (byte) (value >>> 40));
+
+        digest.update(
+                (byte) (value >>> 32));
+
+        digest.update(
+                (byte) (value >>> 24));
+
+        digest.update(
+                (byte) (value >>> 16));
+
+        digest.update(
+                (byte) (value >>> 8));
+
+        digest.update(
+                (byte) value);
+    }
+
+    private static String fingerprintHex(
+            byte[] value) {
+        StringBuilder result =
+                new StringBuilder(
+                        value.length * 2);
+
+        for (byte item : value) {
+            int unsigned =
+                    item & 0xff;
+
+            result.append(
+                    Character.forDigit(
+                            unsigned >>> 4,
+                            16));
+
+            result.append(
+                    Character.forDigit(
+                            unsigned & 0x0f,
+                            16));
+        }
+
+        return result.toString();
     }
 
     private static boolean validCandidateProfileIds(

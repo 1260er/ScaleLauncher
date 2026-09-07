@@ -21,6 +21,12 @@ public final class PeerInboxDedupRoomStoreTest {
     private static final String PEER_TWO =
             "22222222-2222-2222-2222-222222222222";
 
+    private static final String FINGERPRINT_ONE =
+            "11".repeat(32);
+
+    private static final String FINGERPRINT_TWO =
+            "22".repeat(32);
+
     @Test
     public void migratesLegacyAndKeepsLegacyJson() {
         InMemorySharedPreferences prefs =
@@ -304,6 +310,118 @@ public final class PeerInboxDedupRoomStoreTest {
                         PEER_ONE,
                         "repeated-message")
                         .seenAtMs);
+    }
+
+    @Test
+    public void fingerprintIsInsertedAndExactRepeatMatches() {
+        FakeDao dao =
+                new FakeDao();
+
+        assertEquals(
+                PeerInboxDedupRoomStore.FingerprintStatus.NEW,
+                PeerInboxDedupRoomStore.checkOrMarkFingerprint(
+                        dao,
+                        PEER_ONE,
+                        "routed-message",
+                        FINGERPRINT_ONE,
+                        10L));
+
+        assertEquals(
+                PeerInboxDedupRoomStore.FingerprintStatus.MATCH,
+                PeerInboxDedupRoomStore.checkOrMarkFingerprint(
+                        dao,
+                        PEER_ONE,
+                        "routed-message",
+                        FINGERPRINT_ONE,
+                        20L));
+
+        PeerInboxDedupEntity stored =
+                dao.find(
+                        PEER_ONE,
+                        "routed-message");
+
+        assertEquals(
+                10L,
+                stored.seenAtMs);
+
+        assertEquals(
+                FINGERPRINT_ONE,
+                stored.payloadFingerprint);
+
+        assertEquals(
+                1,
+                dao.count());
+    }
+
+    @Test
+    public void fingerprintConflictFailsClosedWithoutOverwrite() {
+        FakeDao dao =
+                new FakeDao();
+
+        assertEquals(
+                PeerInboxDedupRoomStore.FingerprintStatus.NEW,
+                PeerInboxDedupRoomStore.checkOrMarkFingerprint(
+                        dao,
+                        PEER_ONE,
+                        "routed-message",
+                        FINGERPRINT_ONE,
+                        10L));
+
+        assertEquals(
+                PeerInboxDedupRoomStore.FingerprintStatus.CONFLICT,
+                PeerInboxDedupRoomStore.checkOrMarkFingerprint(
+                        dao,
+                        PEER_ONE,
+                        "routed-message",
+                        FINGERPRINT_TWO,
+                        20L));
+
+        PeerInboxDedupEntity stored =
+                dao.find(
+                        PEER_ONE,
+                        "routed-message");
+
+        assertEquals(
+                10L,
+                stored.seenAtMs);
+
+        assertEquals(
+                FINGERPRINT_ONE,
+                stored.payloadFingerprint);
+    }
+
+    @Test
+    public void legacyFingerprintUnknownFailsClosedWithoutUpgrade() {
+        FakeDao dao =
+                new FakeDao();
+
+        dao.insert(
+                entity(
+                        PEER_ONE,
+                        "legacy-routed-message",
+                        10L));
+
+        assertEquals(
+                PeerInboxDedupRoomStore.FingerprintStatus.LEGACY_UNKNOWN,
+                PeerInboxDedupRoomStore.checkOrMarkFingerprint(
+                        dao,
+                        PEER_ONE,
+                        "legacy-routed-message",
+                        FINGERPRINT_ONE,
+                        20L));
+
+        PeerInboxDedupEntity stored =
+                dao.find(
+                        PEER_ONE,
+                        "legacy-routed-message");
+
+        assertEquals(
+                null,
+                stored.payloadFingerprint);
+
+        assertEquals(
+                10L,
+                stored.seenAtMs);
     }
 
     @Test

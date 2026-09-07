@@ -16,6 +16,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 final class PeerInboxDedupRoomStore {
+    enum FingerprintStatus {
+        NEW,
+        MATCH,
+        CONFLICT,
+        LEGACY_UNKNOWN
+    }
+
     private static final String PREFS =
             "peer_inbox_v1";
 
@@ -102,6 +109,33 @@ final class PeerInboxDedupRoomStore {
                 });
     }
 
+    static FingerprintStatus checkOrMarkFingerprint(
+            Context context,
+            String senderDeviceId,
+            String messageId,
+            String payloadFingerprint) {
+        if (!isValidKey(
+                senderDeviceId,
+                messageId)
+                || !isValidFingerprint(
+                        payloadFingerprint)) {
+            return FingerprintStatus.CONFLICT;
+        }
+
+        long seenAtMs =
+                System.currentTimeMillis();
+
+        return runRoom(
+                context,
+                database ->
+                        checkOrMarkFingerprint(
+                                database.peerInboxDedupDao(),
+                                senderDeviceId,
+                                messageId,
+                                payloadFingerprint,
+                                seenAtMs));
+    }
+
     static int removePeer(
             Context context,
             String peerDeviceId) {
@@ -168,6 +202,59 @@ final class PeerInboxDedupRoomStore {
         }
 
         return true;
+    }
+
+    static FingerprintStatus checkOrMarkFingerprint(
+            PeerInboxDedupDao dao,
+            String senderDeviceId,
+            String messageId,
+            String payloadFingerprint,
+            long seenAtMs) {
+        if (dao == null
+                || !isValid(
+                        senderDeviceId,
+                        messageId,
+                        seenAtMs)
+                || !isValidFingerprint(
+                        payloadFingerprint)) {
+            return FingerprintStatus.CONFLICT;
+        }
+
+        PeerInboxDedupEntity existing =
+                dao.find(
+                        senderDeviceId,
+                        messageId);
+
+        if (existing != null) {
+            return compareFingerprint(
+                    existing,
+                    payloadFingerprint);
+        }
+
+        long inserted =
+                dao.insert(
+                        new PeerInboxDedupEntity(
+                                senderDeviceId,
+                                messageId,
+                                seenAtMs,
+                                payloadFingerprint));
+
+        if (inserted != -1L) {
+            return FingerprintStatus.NEW;
+        }
+
+        existing =
+                dao.find(
+                        senderDeviceId,
+                        messageId);
+
+        if (existing == null) {
+            return FingerprintStatus.CONFLICT;
+        }
+
+        return compareFingerprint(
+                existing,
+                payloadFingerprint);
     }
 
     static int removePeer(
@@ -465,6 +552,51 @@ final class PeerInboxDedupRoomStore {
                     || !sameStoredData(
                             existing,
                             incoming)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static FingerprintStatus compareFingerprint(
+            PeerInboxDedupEntity existing,
+            String payloadFingerprint) {
+        if (existing.payloadFingerprint == null
+                || existing.payloadFingerprint.isBlank()) {
+            return FingerprintStatus.LEGACY_UNKNOWN;
+        }
+
+        return existing.payloadFingerprint.equals(
+                        payloadFingerprint)
+                ? FingerprintStatus.MATCH
+                : FingerprintStatus.CONFLICT;
+    }
+
+    private static boolean isValidFingerprint(
+            String value) {
+        if (value == null
+                || value.length() != 64) {
+            return false;
+        }
+
+        for (int index = 0;
+             index < value.length();
+             index++) {
+            char character =
+                    value.charAt(
+                            index);
+
+            boolean digit =
+                    character >= "0".charAt(0)
+                            && character <= "9".charAt(0);
+
+            boolean lowerHex =
+                    character >= "a".charAt(0)
+                            && character <= "f".charAt(0);
+
+            if (!digit
+                    && !lowerHex) {
                 return false;
             }
         }
