@@ -3,6 +3,7 @@ package de.pritcloud.scalelauncher;
 import androidx.annotation.NonNull;
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Ignore;
 
 @Entity(
         tableName = "peer_inbox_dedup",
@@ -22,12 +23,29 @@ public final class PeerInboxDedupEntity {
     @ColumnInfo(name = "seen_at_ms")
     public final long seenAtMs;
 
+    @ColumnInfo(name = "payload_fingerprint")
+    public final String payloadFingerprint;
+
+    public PeerInboxDedupEntity(
+            @NonNull String senderDeviceId,
+            @NonNull String messageId,
+            long seenAtMs,
+            String payloadFingerprint) {
+        this.senderDeviceId = senderDeviceId;
+        this.messageId = messageId;
+        this.seenAtMs = seenAtMs;
+        this.payloadFingerprint = payloadFingerprint;
+    }
+
+    @Ignore
     public PeerInboxDedupEntity(
             @NonNull String senderDeviceId,
             @NonNull String messageId,
             long seenAtMs) {
-        this.senderDeviceId = senderDeviceId;
-        this.messageId = messageId;
-        this.seenAtMs = seenAtMs;
+        this(
+                senderDeviceId,
+                messageId,
+                seenAtMs,
+                null);
     }
 }

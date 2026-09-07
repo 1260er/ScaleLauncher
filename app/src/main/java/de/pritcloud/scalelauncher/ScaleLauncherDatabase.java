@@ -21,7 +21,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
             PeerTrustEntity.class,
             OpenScalePendingEntity.class
         },
-        version = 9,
+        version = 10,
         exportSchema = true)
 public abstract class ScaleLauncherDatabase
         extends RoomDatabase {
@@ -191,6 +191,17 @@ public abstract class ScaleLauncherDatabase
                 }
             };
 
+    static final Migration MIGRATION_9_10 =
+            new Migration(9, 10) {
+                @Override
+                public void migrate(
+                        SupportSQLiteDatabase database) {
+                    database.execSQL(
+                            "ALTER TABLE `peer_inbox_dedup` "
+                                    + "ADD COLUMN `payload_fingerprint` TEXT");
+                }
+            };
+
     private static volatile ScaleLauncherDatabase instance;
 
     public abstract MeasurementWriteJournalDao
@@ -245,7 +256,8 @@ public abstract class ScaleLauncherDatabase
                                         MIGRATION_5_6,
                                         MIGRATION_6_7,
                                         MIGRATION_7_8,
-                                        MIGRATION_8_9)
+                                        MIGRATION_8_9,
+                                        MIGRATION_9_10)
                                 .build();
 
                 instance = current;
