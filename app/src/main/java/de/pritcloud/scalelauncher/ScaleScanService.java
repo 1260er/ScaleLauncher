@@ -3913,12 +3913,25 @@ public final class ScaleScanService extends Service {
 
     private static final class OpenScaleWriteAttempt {
         final boolean stored;
+        final boolean retryable;
         final String failureReason;
 
         OpenScaleWriteAttempt(
                 boolean stored,
                 String failureReason) {
+            this(
+                    stored,
+                    !stored,
+                    failureReason);
+        }
+
+        OpenScaleWriteAttempt(
+                boolean stored,
+                boolean retryable,
+                String failureReason) {
             this.stored = stored;
+            this.retryable =
+                    !stored && retryable;
             this.failureReason =
                     failureReason == null
                             ? ""
@@ -3945,6 +3958,7 @@ public final class ScaleScanService extends Service {
             if (!meta.supportsGenericValues()) {
                 return new OpenScaleWriteAttempt(
                         false,
+                        false,
                         getString(
                                 R.string.service_error_provider_api));
             }
@@ -3966,6 +3980,7 @@ public final class ScaleScanService extends Service {
             if (journalStatus
                     == MeasurementWriteJournalStore.Status.CONFLICT) {
                 return new OpenScaleWriteAttempt(
+                        false,
                         false,
                         getString(
                                 R.string.service_error_openscale_unconfirmed));
@@ -4060,6 +4075,7 @@ public final class ScaleScanService extends Service {
                                     R.string.service_error_openscale_unconfirmed));
         } catch (SecurityException exception) {
             return new OpenScaleWriteAttempt(
+                    false,
                     false,
                     getString(
                             R.string.service_error_openscale_access));
