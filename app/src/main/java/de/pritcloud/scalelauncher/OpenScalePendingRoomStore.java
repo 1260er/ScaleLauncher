@@ -3,6 +3,7 @@ package de.pritcloud.scalelauncher;
 import android.content.Context;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -106,6 +107,17 @@ final class OpenScalePendingRoomStore {
                         remove(
                                 database.openScalePendingDao(),
                                 measurementId));
+    }
+
+    static int removeAll(
+            Context context,
+            List<String> measurementIds) {
+        return runRoom(
+                context,
+                database ->
+                        removeAll(
+                                database.openScalePendingDao(),
+                                measurementIds));
     }
 
     static int count(
@@ -261,6 +273,35 @@ final class OpenScalePendingRoomStore {
 
         return dao.delete(
                 measurementId) == 1;
+    }
+
+    static int removeAll(
+            OpenScalePendingDao dao,
+            List<String> measurementIds) {
+        if (dao == null
+                || measurementIds == null
+                || measurementIds.isEmpty()) {
+            return 0;
+        }
+
+        LinkedHashSet<String> uniqueIds =
+                new LinkedHashSet<>();
+
+        for (String measurementId :
+                measurementIds) {
+            if (measurementId == null
+                    || measurementId.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Invalid openScale pending measurement ID");
+            }
+
+            uniqueIds.add(
+                    measurementId);
+        }
+
+        return dao.deleteAll(
+                new ArrayList<>(
+                        uniqueIds));
     }
 
     static int count(

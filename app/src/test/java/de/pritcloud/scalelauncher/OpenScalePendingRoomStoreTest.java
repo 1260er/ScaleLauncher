@@ -369,6 +369,94 @@ public final class OpenScalePendingRoomStoreTest {
                         PROFILE_TWO));
     }
 
+    @Test
+    public void removeAllDeletesRequestedBatchOnly() {
+        FakeDao dao =
+                new FakeDao();
+
+        OpenScalePendingRoomStore.add(
+                dao,
+                7L,
+                PROFILE_ONE,
+                measurement(
+                        "one",
+                        71.0f,
+                        100L),
+                10L);
+
+        OpenScalePendingRoomStore.add(
+                dao,
+                7L,
+                PROFILE_ONE,
+                measurement(
+                        "two",
+                        72.0f,
+                        200L),
+                20L);
+
+        OpenScalePendingRoomStore.add(
+                dao,
+                7L,
+                PROFILE_ONE,
+                measurement(
+                        "three",
+                        73.0f,
+                        300L),
+                30L);
+
+        assertEquals(
+                2,
+                OpenScalePendingRoomStore.removeAll(
+                        dao,
+                        List.of(
+                                "one",
+                                "two")));
+
+        assertEquals(
+                null,
+                dao.find(
+                        "one"));
+
+        assertEquals(
+                null,
+                dao.find(
+                        "two"));
+
+        assertNotNull(
+                dao.find(
+                        "three"));
+    }
+
+    @Test
+    public void removeAllDeduplicatesIdsAndEmptyIsNoop() {
+        FakeDao dao =
+                new FakeDao();
+
+        OpenScalePendingRoomStore.add(
+                dao,
+                7L,
+                PROFILE_ONE,
+                measurement(
+                        "one",
+                        71.0f,
+                        100L),
+                10L);
+
+        assertEquals(
+                1,
+                OpenScalePendingRoomStore.removeAll(
+                        dao,
+                        List.of(
+                                "one",
+                                "one")));
+
+        assertEquals(
+                0,
+                OpenScalePendingRoomStore.removeAll(
+                        dao,
+                        List.of()));
+    }
+
     private static S400FinalMeasurement measurement(
             String id,
             float weightKg,
@@ -449,6 +537,23 @@ public final class OpenScalePendingRoomStoreTest {
                     measurementId) == null
                     ? 0
                     : 1;
+        }
+
+        @Override
+        public int deleteAll(
+                List<String> measurementIds) {
+            int removed =
+                    0;
+
+            for (String measurementId :
+                    measurementIds) {
+                if (items.remove(
+                        measurementId) != null) {
+                    removed++;
+                }
+            }
+
+            return removed;
         }
 
         @Override

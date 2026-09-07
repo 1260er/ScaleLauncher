@@ -39,6 +39,12 @@ public interface OpenScalePendingDao {
             String measurementId);
 
     @Query(
+            "DELETE FROM openscale_pending "
+                    + "WHERE measurement_id IN (:measurementIds)")
+    int deleteAll(
+            List<String> measurementIds);
+
+    @Query(
             "SELECT COUNT(*) FROM openscale_pending "
                     + "WHERE household_profile_id = :householdProfileId")
     int countForProfile(

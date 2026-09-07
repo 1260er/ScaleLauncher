@@ -384,6 +384,23 @@ public final class RoutedMeasurementAcceptanceRoomStoreTest {
         }
 
         @Override
+        public int deleteAll(
+                List<String> measurementIds) {
+            int removed =
+                    0;
+
+            for (String measurementId :
+                    measurementIds) {
+                if (items.remove(
+                        measurementId) != null) {
+                    removed++;
+                }
+            }
+
+            return removed;
+        }
+
+        @Override
         public int countForProfile(
                 String householdProfileId) {
             int count =
