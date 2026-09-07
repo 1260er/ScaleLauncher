@@ -37,6 +37,7 @@ public final class MainActivity extends Activity {
     private static final int REQ_OPENSCALE_PERMISSION = 102;
     private static final int REQ_HEALTH_CONNECT = 103;
     private static final long LOG_REFRESH_INTERVAL_MS = 3_000L;
+    private static final long LOG_NAVIGATION_REFRESH_PAUSE_MS = 2_000L;
     private static final int LOG_VISIBLE_LINES = 250;
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-F]{2}:){5}[0-9A-F]{2}$");
     private static final Pattern TOKEN_PATTERN = Pattern.compile("^[0-9a-fA-F]{24}$");
@@ -61,6 +62,7 @@ public final class MainActivity extends Activity {
     private long uiDataRefreshGeneration;
     private boolean activityResumed;
     private long lastLogRefreshRequestMs;
+    private long logRefreshPausedUntilMs;
     private String renderedLogText;
 
     private final Runnable refreshTask = new Runnable() {
@@ -208,28 +210,21 @@ public final class MainActivity extends Activity {
         });
 
         findViewById(R.id.navLog).setOnClickListener(view -> {
-            androidx.drawerlayout.widget.DrawerLayout.SimpleDrawerListener listener =
-                    new androidx.drawerlayout.widget.DrawerLayout.SimpleDrawerListener() {
-                        @Override
-                        public void onDrawerClosed(View drawerView) {
-                            drawerLayout.removeDrawerListener(
-                                    this);
+            pageHome.setVisibility(View.GONE);
+            pageScale.setVisibility(View.GONE);
+            pagePermissions.setVisibility(View.GONE);
+            pageUsers.setVisibility(View.GONE);
+            pageUserDetail.setVisibility(View.GONE);
+            pageHealthConnect.setVisibility(View.GONE);
+            pageEmergencyCleanup.setVisibility(View.GONE);
+            pageLog.setVisibility(View.VISIBLE);
 
-                            pageHome.setVisibility(View.GONE);
-                            pageScale.setVisibility(View.GONE);
-                            pagePermissions.setVisibility(View.GONE);
-                            pageUsers.setVisibility(View.GONE);
-                            pageUserDetail.setVisibility(View.GONE);
-                            pageHealthConnect.setVisibility(View.GONE);
-                            pageEmergencyCleanup.setVisibility(View.GONE);
-                            pageLog.setVisibility(View.VISIBLE);
+            lastLogRefreshRequestMs =
+                    0L;
 
-                            refreshLog();
-                        }
-                    };
-
-            drawerLayout.addDrawerListener(
-                    listener);
+            logRefreshPausedUntilMs =
+                    System.currentTimeMillis()
+                            + LOG_NAVIGATION_REFRESH_PAUSE_MS;
 
             drawerLayout.closeDrawer(
                     android.view.Gravity.END);
@@ -963,6 +958,7 @@ public final class MainActivity extends Activity {
 
         boolean logRefreshDue =
                 logVisible
+                        && now >= logRefreshPausedUntilMs
                         && now - lastLogRefreshRequestMs
                                 >= LOG_REFRESH_INTERVAL_MS;
 
