@@ -5081,6 +5081,7 @@ public final class ScaleScanService extends Service {
                     && adapter != null
                     && adapter.isEnabled()
                     && peerTransport != null) {
+                peerTransport.ensureAdvertising();
                 peerTransport.ensurePresenceScan();
             }
         }

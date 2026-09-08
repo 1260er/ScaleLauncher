@@ -120,9 +120,12 @@ final class PeerMeasurementTransport {
     private boolean advertisingActive;
     private boolean advertisingStarting;
     private boolean advertisingUpdatePending;
+    private boolean advertisingRetryScheduled;
     private boolean presenceScanActive;
     private boolean sendScanActive;
+    private int advertisingRetryAttempt;
     private long advertisingStartedElapsedMs;
+    private long lastAdvertisingProofElapsedMs;
     private long lastPresenceResultElapsedMs;
     private long lastMatchedPresenceElapsedMs;
 
@@ -190,7 +193,10 @@ final class PeerMeasurementTransport {
         transportActive =
                 true;
         sendScanActive = false;
+        advertisingRetryScheduled = false;
+        advertisingRetryAttempt = 0;
         advertisingStartedElapsedMs = 0L;
+        lastAdvertisingProofElapsedMs = 0L;
         lastPresenceResultElapsedMs = 0L;
         lastMatchedPresenceElapsedMs = 0L;
 
@@ -299,6 +305,12 @@ final class PeerMeasurementTransport {
                 false;
         advertisingStartedElapsedMs =
                 0L;
+        handler.removeCallbacks(
+                advertisingRetryTask);
+        advertisingRetryScheduled =
+                false;
+        advertisingRetryAttempt =
+                0;
 
         startAdvertising();
     }
@@ -536,6 +548,15 @@ final class PeerMeasurementTransport {
                 false;
         advertisingUpdatePending =
                 false;
+        advertisingRetryScheduled =
+                false;
+        advertisingRetryAttempt =
+                0;
+        lastAdvertisingProofElapsedMs =
+                0L;
+
+        handler.removeCallbacks(
+                advertisingRetryTask);
 
         handler.removeCallbacks(
                 sendTimeoutTask);
@@ -830,7 +851,9 @@ final class PeerMeasurementTransport {
 
     private void startAdvertising() {
         if (!transportActive
-                || advertiser == null) {
+                || advertiser == null
+                || advertisingActive
+                || advertisingStarting) {
             return;
         }
 
@@ -862,6 +885,10 @@ final class PeerMeasurementTransport {
                         .build();
 
         try {
+            handler.removeCallbacks(
+                    advertisingRetryTask);
+            advertisingRetryScheduled =
+                    false;
             advertisingStarting =
                     true;
 
@@ -878,11 +905,54 @@ final class PeerMeasurementTransport {
         } catch (RuntimeException exception) {
             advertisingStarting =
                     false;
+            advertisingUpdatePending =
+                    false;
+            advertisingActive =
+                    false;
+            advertisingStartedElapsedMs =
+                    0L;
 
             reportError(
                     "BLE-Peer-Advertising: "
                             + exception.getClass().getSimpleName());
+
+            scheduleAdvertisingRetry();
         }
+    }
+
+    private void scheduleAdvertisingRetry() {
+        if (!transportActive
+                || advertiser == null
+                || advertisingActive
+                || advertisingStarting
+                || advertisingRetryScheduled) {
+            return;
+        }
+
+        long delayMs =
+                PeerRetryPolicy.delayMs(
+                        advertisingRetryAttempt,
+                        PeerTrustStore.localDeviceId(
+                                context).hashCode());
+
+        if (advertisingRetryAttempt
+                < Integer.MAX_VALUE) {
+            advertisingRetryAttempt++;
+        }
+
+        advertisingRetryScheduled =
+                true;
+
+        EventLog.debug(
+                context,
+                "Peer-Diagnose: Advertising-Wiederanlauf in "
+                        + (delayMs / 1000L)
+                        + "s – Versuch "
+                        + advertisingRetryAttempt);
+
+        handler.postDelayed(
+                advertisingRetryTask,
+                delayMs);
     }
 
     private final AdvertiseCallback advertiseCallback =
@@ -915,6 +985,12 @@ final class PeerMeasurementTransport {
                                         true;
                                 advertisingStartedElapsedMs =
                                         SystemClock.elapsedRealtime();
+                                handler.removeCallbacks(
+                                        advertisingRetryTask);
+                                advertisingRetryScheduled =
+                                        false;
+                                advertisingRetryAttempt =
+                                        0;
 
                                 if (advertisingUpdatePending) {
                                     advertisingUpdatePending =
@@ -963,6 +1039,8 @@ final class PeerMeasurementTransport {
                                 reportError(
                                         "BLE-Peer-Advertising Fehler "
                                                 + errorCode);
+
+                                scheduleAdvertisingRetry();
                             });
                 }
             };
@@ -1724,6 +1802,9 @@ final class PeerMeasurementTransport {
         }
 
         if (registerReplyDevice) {
+            lastAdvertisingProofElapsedMs =
+                    SystemClock.elapsedRealtime();
+
             replyDevices.put(
                     peer.deviceId,
                     device);
@@ -1976,6 +2057,10 @@ final class PeerMeasurementTransport {
                         + advertisingCollector
                         + " advertisingAge="
                         + elapsedAge(now, advertisingStartedElapsedMs)
+                        + " advertisingProofAge="
+                        + elapsedAge(now, lastAdvertisingProofElapsedMs)
+                        + " advertisingRetry="
+                        + advertisingRetryScheduled
                         + " presenceScan="
                         + presenceScanActive
                         + " lastPresence="
@@ -2032,6 +2117,23 @@ final class PeerMeasurementTransport {
                         message));
     }
 
+    private final Runnable advertisingRetryTask =
+            () -> {
+                advertisingRetryScheduled =
+                        false;
+
+                if (!transportActive
+                        || advertisingActive
+                        || advertisingStarting
+                        || adapter == null
+                        || !adapter.isEnabled()
+                        || !hasBlePermissions()) {
+                    return;
+                }
+
+                startAdvertising();
+            };
+
     private final Runnable sessionIdleTimeoutTask =
             () -> {
                 if (sendPeer == null
@@ -2057,6 +2159,62 @@ final class PeerMeasurementTransport {
                                     + ")");
                 }
             };
+
+    void ensureAdvertising() {
+        if (!transportActive
+                || adapter == null
+                || !adapter.isEnabled()
+                || advertiser == null
+                || !hasBlePermissions()
+                || advertisingStarting) {
+            return;
+        }
+
+        if (!advertisingActive) {
+            scheduleAdvertisingRetry();
+            return;
+        }
+
+        long now =
+                SystemClock.elapsedRealtime();
+
+        if (!PeerAdvertisingRecoveryPolicy.shouldRenew(
+                now,
+                advertisingStartedElapsedMs,
+                lastAdvertisingProofElapsedMs)) {
+            return;
+        }
+
+        if (sendPeer != null
+                || !serverReceiveStates.isEmpty()
+                || !replyStates.isEmpty()) {
+            return;
+        }
+
+        EventLog.debug(
+                context,
+                "Peer-Diagnose: Advertising-Lease abgelaufen – kontrollierter Neustart");
+
+        handler.removeCallbacks(
+                advertisingRetryTask);
+        advertisingRetryScheduled =
+                false;
+        advertisingRetryAttempt =
+                0;
+
+        try {
+            advertiser.stopAdvertising(
+                    advertiseCallback);
+        } catch (RuntimeException ignored) {
+        }
+
+        advertisingActive =
+                false;
+        advertisingStartedElapsedMs =
+                0L;
+
+        startAdvertising();
+    }
 
     void ensurePresenceScan() {
         if ("scanning".equals(sendStage)) {
