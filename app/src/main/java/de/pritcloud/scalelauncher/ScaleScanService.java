@@ -200,6 +200,7 @@ public final class ScaleScanService extends Service {
     private boolean explicitStop;
     private boolean terminalError;
     private String monitorText = "";
+    private long visibleStatusGeneration;
 
     public static void clearTransientNotifications(Context context) {
         NotificationManager manager =
@@ -217,7 +218,8 @@ public final class ScaleScanService extends Service {
         super.onCreate();
         createChannels();
 
-        monitorText = getString(R.string.service_gatt_connecting);
+        setMonitorText(
+                getString(R.string.service_gatt_connecting));
         ServiceState.starting(
                 this,
                 getString(R.string.service_gatt_connecting));
@@ -248,6 +250,7 @@ public final class ScaleScanService extends Service {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             explicitStop = true;
+            invalidateVisibleStatusCallbacks();
             ServiceState.stopped(this, getString(R.string.service_stopped_by_user));
             stopSelf();
             return START_NOT_STICKY;
@@ -734,7 +737,8 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        monitorText = getString(R.string.service_gatt_standby);
+        setMonitorText(
+                getString(R.string.service_gatt_standby));
         ServiceState.running(
                 this,
                 monitorText,
@@ -760,8 +764,8 @@ public final class ScaleScanService extends Service {
                         if (state == S400GattClient.State.DISCOVERING
                                 || state == S400GattClient.State.SUBSCRIBING
                                 || state == S400GattClient.State.AUTHENTICATING) {
-                            monitorText =
-                                    getString(R.string.service_gatt_claiming);
+                            setMonitorText(
+                                    getString(R.string.service_gatt_claiming));
                             ServiceState.running(
                                     ScaleScanService.this,
                                     monitorText,
@@ -2707,16 +2711,18 @@ public final class ScaleScanService extends Service {
                 adapter != null && adapter.isEnabled();
 
         if (bluetoothEnabled) {
-            monitorText = getString(
-                    R.string.service_gatt_reconnecting,
-                    delayMs / 1000L);
+            setMonitorText(
+                    getString(
+                            R.string.service_gatt_reconnecting,
+                            delayMs / 1000L));
             ServiceState.running(
                     this,
                     monitorText,
                     false,
                     collectorSource());
         } else {
-            monitorText = reason;
+            setMonitorText(
+                    reason);
             ServiceState.error(
                     this,
                     reason);
@@ -4724,6 +4730,10 @@ public final class ScaleScanService extends Service {
         }
 
         String scaleMac = prefs.getString("mac", "");
+
+        long callbackGeneration =
+                visibleStatusGeneration;
+
         HealthConnectWriter.write(
                 this,
                 timestamp,
@@ -4745,7 +4755,14 @@ public final class ScaleScanService extends Service {
                                 getString(
                                         R.string.log_health_connect_written,
                                         writtenValues));
-                        markMeasurementSuccess(profile.name);
+
+                        if (callbackGeneration
+                                != visibleStatusGeneration) {
+                            return;
+                        }
+
+                        markMeasurementSuccess(
+                                profile.name);
                     }
 
                     @Override public void onError(String message) {
@@ -4754,6 +4771,12 @@ public final class ScaleScanService extends Service {
                                 getString(
                                         R.string.log_health_connect_failed,
                                         message));
+
+                        if (callbackGeneration
+                                != visibleStatusGeneration) {
+                            return;
+                        }
+
                         notifyTransferFailure(
                                 getString(R.string.transfer_health_connect_failed));
                         updateMonitor(getString(R.string.service_health_connect_failed));
@@ -5197,7 +5220,8 @@ public final class ScaleScanService extends Service {
                 false,
                 false);
         stopGattCollector();
-        monitorText = reason;
+        setMonitorText(
+                reason);
         ServiceState.error(this, reason);
         EventLog.error(this, getString(R.string.log_monitor_stopped, reason));
         notifyMonitor();
@@ -5205,7 +5229,8 @@ public final class ScaleScanService extends Service {
 
     private void enterRecoverableError(String reason) {
         terminalError = false;
-        monitorText = reason;
+        setMonitorText(
+                reason);
         ServiceState.error(this, reason);
         notifyMonitor();
     }
@@ -5395,10 +5420,25 @@ public final class ScaleScanService extends Service {
                 NOTIFICATION_ASSIGNMENT);
     }
 
+    private void invalidateVisibleStatusCallbacks() {
+        visibleStatusGeneration++;
+    }
+
+    private void setMonitorText(
+            String text) {
+        monitorText =
+                text == null
+                        ? ""
+                        : text;
+
+        invalidateVisibleStatusCallbacks();
+    }
+
     private void updateMonitor(String text) {
-        monitorText = text == null || text.isBlank()
-                ? getString(R.string.service_waiting_for_measurement)
-                : text;
+        setMonitorText(
+                text == null || text.isBlank()
+                        ? getString(R.string.service_waiting_for_measurement)
+                        : text);
         if (gattMonitoringActive && !terminalError) {
             ServiceState.running(
                     this,

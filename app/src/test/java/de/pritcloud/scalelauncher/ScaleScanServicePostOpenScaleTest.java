@@ -163,6 +163,117 @@ public final class ScaleScanServicePostOpenScaleTest {
         assertTrue(pendingRemove > closedGuard);
     }
 
+    @Test
+    public void staleHealthConnectCallbackCannotOverwriteNewerStatus()
+            throws Exception {
+        String source =
+                new String(
+                        Files.readAllBytes(
+                                serviceSource()),
+                        StandardCharsets.UTF_8);
+
+        int start =
+                source.indexOf(
+                        "private boolean writeToHealthConnect(");
+
+        int end =
+                source.indexOf(
+                        "private void rejectMeasurement(",
+                        start);
+
+        assertTrue(start >= 0);
+        assertTrue(end > start);
+
+        String block =
+                source.substring(
+                        start,
+                        end);
+
+        assertTrue(
+                block.contains(
+                        "long callbackGeneration ="));
+
+        assertTrue(
+                block.contains(
+                        "visibleStatusGeneration;"));
+
+        int successStart =
+                block.indexOf(
+                        "void onSuccess(");
+
+        int errorStart =
+                block.indexOf(
+                        "void onError(",
+                        successStart);
+
+        assertTrue(successStart >= 0);
+        assertTrue(errorStart > successStart);
+
+        String successBlock =
+                block.substring(
+                        successStart,
+                        errorStart);
+
+        int successGuard =
+                successBlock.indexOf(
+                        "callbackGeneration");
+
+        int successVisibleChange =
+                successBlock.indexOf(
+                        "markMeasurementSuccess(");
+
+        assertTrue(successGuard >= 0);
+        assertTrue(successVisibleChange > successGuard);
+
+        String errorBlock =
+                block.substring(
+                        errorStart);
+
+        int errorGuard =
+                errorBlock.indexOf(
+                        "callbackGeneration");
+
+        int errorVisibleChange =
+                errorBlock.indexOf(
+                        "notifyTransferFailure(");
+
+        assertTrue(errorGuard >= 0);
+        assertTrue(errorVisibleChange > errorGuard);
+
+        assertTrue(
+                source.contains(
+                        "private long visibleStatusGeneration;"));
+
+        assertTrue(
+                source.contains(
+                        "invalidateVisibleStatusCallbacks();"));
+
+        assertTrue(
+                source.contains(
+                        "private void setMonitorText("));
+
+        int monitorStart =
+                source.indexOf(
+                        "private void updateMonitor(String text)");
+
+        int monitorEnd =
+                source.indexOf(
+                        "private void createChannels()",
+                        monitorStart);
+
+        assertTrue(monitorStart >= 0);
+        assertTrue(monitorEnd > monitorStart);
+
+        String monitorBlock =
+                source.substring(
+                        monitorStart,
+                        monitorEnd);
+
+        assertTrue(
+                monitorBlock.contains(
+                        "setMonitorText("));
+    }
+
     private static Path serviceSource() {
         Path modulePath =
                 Paths.get(
