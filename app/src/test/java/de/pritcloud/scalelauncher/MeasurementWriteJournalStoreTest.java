@@ -382,6 +382,56 @@ public final class MeasurementWriteJournalStoreTest {
                 dao.entries.size());
     }
 
+    @Test
+    public void storedConfirmationRequiresMatchingIdentity() {
+        FakeDao dao =
+                new FakeDao();
+
+        assertTrue(
+                MeasurementWriteJournalStore.prepare(
+                        dao,
+                        MEASUREMENT_ID,
+                        AUTHORITY,
+                        USER_ID,
+                        TIMESTAMP));
+
+        assertFalse(
+                MeasurementWriteJournalStore.confirmsStored(
+                        dao,
+                        MEASUREMENT_ID,
+                        USER_ID,
+                        TIMESTAMP));
+
+        assertTrue(
+                MeasurementWriteJournalStore.markStored(
+                        dao,
+                        MEASUREMENT_ID,
+                        AUTHORITY,
+                        USER_ID,
+                        TIMESTAMP));
+
+        assertTrue(
+                MeasurementWriteJournalStore.confirmsStored(
+                        dao,
+                        MEASUREMENT_ID,
+                        USER_ID,
+                        TIMESTAMP));
+
+        assertFalse(
+                MeasurementWriteJournalStore.confirmsStored(
+                        dao,
+                        MEASUREMENT_ID,
+                        USER_ID + 1L,
+                        TIMESTAMP));
+
+        assertFalse(
+                MeasurementWriteJournalStore.confirmsStored(
+                        dao,
+                        MEASUREMENT_ID,
+                        USER_ID,
+                        TIMESTAMP + 1L));
+    }
+
     private static MeasurementWriteJournalStore.Status status(
             FakeDao dao,
             long userId) {

@@ -280,6 +280,8 @@ UUIDs: %1$s</string>
     <string name="log_impedance_labels_swapped">Impedance bands were swapped and corrected</string>
     <string name="log_reference_weight_updated">Weight for %1$s updated: %2$.1f kg</string>
     <string name="log_reference_weight_update_failed">Reference weight for %1$s could not be updated after successful openScale storage – %2$s: %3$s</string>
+    <string name="log_stored_pending_repaired">Completed stored assignment %1$s after restart</string>
+    <string name="log_stored_pending_repair_failed">Could not complete stored assignment %1$s – %2$s: %3$s</string>
     <string name="service_error_openscale_access">openScale access denied – grant permission again</string>
     <string name="service_error_openscale_transfer">Transfer to openScale failed: %1$s – %2$s</string>
     <string name="service_error_openscale_unconfirmed">Saving to openScale could not be fully confirmed</string>

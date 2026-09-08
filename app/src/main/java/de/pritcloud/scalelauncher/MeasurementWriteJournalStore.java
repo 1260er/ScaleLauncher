@@ -83,6 +83,22 @@ final class MeasurementWriteJournalStore {
                 Status.CONFLICT);
     }
 
+    static boolean confirmsStored(
+            Context context,
+            String measurementId,
+            long userId,
+            long timestampMs) {
+        return runRoom(
+                context,
+                dao ->
+                        confirmsStored(
+                                dao,
+                                measurementId,
+                                userId,
+                                timestampMs),
+                false);
+    }
+
     static boolean prepare(
             Context context,
             String measurementId,
@@ -153,6 +169,31 @@ final class MeasurementWriteJournalStore {
         return storedStatus == null
                 ? Status.CONFLICT
                 : storedStatus;
+    }
+
+    static boolean confirmsStored(
+            MeasurementWriteJournalDao dao,
+            String measurementId,
+            long userId,
+            long timestampMs) {
+        if (dao == null
+                || measurementId == null
+                || measurementId.isBlank()
+                || userId < 0L
+                || timestampMs <= 0L) {
+            return false;
+        }
+
+        MeasurementWriteJournalEntity entry =
+                dao.findByMeasurementId(
+                        measurementId);
+
+        return entry != null
+                && entry.userId == userId
+                && entry.timestampMs == timestampMs
+                && storedStatus(
+                        entry.status)
+                == Status.STORED;
     }
 
     static boolean prepare(

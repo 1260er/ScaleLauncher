@@ -234,6 +234,7 @@ public final class ScaleScanService extends Service {
 
         repairPendingAfterPeerChanges();
         repairStaleAmbiguousPending();
+        repairStoredResolvedPending();
 
         schedulePeerSync(
                 1_000L);
@@ -2201,15 +2202,18 @@ public final class ScaleScanService extends Service {
         }
     }
 
-    private void broadcastMeasurementClosed(
+    private boolean broadcastMeasurementClosed(
             String measurementId) {
         if (measurementId == null
                 || measurementId.isBlank()) {
-            return;
+            return false;
         }
 
         int queued =
                 0;
+
+        boolean complete =
+                true;
 
         for (PeerTrustStore.Peer peer :
                 PeerTrustRoomStore.load(
@@ -2226,6 +2230,9 @@ public final class ScaleScanService extends Service {
 
                 queued++;
             } catch (RuntimeException exception) {
+                complete =
+                        false;
+
                 EventLog.warning(
                         this,
                         getString(
@@ -2246,6 +2253,8 @@ public final class ScaleScanService extends Service {
             schedulePeerSync(
                     100L);
         }
+
+        return complete;
     }
 
     private void enqueueManualRescueRequests(
@@ -3041,6 +3050,98 @@ public final class ScaleScanService extends Service {
             enqueueManualRescueRequests(
                     repaired.toMeasurement(),
                     candidateProfileIds);
+        }
+    }
+
+    private void repairStoredResolvedPending() {
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<UserProfile> localProfiles =
+                UserProfileRoomStore.load(
+                        this);
+
+        List<PendingMeasurementStore.Item> snapshot =
+                new ArrayList<>(
+                        PendingMeasurementRoomStore.load(
+                                this));
+
+        boolean changed =
+                false;
+
+        for (PendingMeasurementStore.Item pending :
+                snapshot) {
+            if (pending == null
+                    || !pending.isResolved()
+                    || !localDeviceId.equals(
+                            pending.selectedOwnerDeviceId)) {
+                continue;
+            }
+
+            UserProfile profile =
+                    UserProfileRoomStore.findByHouseholdProfileId(
+                            localProfiles,
+                            pending.selectedProfileId);
+
+            if (profile == null) {
+                continue;
+            }
+
+            if (!MeasurementWriteJournalStore.confirmsStored(
+                    this,
+                    pending.id,
+                    profile.userId,
+                    pending.timestampMs)) {
+                continue;
+            }
+
+            try {
+                /*
+                 * openScale is already durably confirmed by STORED.
+                 * Remove a possibly surviving openScale pending row first,
+                 * then repeat only the local completion steps that were
+                 * previously held by the in-memory onSuccess Runnable.
+                 */
+                OpenScalePendingRoomStore.remove(
+                        this,
+                        pending.id);
+
+                PeerOutboxRoomStore.removeMeasurement(
+                        this,
+                        pending.id);
+
+                if (!broadcastMeasurementClosed(
+                        pending.id)) {
+                    throw new IllegalStateException(
+                            "peer CLOSED queue incomplete");
+                }
+
+                PendingMeasurementRoomStore.remove(
+                        this,
+                        pending.id);
+
+                EventLog.info(
+                        this,
+                        getString(
+                                R.string.log_stored_pending_repaired,
+                                pending.id));
+
+                changed =
+                        true;
+            } catch (RuntimeException exception) {
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_stored_pending_repair_failed,
+                                pending.id,
+                                exception.getClass().getSimpleName(),
+                                safeMessage(exception)));
+            }
+        }
+
+        if (changed) {
+            updateAssignmentNotification();
         }
     }
 
@@ -4368,52 +4469,54 @@ public final class ScaleScanService extends Service {
             S400BodyComposition.Result composition,
             Runnable onSuccess) {
         try {
-            boolean referenceUpdated =
-                    HouseholdProfileSync.updateReferenceWeight(
+            try {
+                boolean referenceUpdated =
+                        HouseholdProfileSync.updateReferenceWeight(
+                                this,
+                                prefs,
+                                profile.userId,
+                                measurement.weightKg);
+
+                if (referenceUpdated) {
+                    profile.referenceWeightKg =
+                            measurement.weightKg;
+
+                    EventLog.debug(
                             this,
-                            prefs,
-                            profile.userId,
-                            measurement.weightKg);
+                            getString(
+                                    R.string.log_reference_weight_updated,
+                                    profile.name,
+                                    measurement.weightKg));
 
-            if (referenceUpdated) {
-                profile.referenceWeightKg =
-                        measurement.weightKg;
-
-                EventLog.debug(
+                    schedulePeerSync(
+                            100L);
+                }
+            } catch (RuntimeException exception) {
+                EventLog.warning(
                         this,
                         getString(
-                                R.string.log_reference_weight_updated,
+                                R.string.log_reference_weight_update_failed,
                                 profile.name,
-                                measurement.weightKg));
-
-                schedulePeerSync(
-                        100L);
+                                exception.getClass().getSimpleName(),
+                                safeMessage(exception)));
             }
-        } catch (RuntimeException exception) {
-            EventLog.warning(
-                    this,
-                    getString(
-                            R.string.log_reference_weight_update_failed,
-                            profile.name,
-                            exception.getClass().getSimpleName(),
-                            safeMessage(exception)));
-        }
 
-        boolean healthConnectStarted =
-                writeToHealthConnect(
-                        prefs,
-                        profile,
-                        timestamp,
-                        measurement,
-                        composition);
+            boolean healthConnectStarted =
+                    writeToHealthConnect(
+                            prefs,
+                            profile,
+                            timestamp,
+                            measurement,
+                            composition);
 
-        if (!healthConnectStarted) {
-            markMeasurementSuccess(
-                    profile.name);
-        }
-
-        if (onSuccess != null) {
-            onSuccess.run();
+            if (!healthConnectStarted) {
+                markMeasurementSuccess(
+                        profile.name);
+            }
+        } finally {
+            if (onSuccess != null) {
+                onSuccess.run();
+            }
         }
     }
 
