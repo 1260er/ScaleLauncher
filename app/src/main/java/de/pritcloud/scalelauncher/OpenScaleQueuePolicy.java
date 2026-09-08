@@ -44,6 +44,31 @@ final class OpenScaleQueuePolicy {
                     "Invalid openScale queue plan");
         }
 
+        long currentQueuedAtMs =
+                -1L;
+
+        for (OpenScalePendingRoomStore.Item item :
+                queued) {
+            if (item == null
+                    || item.measurement == null
+                    || item.userId != currentUserId
+                    || !currentHouseholdProfileId.equals(
+                            item.householdProfileId)
+                    || !currentMeasurementId.equals(
+                            item.measurement.measurementId)) {
+                continue;
+            }
+
+            currentQueuedAtMs =
+                    item.queuedAtMs;
+            break;
+        }
+
+        if (currentQueuedAtMs <= 0L) {
+            throw new IllegalStateException(
+                    "Current openScale queue measurement missing");
+        }
+
         List<OpenScalePendingRoomStore.Item> attempts =
                 new ArrayList<>();
 
@@ -60,15 +85,34 @@ final class OpenScaleQueuePolicy {
                 continue;
             }
 
-            attempts.add(
-                    item);
-
             if (currentMeasurementId.equals(
                     item.measurement.measurementId)) {
+                attempts.add(
+                        item);
+
                 currentFound =
                         true;
                 break;
             }
+
+            /*
+             * timestamp_ms determines chronological retry order, but
+             * queued_at_ms defines the request batch boundary. A measurement
+             * queued after the current request must never enter that earlier
+             * request merely because its physical timestamp is older.
+             *
+             * Equal queued_at_ms is treated conservatively as outside the
+             * batch because insertion order cannot be proven from the
+             * millisecond timestamp alone.
+             */
+            if (item.queuedAtMs <= 0L
+                    || item.queuedAtMs
+                    >= currentQueuedAtMs) {
+                continue;
+            }
+
+            attempts.add(
+                    item);
         }
 
         if (!currentFound) {

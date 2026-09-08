@@ -54,6 +54,44 @@ public final class OpenScaleQueuePolicyTest {
     }
 
     @Test
+    public void laterQueuedOlderTimestampWaitsForNextRequest() {
+        OpenScaleQueuePolicy.Plan plan =
+                OpenScaleQueuePolicy.plan(
+                        List.of(
+                                item(7L, "later-old", 100L, 40L),
+                                item(7L, "earlier-old", 200L, 20L),
+                                item(7L, "current", 300L, 30L)),
+                        7L,
+                        PROFILE,
+                        "current");
+
+        assertEquals(
+                List.of(
+                        "earlier-old",
+                        "current"),
+                ids(plan));
+    }
+
+    @Test
+    public void equalQueueTimeDoesNotCrossBatchBoundary() {
+        OpenScaleQueuePolicy.Plan plan =
+                OpenScaleQueuePolicy.plan(
+                        List.of(
+                                item(7L, "earlier-old", 100L, 20L),
+                                item(7L, "same-time-old", 200L, 30L),
+                                item(7L, "current", 300L, 30L)),
+                        7L,
+                        PROFILE,
+                        "current");
+
+        assertEquals(
+                List.of(
+                        "earlier-old",
+                        "current"),
+                ids(plan));
+    }
+
+    @Test
     public void currentSuccessRemovesEntireAttemptedBatch() {
         OpenScaleQueuePolicy.Plan plan =
                 planThree();
