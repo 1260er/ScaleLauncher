@@ -285,6 +285,7 @@ UUIDs: %1$s</string>
     <string name="service_error_incomplete_composition">Körperanalyse unvollständig: %1$s</string>
     <string name="log_impedance_labels_swapped">Impedanzbänder waren vertauscht und wurden korrigiert</string>
     <string name="log_reference_weight_updated">Gewicht %1$s aktualisiert: %2$.1f kg</string>
+    <string name="log_reference_weight_update_failed">Referenzgewicht für %1$s konnte nach erfolgreicher openScale-Speicherung nicht aktualisiert werden – %2$s: %3$s</string>
     <string name="service_error_openscale_access">openScale-Zugriff verweigert – Berechtigung erneut erteilen</string>
     <string name="service_error_openscale_transfer">Übergabe an openScale fehlgeschlagen: %1$s – %2$s</string>
     <string name="service_error_openscale_unconfirmed">Speicherung in openScale konnte nicht vollständig bestätigt werden</string>

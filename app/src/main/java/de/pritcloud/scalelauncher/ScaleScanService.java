@@ -4389,18 +4389,14 @@ public final class ScaleScanService extends Service {
                 schedulePeerSync(
                         100L);
             }
-        } catch (SecurityException exception) {
-            rejectMeasurement(
-                    getString(
-                            R.string.service_error_openscale_access));
-            return;
         } catch (RuntimeException exception) {
-            rejectMeasurement(
+            EventLog.warning(
+                    this,
                     getString(
-                            R.string.service_error_openscale_transfer,
+                            R.string.log_reference_weight_update_failed,
+                            profile.name,
                             exception.getClass().getSimpleName(),
                             safeMessage(exception)));
-            return;
         }
 
         boolean healthConnectStarted =
