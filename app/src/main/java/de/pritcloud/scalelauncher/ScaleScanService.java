@@ -5415,6 +5415,28 @@ public final class ScaleScanService extends Service {
 
     private Notification monitorNotification(String text) {
         ServiceState.Snapshot state = ServiceState.read(this);
+
+        boolean scaleReachable =
+                state.mode == ServiceState.Mode.RUNNING
+                        && state.collectorSource
+                                != ServiceState.CollectorSource.NONE;
+
+        int scaleIconResource =
+                scaleReachable
+                        ? R.drawable.scale_connected
+                        : R.drawable.scale_disconnected;
+
+        int scaleIconColor =
+                scaleReachable
+                        ? android.graphics.Color.rgb(
+                                10,
+                                215,
+                                135)
+                        : android.graphics.Color.rgb(
+                                223,
+                                30,
+                                72);
+
         String title;
         String notificationText = text;
         switch (state.mode) {
@@ -5453,6 +5475,11 @@ public final class ScaleScanService extends Service {
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new Notification.Builder(this, CHANNEL_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+                .setColor(scaleIconColor)
+                .setLargeIcon(
+                        android.graphics.BitmapFactory.decodeResource(
+                                getResources(),
+                                scaleIconResource))
                 .setContentTitle(title)
                 .setContentText(notificationText)
                 .setContentIntent(open)
