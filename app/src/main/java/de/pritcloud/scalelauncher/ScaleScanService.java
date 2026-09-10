@@ -918,9 +918,9 @@ public final class ScaleScanService extends Service {
                         impedance,
                         impedanceLow));
 
-        long timestampMs = deviceTimestamp > 0L
-                ? deviceTimestamp * 1000L
-                : System.currentTimeMillis();
+        // The collector reception time is the canonical measurement time.
+        // The S400 device clock can reset or drift after battery removal.
+        long timestampMs = System.currentTimeMillis();
 
         String scaleMac =
                 getSharedPreferences(
@@ -933,9 +933,7 @@ public final class ScaleScanService extends Service {
         String measurementId =
                 S400FinalMeasurement.stableLocalMeasurementId(
                         scaleMac,
-                        deviceTimestamp > 0L
-                                ? timestampMs
-                                : 0L);
+                        timestampMs);
 
         S400FinalMeasurement finalized =
                 new S400FinalMeasurement(
