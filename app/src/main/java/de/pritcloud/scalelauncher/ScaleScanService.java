@@ -1003,10 +1003,31 @@ public final class ScaleScanService extends Service {
                                 this,
                                 measurementId);
 
+                boolean routeStillPending =
+                        false;
+
+                for (PeerOutboxStore.Item item :
+                        PeerOutboxRoomStore.forPeer(
+                                this,
+                                peer.deviceId)) {
+                    if (item != null
+                            && ack.acknowledgedMessageId.equals(
+                                    item.messageId)
+                            && PeerOutboxStore.KIND_MEASUREMENT.equals(
+                                    item.kind)
+                            && measurementId.equals(
+                                    item.dedupKey)) {
+                        routeStillPending =
+                                true;
+                        break;
+                    }
+                }
+
                 if (pending != null
                         && pending.isResolved()
                         && peer.deviceId.equals(
-                                pending.selectedOwnerDeviceId)) {
+                                pending.selectedOwnerDeviceId)
+                        && routeStillPending) {
                     EventLog.debug(
                             this,
                             getString(
@@ -1014,10 +1035,12 @@ public final class ScaleScanService extends Service {
                                     peer.label));
 
                     /*
-                     * Keep the acknowledged route in the durable outbox until
-                     * CLOSED is durably queued for every trusted peer. If that
-                     * step fails, the route is sent again and its repeated ACK
-                     * gives us another safe opportunity to finish the handoff.
+                     * Accept the ACK only while the exact routed measurement is
+                     * still durably present for this peer. Keep that route in
+                     * the outbox until CLOSED is durably queued for every
+                     * trusted peer. If that step fails, the route is sent again
+                     * and its repeated ACK gives us another safe opportunity to
+                     * finish the handoff.
                      */
                     if (!broadcastMeasurementClosed(
                             measurementId)) {

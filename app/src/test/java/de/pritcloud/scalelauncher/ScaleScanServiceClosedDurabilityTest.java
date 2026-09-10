@@ -278,10 +278,20 @@ public final class ScaleScanServiceClosedDurabilityTest {
                 ack.indexOf(
                         "\"route:\"");
 
+        int routePresence =
+                ack.indexOf(
+                        "PeerOutboxRoomStore.forPeer(",
+                        routeAck);
+
+        int exactRouteMatch =
+                ack.indexOf(
+                        "ack.acknowledgedMessageId.equals(",
+                        routePresence);
+
         int closed =
                 ack.indexOf(
                         "broadcastMeasurementClosed(",
-                        routeAck);
+                        exactRouteMatch);
 
         int cleanup =
                 ack.indexOf(
@@ -294,7 +304,9 @@ public final class ScaleScanServiceClosedDurabilityTest {
                         cleanup);
 
         assertTrue(routeAck >= 0);
-        assertTrue(closed > routeAck);
+        assertTrue(routePresence > routeAck);
+        assertTrue(exactRouteMatch > routePresence);
+        assertTrue(closed > exactRouteMatch);
         assertTrue(cleanup > closed);
         assertTrue(removal > cleanup);
     }
