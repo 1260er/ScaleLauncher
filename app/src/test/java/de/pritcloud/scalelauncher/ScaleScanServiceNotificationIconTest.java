@@ -12,7 +12,7 @@ import org.junit.Test;
 
 public final class ScaleScanServiceNotificationIconTest {
     @Test
-    public void monitorUsesScaleStatusColorWithoutLargeIcon()
+    public void monitorUsesNoCustomStatusColorOrLargeIcon()
             throws Exception {
         String source = loadServiceSource();
 
@@ -22,50 +22,10 @@ public final class ScaleScanServiceNotificationIconTest {
                         "private Notification monitorNotification(",
                         "private Notification resultNotification(");
 
-        assertTrue(
-                monitor.contains(
-                        "state.mode == ServiceState.Mode.RUNNING"));
 
-        assertTrue(
+        assertFalse(
                 monitor.contains(
-                        "state.collectorSource"));
-
-        assertTrue(
-                monitor.contains(
-                        "!= ServiceState.CollectorSource.NONE"));
-
-
-        assertTrue(
-                monitor.contains(
-                        "android.graphics.Color.rgb("));
-
-        assertTrue(
-                monitor.contains(
-                        "10,"));
-
-        assertTrue(
-                monitor.contains(
-                        "215,"));
-
-        assertTrue(
-                monitor.contains(
-                        "135)"));
-
-        assertTrue(
-                monitor.contains(
-                        "223,"));
-
-        assertTrue(
-                monitor.contains(
-                        "30,"));
-
-        assertTrue(
-                monitor.contains(
-                        "72)"));
-
-        assertTrue(
-                monitor.contains(
-                        ".setColor(scaleIconColor)"));
+                        ".setColor("));
 
         assertFalse(
                 monitor.contains(
