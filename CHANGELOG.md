@@ -13,7 +13,8 @@
 - verwaiste Peer-Daten nach dem Entfernen eines gekoppelten Geräts werden repariert
 - lokale Pending-Messungen werden erst nach dauerhaft eingereihtem CLOSED entfernt; vorhandener CLOSED-Fortschritt bleibt bei Retries erhalten
 - unterbrochene Rescue-Übergänge und bereits STORED bestätigte lokale Abschlüsse können bei späterem Peer-Sync sicher fortgesetzt werden
-- Überwachungsbenachrichtigung verwendet denselben grünen bzw. roten Waagenstatus wie die App
+- Remote-Handoffs werden erst nach dauerhaft eingereihter Route und einem gültigen ACK für genau diese noch offene Route abgeschlossen; CLOSED wird vor dem Entfernen des lokalen Pending dauerhaft abgesichert
+- „Nicht meine Messung“ lehnt alle Kandidaten des ablehnenden Peer-Geräts gemeinsam ab, bevor eine automatische Restzuordnung erfolgen kann
 - zusätzliche Regressionstests für openScale-Recovery, Queue-Grenzen, Peer-Reparatur, CLOSED-Dauerhaftigkeit, ACK-Retry, Health-Connect-Status und Notification-Status ergänzt
 - aktive Peer-Dedup-Einträge werden weiterhin nicht zeitbasiert gelöscht, weil alte noch nicht bestätigte Peer-Nachrichten sonst erneut als neu verarbeitet werden könnten
 
