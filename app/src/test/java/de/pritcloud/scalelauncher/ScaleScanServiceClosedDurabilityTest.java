@@ -198,7 +198,7 @@ public final class ScaleScanServiceClosedDurabilityTest {
     }
 
     @Test
-    public void remoteRoutingStillDoesNotDeleteLocalPending()
+    public void remoteRoutingDefersClosedUntilRouteAck()
             throws Exception {
         String source = loadSource();
 
@@ -218,13 +218,109 @@ public final class ScaleScanServiceClosedDurabilityTest {
                 resolved.substring(
                         routed);
 
-        assertTrue(
+        assertFalse(
                 remote.contains(
                         "broadcastMeasurementClosed("));
 
         assertFalse(
                 remote.contains(
                         "PendingMeasurementRoomStore.remove("));
+    }
+
+    @Test
+    public void acceptedPeerDecisionQueuesRouteBeforeDedupAndAck()
+            throws Exception {
+        String source = loadSource();
+
+        String decision =
+                block(
+                        source,
+                        "if (PeerMeasurementDecisionPayload.TYPE.equals(",
+                        "if (PeerClaimPayload.TYPE.equals(type))");
+
+        int accepted =
+                decision.indexOf(
+                        "if (decision.isAccepted())");
+
+        int route =
+                decision.indexOf(
+                        "enqueueRoutedMeasurement(",
+                        accepted);
+
+        int dedup =
+                decision.indexOf(
+                        "PeerInboxDedupRoomStore.mark(",
+                        accepted);
+
+        int ack =
+                decision.indexOf(
+                        "queuePeerAck(",
+                        accepted);
+
+        assertTrue(accepted >= 0);
+        assertTrue(route > accepted);
+        assertTrue(dedup > route);
+        assertTrue(ack > dedup);
+    }
+
+    @Test
+    public void routeAckQueuesClosedBeforeDeletingPending()
+            throws Exception {
+        String source = loadSource();
+
+        String ack =
+                block(
+                        source,
+                        "if (PeerAckPayload.TYPE.equals(type))",
+                        "if (PeerProfileManifestPayload.TYPE.equals(type))");
+
+        int routeAck =
+                ack.indexOf(
+                        "\"route:\"");
+
+        int closed =
+                ack.indexOf(
+                        "broadcastMeasurementClosed(",
+                        routeAck);
+
+        int cleanup =
+                ack.indexOf(
+                        "PeerOutboxRoomStore.removeMeasurementExceptClosed(",
+                        closed);
+
+        int removal =
+                ack.indexOf(
+                        "PendingMeasurementRoomStore.remove(",
+                        cleanup);
+
+        assertTrue(routeAck >= 0);
+        assertTrue(closed > routeAck);
+        assertTrue(cleanup > closed);
+        assertTrue(removal > cleanup);
+    }
+
+    @Test
+    public void peerRepairRequeuesResolvedRemotePending()
+            throws Exception {
+        String source = loadSource();
+
+        String repair =
+                block(
+                        source,
+                        "private void repairPendingAfterPeerChanges()",
+                        "private void repairStaleAmbiguousPending()");
+
+        int resolved =
+                repair.indexOf(
+                        "if (current.isResolved())");
+
+        int route =
+                repair.indexOf(
+                        "enqueueRoutedMeasurement(",
+                        resolved);
+
+        assertTrue(resolved >= 0);
+        assertTrue(route > resolved);
     }
 
     private static void assertGuardBeforeRemoval(

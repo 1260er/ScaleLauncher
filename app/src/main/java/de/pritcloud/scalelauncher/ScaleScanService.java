@@ -992,6 +992,63 @@ public final class ScaleScanService extends Service {
                 return;
             }
 
+            if (ack.acknowledgedMessageId.startsWith(
+                    "route:")) {
+                String measurementId =
+                        ack.acknowledgedMessageId.substring(
+                                "route:".length());
+
+                PendingMeasurementStore.Item pending =
+                        PendingMeasurementRoomStore.find(
+                                this,
+                                measurementId);
+
+                if (pending != null
+                        && pending.isResolved()
+                        && peer.deviceId.equals(
+                                pending.selectedOwnerDeviceId)) {
+                    EventLog.debug(
+                            this,
+                            getString(
+                                    R.string.log_peer_ack_received,
+                                    peer.label));
+
+                    /*
+                     * Keep the acknowledged route in the durable outbox until
+                     * CLOSED is durably queued for every trusted peer. If that
+                     * step fails, the route is sent again and its repeated ACK
+                     * gives us another safe opportunity to finish the handoff.
+                     */
+                    if (!broadcastMeasurementClosed(
+                            measurementId)) {
+                        schedulePeerSync(
+                                PEER_ACK_RETRY_MS);
+                        return;
+                    }
+
+                    PeerOutboxRoomStore.removeMeasurementExceptClosed(
+                            this,
+                            measurementId);
+
+                    PendingMeasurementRoomStore.remove(
+                            this,
+                            measurementId);
+
+                    EventLog.info(
+                            this,
+                            getString(
+                                    R.string.log_peer_routed_measurement_confirmed,
+                                    peer.label,
+                                    measurementId));
+
+                    updateAssignmentNotification();
+
+                    schedulePeerSync(
+                            250L);
+                    return;
+                }
+            }
+
             if (PeerOutboxRoomStore.remove(
                     this,
                     peer.deviceId,
@@ -1001,41 +1058,6 @@ public final class ScaleScanService extends Service {
                         getString(
                                 R.string.log_peer_ack_received,
                                 peer.label));
-
-                if (ack.acknowledgedMessageId.startsWith(
-                        "route:")) {
-                    String measurementId =
-                            ack.acknowledgedMessageId.substring(
-                                    "route:".length());
-
-                    SharedPreferences prefs =
-                            getSharedPreferences(
-                                    "prefs",
-                                    MODE_PRIVATE);
-
-                    PendingMeasurementStore.Item pending =
-                            PendingMeasurementRoomStore.find(
-                                    this,
-                                    measurementId);
-
-                    if (pending != null
-                            && pending.isResolved()
-                            && peer.deviceId.equals(
-                                    pending.selectedOwnerDeviceId)) {
-                        PendingMeasurementRoomStore.remove(
-                                this,
-                                measurementId);
-
-                        EventLog.info(
-                                this,
-                                getString(
-                                        R.string.log_peer_routed_measurement_confirmed,
-                                        peer.label,
-                                        measurementId));
-
-                        updateAssignmentNotification();
-                    }
-                }
 
                 schedulePeerSync(
                         250L);
@@ -1279,6 +1301,31 @@ public final class ScaleScanService extends Service {
                                             decision.measurementId,
                                             decision.profileId);
 
+                    if (decision.isAccepted()) {
+                        PendingMeasurementStore.Item resolved =
+                                PendingMeasurementRoomStore.find(
+                                        this,
+                                        decision.measurementId);
+
+                        if (resolved == null
+                                || !resolved.isResolved()
+                                || !decision.profileId.equals(
+                                        resolved.selectedProfileId)
+                                || !peer.deviceId.equals(
+                                        resolved.selectedOwnerDeviceId)
+                                || !enqueueRoutedMeasurement(
+                                        resolved,
+                                        decision.profileId,
+                                        peer.deviceId)) {
+                            /*
+                             * The selection may already be durable, but the
+                             * peer decision must stay unacknowledged until its
+                             * route is durably present in the outbox.
+                             */
+                            return;
+                        }
+                    }
+
                     PeerInboxDedupRoomStore.mark(
                             this,
                             peer.deviceId,
@@ -1294,11 +1341,7 @@ public final class ScaleScanService extends Service {
                                         peer.label,
                                         decision.measurementId));
 
-                        if (decision.isAccepted()) {
-                            resolvePendingDecision(
-                                    prefs,
-                                    decision.measurementId);
-                        } else {
+                        if (!decision.isAccepted()) {
                             autoResolveSingleRemainingCandidate(
                                     prefs,
                                     decision.measurementId);
@@ -3045,8 +3088,27 @@ public final class ScaleScanService extends Service {
                             this,
                             pending.id);
 
-            if (current == null
-                    || current.isResolved()) {
+            if (current == null) {
+                continue;
+            }
+
+            if (current.isResolved()) {
+                if (!localDeviceId.equals(
+                            current.selectedOwnerDeviceId)
+                        && PeerTrustRoomStore.find(
+                                this,
+                                current.selectedOwnerDeviceId) != null) {
+                    /*
+                     * A remote decision can survive a process death before its
+                     * route was queued, or after a route ACK while CLOSED was
+                     * still incomplete. Re-queuing the stable route is safe.
+                     */
+                    enqueueRoutedMeasurement(
+                            current,
+                            current.selectedProfileId,
+                            current.selectedOwnerDeviceId);
+                }
+
                 continue;
             }
 
@@ -4030,9 +4092,10 @@ public final class ScaleScanService extends Service {
                 pending,
                 pending.selectedProfileId,
                 pending.selectedOwnerDeviceId)) {
-            broadcastMeasurementClosed(
-                    pending.id);
-
+            /*
+             * CLOSED is intentionally deferred until the target peer ACKs the
+             * routed measurement.
+             */
             updateAssignmentNotification();
         }
     }
