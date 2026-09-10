@@ -140,7 +140,7 @@ public final class ScaleScanServicePostOpenScaleTest {
 
         int closedGuard =
                 block.indexOf(
-                        "if (!broadcastMeasurementClosed(");
+                        "if (!queueMeasurementClosedForLocalRemoval(");
 
         int pendingRemove =
                 block.indexOf(
@@ -153,6 +153,10 @@ public final class ScaleScanServicePostOpenScaleTest {
         assertTrue(
                 block.contains(
                         "pending.selectedOwnerDeviceId"));
+
+        assertTrue(
+                source.contains(
+                        "private boolean queueMeasurementClosedForLocalRemoval("));
 
         assertTrue(
                 source.contains(

@@ -303,6 +303,7 @@ public final class ScaleScanService extends Service {
             refreshTrustedPeerPresence();
             repairPeerOrphans();
             repairPendingAfterPeerChanges();
+            repairStoredResolvedPending();
 
             schedulePeerSync(
                     100L);
@@ -1953,12 +1954,10 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        PeerOutboxRoomStore.removeMeasurement(
-                this,
-                pendingId);
-
-        broadcastMeasurementClosed(
-                pendingId);
+        if (!queueMeasurementClosedForLocalRemoval(
+                pendingId)) {
+            return;
+        }
 
         PendingMeasurementRoomStore.remove(
                 this,
@@ -2214,6 +2213,16 @@ public final class ScaleScanService extends Service {
             schedulePeerSync(
                     100L);
         }
+    }
+
+    private boolean queueMeasurementClosedForLocalRemoval(
+            String measurementId) {
+        PeerOutboxRoomStore.removeMeasurementExceptClosed(
+                this,
+                measurementId);
+
+        return broadcastMeasurementClosed(
+                measurementId);
     }
 
     private boolean broadcastMeasurementClosed(
@@ -3082,9 +3091,16 @@ public final class ScaleScanService extends Service {
                     prefs,
                     pending.id);
 
-            removePendingWithoutCandidates(
-                    prefs,
-                    pending.id);
+            boolean remoteRescueHandled =
+                    promoteRejectedLocalPendingToRemoteRescue(
+                            prefs,
+                            pending.id);
+
+            if (!remoteRescueHandled) {
+                removePendingWithoutCandidates(
+                        prefs,
+                        pending.id);
+            }
         }
     }
 
@@ -3175,12 +3191,10 @@ public final class ScaleScanService extends Service {
              * Remove the obsolete normal CLAIM from the outbox before
              * queuing CLOSED + the new rescue request.
              */
-            PeerOutboxRoomStore.removeMeasurement(
-                    this,
-                    pending.id);
-
-            broadcastMeasurementClosed(
-                    pending.id);
+            if (!queueMeasurementClosedForLocalRemoval(
+                    pending.id)) {
+                continue;
+            }
 
             PendingMeasurementRoomStore.remove(
                     this,
@@ -3271,11 +3285,7 @@ public final class ScaleScanService extends Service {
                         this,
                         pending.id);
 
-                PeerOutboxRoomStore.removeMeasurement(
-                        this,
-                        pending.id);
-
-                if (!broadcastMeasurementClosed(
+                if (!queueMeasurementClosedForLocalRemoval(
                         pending.id)) {
                     throw new IllegalStateException(
                             "peer CLOSED queue incomplete");
@@ -3657,13 +3667,12 @@ public final class ScaleScanService extends Service {
                 prefs,
                 pendingId);
 
-        boolean remoteRescueStarted =
-                rejectedCount > 0
-                        && promoteRejectedLocalPendingToRemoteRescue(
-                                prefs,
-                                pendingId);
+        boolean remoteRescueHandled =
+                promoteRejectedLocalPendingToRemoteRescue(
+                        prefs,
+                        pendingId);
 
-        if (!remoteRescueStarted) {
+        if (!remoteRescueHandled) {
             removePendingWithoutCandidates(
                     prefs,
                     pendingId);
@@ -3694,6 +3703,9 @@ public final class ScaleScanService extends Service {
         List<String> rescueCandidateProfileIds =
                 new java.util.ArrayList<>();
 
+        boolean hasRejectedLocalCandidate =
+                false;
+
         /*
          * Preserve the rejected local candidates so the collector continues
          * to remember that all local users were explicitly excluded.
@@ -3708,11 +3720,20 @@ public final class ScaleScanService extends Service {
             if (profile != null
                     && localDeviceId.equals(
                             profile.ownerDeviceId)
+                    && pending.rejectedProfileIds.contains(
+                            profileId)
                     && !rescueCandidateProfileIds.contains(
                             profileId)) {
                 rescueCandidateProfileIds.add(
                         profileId);
+
+                hasRejectedLocalCandidate =
+                        true;
             }
+        }
+
+        if (!hasRejectedLocalCandidate) {
+            return false;
         }
 
         boolean hasRemoteCandidate =
@@ -3757,12 +3778,10 @@ public final class ScaleScanService extends Service {
         S400FinalMeasurement measurement =
                 pending.toMeasurement();
 
-        PeerOutboxRoomStore.removeMeasurement(
-                this,
-                pending.id);
-
-        broadcastMeasurementClosed(
-                pending.id);
+        if (!queueMeasurementClosedForLocalRemoval(
+                pending.id)) {
+            return true;
+        }
 
         PendingMeasurementRoomStore.remove(
                 this,
@@ -3992,12 +4011,10 @@ public final class ScaleScanService extends Service {
                     pending.toMeasurement(),
                     target,
                     () -> {
-                        PeerOutboxRoomStore.removeMeasurement(
-                                this,
-                                pending.id);
-
-                        broadcastMeasurementClosed(
-                                pending.id);
+                        if (!queueMeasurementClosedForLocalRemoval(
+                                pending.id)) {
+                            return;
+                        }
 
                         PendingMeasurementRoomStore.remove(
                                 this,
@@ -4057,12 +4074,10 @@ public final class ScaleScanService extends Service {
                 pending.toMeasurement(),
                 profile,
                 () -> {
-                    PeerOutboxRoomStore.removeMeasurement(
-                            this,
-                            pending.id);
-
-                    broadcastMeasurementClosed(
-                            pending.id);
+                    if (!queueMeasurementClosedForLocalRemoval(
+                            pending.id)) {
+                        return;
+                    }
 
                     PendingMeasurementRoomStore.remove(
                             this,
