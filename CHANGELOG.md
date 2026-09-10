@@ -1,5 +1,22 @@
 # Änderungsprotokoll
 
+## 1.6.0
+
+- openScale-Integration auf Provider API 3 umgestellt; Provider API 2 wird für 1.6.0 bewusst abgelehnt
+- Profile, offene Messungen, openScale-Warteschlange, Peer-Outbox, Empfangs-Deduplizierung und Schreibjournal dauerhaft über Room abgesichert
+- bestätigte openScale-Schreibvorgänge können nach Prozessabbrüchen ohne doppelten Eintrag sicher abgeschlossen werden
+- openScale-Warteschlangenläufe gegen später eingereihte ältere Messungen abgegrenzt
+- bestätigter openScale-Erfolg bleibt auch bei nachgelagerten lokalen Fehlern erhalten
+- verspätete Health-Connect-Callbacks können keinen neueren sichtbaren Dienststatus mehr überschreiben
+- Peer-Werbung und Präsenz nach langfristigen stillen BLE-Ausfällen selbstheilend gemacht
+- fehlende Peer-ACKs werden schneller erneut versucht; echte Transportfehler behalten den gestaffelten Backoff
+- verwaiste Peer-Daten nach dem Entfernen eines gekoppelten Geräts werden repariert
+- lokale Pending-Messungen werden erst nach dauerhaft eingereihtem CLOSED entfernt; vorhandener CLOSED-Fortschritt bleibt bei Retries erhalten
+- unterbrochene Rescue-Übergänge und bereits STORED bestätigte lokale Abschlüsse können bei späterem Peer-Sync sicher fortgesetzt werden
+- Überwachungsbenachrichtigung verwendet denselben grünen bzw. roten Waagenstatus wie die App
+- zusätzliche Regressionstests für openScale-Recovery, Queue-Grenzen, Peer-Reparatur, CLOSED-Dauerhaftigkeit, ACK-Retry, Health-Connect-Status und Notification-Status ergänzt
+- aktive Peer-Dedup-Einträge werden weiterhin nicht zeitbasiert gelöscht, weil alte noch nicht bestätigte Peer-Nachrichten sonst erneut als neu verarbeitet werden könnten
+
 ## 1.5.1
 
 - Gradle Wrapper 8.9 ins Upstream-Repository aufgenommen, damit F-Droid direkt mit dem projektseitigen Wrapper bauen kann

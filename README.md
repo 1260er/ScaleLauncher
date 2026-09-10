@@ -11,30 +11,21 @@
 
 > **In short:** ScaleLauncher connects to the Xiaomi S400 through authenticated BLE GATT and receives complete measurements. In a household with multiple ScaleLauncher phones, one device at a time acts as the **collector** and holds the scale connection. If the measurement belongs to a user on another phone, it is encrypted and forwarded to that user's **owner phone**, where body values are calculated and stored in openScale and optionally Health Connect.
 
-> **Documentation status: September 3, 2026**
+> **Documentation status: September 10, 2026**
 
 ## Status
 
-ScaleLauncher 1.5.1 is the current stable release. Measurement logic, authenticated GATT communication, user assignment, and multi-device routing match the behavior practically accepted with 1.5.0 and dev-262. Version 1.5.1 adds the Gradle Wrapper for reproducible and F-Droid-compatible builds.
+**ScaleLauncher 1.5.1** remains the current published stable release.
 
-Validated areas include:
+On the `ui-v1.6.0` development branch, **ScaleLauncher 1.6.0** is prepared as the next release candidate. The planned code work is complete. The full 1.6.0 review and practical final acceptance will follow before publication.
 
-- repeated S400 detection without restarting monitoring
-- local and remote user assignment
-- ambiguous measurements and manual decisions
-- NO_MATCH and manual rescue
-- persistent pending measurements
-- secure multi-phone routing
-- Bluetooth loss and automatic peer recovery
-- persistent retry and inbox deduplication
-- ACK-based completion
-- collector role changes
-- remote notifications while the app is not in the foreground
-- manual assignment to a valid local user outside the automatic weight candidates
+For 1.6.0, durable Room storage of critical state, openScale write safety, recovery after process and Bluetooth interruptions, and peer communication have been further hardened. The openScale integration now requires **Provider API 3**.
 
-The full regression plan and recorded acceptance result are documented in [TESTPLAN.md](TESTPLAN.md).
+The monitoring notification also shows the same scale status as the application: green when a collector is reachable and red when no scale is currently reachable through a collector.
 
-The 1.4.0 acceptance remains the technical regression baseline for application behavior. The Java 21 build, app startup, service startup, a normal measurement, and cross-device routing were specifically rechecked and accepted with dev-262 for 1.5.0.
+The full regression test and final acceptance result will be documented in [TESTPLAN.md](TESTPLAN.md).
+
+The existing practical regression baseline comes from 1.4.0 and the targeted 1.5.0 rechecks with dev-262. Version 1.5.1 subsequently added only the F-Droid and reproducible-build infrastructure.
 
 ## What ScaleLauncher does
 
@@ -48,7 +39,7 @@ It can:
 - recognize users by reference weight and tolerance
 - keep ambiguous or unmatched measurements pending for a human decision
 - calculate body-composition values locally on the owning phone
-- store complete measurements through openScale Provider API 2
+- store complete measurements through openScale Provider API 3
 - optionally write selected values to Health Connect
 - securely connect multiple ScaleLauncher phones in one household
 - route measurements to the correct owner phone even when another phone is the collector
@@ -88,7 +79,7 @@ The **collector** is simply the phone that currently holds the S400 connection. 
 |---|---|
 | Xiaomi Body Composition Scale S400 | Practically tested with `yunmai.scales.ms104`. |
 | Android 12 or newer | `minSdk 31` |
-| openScale | Provider API 2 required |
+| openScale | Provider API 3 required |
 | S400 MAC address | Format `AA:BB:CC:DD:EE:FF` |
 | S400 login token | Exactly 24 hexadecimal characters |
 | Bluetooth | Required |
@@ -165,7 +156,7 @@ https://github.com/1260er/ScaleLauncher
 
 ## openScale integration
 
-ScaleLauncher owns the Bluetooth connection to the S400. openScale is used as the local measurement database through **Provider API 2**.
+ScaleLauncher owns the Bluetooth connection to the S400. openScale is used as the local measurement database through **Provider API 3**. ScaleLauncher 1.6.0 accepts Provider API 3 only; Provider API 2 is deliberately rejected.
 
 Therefore:
 
@@ -253,10 +244,13 @@ Personal profile data such as birth date, height, sex, local openScale user ID, 
 
 Peer routing uses:
 
-- persistent outbox storage
+- persistent Room-based outbox storage
 - retry after temporary Bluetooth loss
+- faster retry when an ACK is missing
 - receiver-side deduplication
 - ACK confirmation before final completion
+- durable CLOSED completion before removing local pending measurements
+- self-healing peer advertising and presence monitoring
 
 This prevents a temporary radio outage from losing a decision or creating duplicate openScale entries.
 
@@ -265,6 +259,8 @@ This prevents a temporary radio outage from losing a decision or creating duplic
 ScaleLauncher can notify participating phones about an unassigned measurement even when the activity is not open in the foreground.
 
 Background monitoring must remain enabled and Android notification permission must be granted.
+
+The persistent monitoring notification uses the same scale status as the app: **green** when a local or remote collector is reachable and **red** when no scale is currently reachable through a collector. The small status-bar icon may still be rendered monochrome depending on Android or the device manufacturer.
 
 ## Health Connect
 
@@ -332,7 +328,7 @@ Check:
 
 - openScale is installed
 - ScaleLauncher has provider access
-- Provider API 2 is available
+- Provider API 3 is available
 - the destination user exists on that owner phone
 - the local ScaleLauncher user profile is complete
 
@@ -352,9 +348,9 @@ Detailed privacy information is available in [PRIVACY.md](PRIVACY.md). Asset lic
 
 ## Tested technical baseline
 
-The practical acceptance baseline is documented in [TESTPLAN.md](TESTPLAN.md).
+Practical acceptance is documented in [TESTPLAN.md](TESTPLAN.md).
 
-Acceptance build:
+Existing practical regression baseline:
 
 ```text
 Dev build: dev-262
@@ -363,7 +359,9 @@ Technical acceptance commit: a97e872
 Acceptance date: 2026-09-02
 ```
 
-This records the practically tested technical baseline. Later documentation-only changes may use newer commits without changing the tested application behavior.
+This entry remains as the historical practically tested baseline.
+
+**ScaleLauncher 1.6.0 is currently a release candidate and has not yet received final acceptance.** The full 1.6.0 review will be followed by practical final acceptance. The final acceptance build and commit will then be recorded here.
 
 ## Building
 
@@ -371,32 +369,42 @@ Requirements:
 
 - JDK 21
 - Android SDK
-- Gradle 8.x
+- project-provided Gradle Wrapper
+- Java source/target level 17
 
-Debug build:
+Automated tests and debug build:
 
 ```bash
-gradle :app:assembleDebug
+./gradlew testDebugUnitTest assembleDebug
+```
+
+Release Java compilation:
+
+```bash
+./gradlew compileReleaseJavaWithJavac
 ```
 
 Release/source build:
 
 ```bash
-gradle --no-daemon clean testDebugUnitTest assembleRelease
+./gradlew --no-daemon clean testDebugUnitTest assembleRelease
 ```
 
-The source release build does not require the private ScaleLauncher signing key. This allows F-Droid to build the APK independently from source.
+The release source build does not require the private ScaleLauncher signing key. This allows F-Droid to build the APK independently from source.
 
-The official GitHub stable-release workflow requires the private long-term release-signing credentials before a signed APK can be produced.
+The official GitHub workflow for stable releases requires the private, permanently used release signing data before it can produce a signed APK.
 
-Current Android configuration:
+Current Android configuration of the 1.6.0 branch:
 
 ```text
 minSdk 31
 targetSdk 35
 compileSdk 35
-versionCode 6
-versionName 1.5.0
+Java source 17
+Java target 17
+Build-JDK 21
+versionCode 8
+versionName 1.6.0
 ```
 
 ## License
