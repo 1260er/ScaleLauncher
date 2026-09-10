@@ -58,6 +58,7 @@ public final class ScaleScanService extends Service {
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
     private static final long PEER_SYNC_RETRY_MS = 30_000L;
+    private static final long PEER_ACK_RETRY_MS = 10_000L;
     private static final long OPEN_SCALE_RETRY_DELAY_MS = 2_000L;
     private static final long PEER_DIAGNOSTIC_INTERVAL_MS = 15 * 60_000L;
     private static final boolean ENABLE_REVERSE_ACK_FALLBACK = false;
@@ -360,7 +361,7 @@ public final class ScaleScanService extends Service {
                                  * next outbox item immediately.
                                  */
                                 schedulePeerSync(
-                                        PEER_SYNC_RETRY_MS);
+                                        PEER_ACK_RETRY_MS);
                             }
 
                             @Override
