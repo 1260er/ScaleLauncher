@@ -1,5 +1,6 @@
 package de.pritcloud.scalelauncher;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -11,7 +12,7 @@ import org.junit.Test;
 
 public final class ScaleScanServiceNotificationIconTest {
     @Test
-    public void monitorUsesSameScaleStatusImagesAsApplication()
+    public void monitorUsesScaleStatusColorWithoutLargeIcon()
             throws Exception {
         String source = loadServiceSource();
 
@@ -33,21 +34,6 @@ public final class ScaleScanServiceNotificationIconTest {
                 monitor.contains(
                         "!= ServiceState.CollectorSource.NONE"));
 
-        assertTrue(
-                monitor.contains(
-                        "? R.drawable.scale_connected"));
-
-        assertTrue(
-                monitor.contains(
-                        ": R.drawable.scale_disconnected"));
-
-        assertTrue(
-                monitor.contains(
-                        "android.graphics.BitmapFactory.decodeResource("));
-
-        assertTrue(
-                monitor.contains(
-                        "scaleIconResource"));
 
         assertTrue(
                 monitor.contains(
@@ -80,6 +66,14 @@ public final class ScaleScanServiceNotificationIconTest {
         assertTrue(
                 monitor.contains(
                         ".setColor(scaleIconColor)"));
+
+        assertFalse(
+                monitor.contains(
+                        ".setLargeIcon("));
+
+        assertFalse(
+                monitor.contains(
+                        "BitmapFactory.decodeResource("));
     }
 
     @Test
