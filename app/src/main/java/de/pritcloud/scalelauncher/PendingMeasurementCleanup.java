@@ -115,13 +115,6 @@ final class PendingMeasurementCleanup {
                     0);
         }
 
-        if (pending.isResolved()) {
-            return new Result(
-                    Status.ALREADY_RESOLVED,
-                    pending.weightKg,
-                    0);
-        }
-
         PeerOutboxRoomStore.removeMeasurementExceptClosed(
                 context,
                 pendingId);
@@ -210,13 +203,6 @@ final class PendingMeasurementCleanup {
             return new Result(
                     Status.MISSING,
                     0f,
-                    0);
-        }
-
-        if (pending.isResolved()) {
-            return new Result(
-                    Status.ALREADY_RESOLVED,
-                    pending.weightKg,
                     0);
         }
 

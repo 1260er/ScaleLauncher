@@ -1699,10 +1699,6 @@ public final class MainActivity extends Activity {
 
         for (PendingMeasurementStore.Item item :
                 items) {
-            if (item.isResolved()) {
-                continue;
-            }
-
             openCount++;
 
             View row =
@@ -1749,8 +1745,7 @@ public final class MainActivity extends Activity {
 
     private void confirmDiscardEmergencyMeasurement(
             PendingMeasurementStore.Item item) {
-        if (item == null
-                || item.isResolved()) {
+        if (item == null) {
             return;
         }
 

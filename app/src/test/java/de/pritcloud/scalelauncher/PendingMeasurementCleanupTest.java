@@ -155,6 +155,95 @@ public final class PendingMeasurementCleanupTest {
     }
 
     @Test
+    public void discardResolvedPendingRemovesRouteAndQueuesClosed() {
+        InMemorySharedPreferences pendingPrefs =
+                new InMemorySharedPreferences();
+
+        InMemorySharedPreferences outboxPrefs =
+                new InMemorySharedPreferences();
+
+        String measurementId =
+                "cleanup-resolved";
+
+        PendingMeasurementStore.add(
+                pendingPrefs,
+                new S400FinalMeasurement(
+                        measurementId,
+                        80.6f,
+                        520.0f,
+                        500.0f,
+                        1_700_000_050_000L,
+                        null),
+                "test",
+                List.of(PROFILE_ID));
+
+        assertTrue(
+                PendingMeasurementStore.selectCandidate(
+                        pendingPrefs,
+                        measurementId,
+                        PROFILE_ID,
+                        PEER_ONE));
+
+        List<PeerOutboxStore.Item> initial =
+                new ArrayList<>();
+
+        initial.add(
+                new PeerOutboxStore.Item(
+                        "route:" + measurementId,
+                        PEER_ONE,
+                        PeerOutboxStore.KIND_MEASUREMENT,
+                        measurementId,
+                        "{}",
+                        1_700_000_050_001L));
+
+        PeerOutboxStore.save(
+                outboxPrefs,
+                initial);
+
+        PendingMeasurementCleanup.Result result =
+                PendingMeasurementCleanup.discardLocal(
+                        pendingPrefs,
+                        outboxPrefs,
+                        List.of(
+                                PEER_ONE,
+                                PEER_TWO),
+                        measurementId);
+
+        assertEquals(
+                PendingMeasurementCleanup.Status.DISCARDED,
+                result.status);
+
+        assertTrue(
+                PendingMeasurementStore.find(
+                        pendingPrefs,
+                        measurementId) == null);
+
+        List<PeerOutboxStore.Item> remaining =
+                PeerOutboxStore.load(
+                        outboxPrefs);
+
+        assertEquals(
+                2,
+                remaining.stream()
+                        .filter(
+                                item ->
+                                        PeerOutboxStore.KIND_CLOSED.equals(
+                                                item.kind)
+                                                && measurementId.equals(
+                                                        item.dedupKey))
+                        .count());
+
+        assertFalse(
+                remaining.stream().anyMatch(
+                        item ->
+                                measurementId.equals(
+                                        item.dedupKey)
+                                        && !PeerOutboxStore.KIND_CLOSED.equals(
+                                                item.kind)));
+    }
+
+
+    @Test
     public void discardKeepsPendingWhenClosedQueueIsIncomplete() {
         InMemorySharedPreferences pendingPrefs =
                 new InMemorySharedPreferences();
