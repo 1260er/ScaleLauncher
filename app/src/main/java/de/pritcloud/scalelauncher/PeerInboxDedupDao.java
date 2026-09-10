@@ -5,6 +5,8 @@ import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
 
+import java.util.List;
+
 @Dao
 public interface PeerInboxDedupDao {
     @Query(
@@ -32,6 +34,12 @@ public interface PeerInboxDedupDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     long insert(
             PeerInboxDedupEntity entity);
+
+    @Query(
+            "SELECT DISTINCT sender_device_id "
+                    + "FROM peer_inbox_dedup "
+                    + "ORDER BY sender_device_id")
+    List<String> senderDeviceIds();
 
     @Query(
             "DELETE FROM peer_inbox_dedup "

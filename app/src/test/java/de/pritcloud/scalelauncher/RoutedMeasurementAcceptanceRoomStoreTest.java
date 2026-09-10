@@ -292,6 +292,26 @@ public final class RoutedMeasurementAcceptanceRoomStoreTest {
         }
 
         @Override
+        public List<String> senderDeviceIds() {
+            List<String> result =
+                    new ArrayList<>();
+
+            for (PeerInboxDedupEntity entity :
+                    items.values()) {
+                if (!result.contains(
+                        entity.senderDeviceId)) {
+                    result.add(
+                            entity.senderDeviceId);
+                }
+            }
+
+            result.sort(
+                    String::compareTo);
+
+            return result;
+        }
+
+        @Override
         public int deletePeer(
                 String peerDeviceId) {
             int before =

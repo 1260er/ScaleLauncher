@@ -9,6 +9,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -467,6 +468,37 @@ public final class PeerInboxDedupRoomStoreTest {
     }
 
     @Test
+    public void listsDistinctSenderDeviceIds() {
+        FakeDao dao =
+                new FakeDao();
+
+        PeerInboxDedupRoomStore.mark(
+                dao,
+                PEER_TWO,
+                "two-a",
+                10L);
+
+        PeerInboxDedupRoomStore.mark(
+                dao,
+                PEER_ONE,
+                "one",
+                20L);
+
+        PeerInboxDedupRoomStore.mark(
+                dao,
+                PEER_TWO,
+                "two-b",
+                30L);
+
+        assertEquals(
+                List.of(
+                        PEER_ONE,
+                        PEER_TWO),
+                PeerInboxDedupRoomStore.senderDeviceIds(
+                        dao));
+    }
+
+    @Test
     public void keepsItemsBeyondFormerThousandItemLimit() {
         FakeDao dao =
                 new FakeDao();
@@ -602,6 +634,26 @@ public final class PeerInboxDedupRoomStoreTest {
                     entity);
 
             return 1L;
+        }
+
+        @Override
+        public List<String> senderDeviceIds() {
+            List<String> result =
+                    new ArrayList<>();
+
+            for (PeerInboxDedupEntity entity :
+                    items.values()) {
+                if (!result.contains(
+                        entity.senderDeviceId)) {
+                    result.add(
+                            entity.senderDeviceId);
+                }
+            }
+
+            result.sort(
+                    String::compareTo);
+
+            return result;
         }
 
         @Override

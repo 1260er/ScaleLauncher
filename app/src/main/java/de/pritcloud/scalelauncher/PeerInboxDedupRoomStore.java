@@ -136,6 +136,15 @@ final class PeerInboxDedupRoomStore {
                                 seenAtMs));
     }
 
+    static List<String> senderDeviceIds(
+            Context context) {
+        return runRoom(
+                context,
+                database ->
+                        senderDeviceIds(
+                                database.peerInboxDedupDao()));
+    }
+
     static int removePeer(
             Context context,
             String peerDeviceId) {
@@ -255,6 +264,21 @@ final class PeerInboxDedupRoomStore {
         return compareFingerprint(
                 existing,
                 payloadFingerprint);
+    }
+
+    static List<String> senderDeviceIds(
+            PeerInboxDedupDao dao) {
+        if (dao == null) {
+            return List.of();
+        }
+
+        List<String> result =
+                dao.senderDeviceIds();
+
+        return result == null
+                ? List.of()
+                : new ArrayList<>(
+                        result);
     }
 
     static int removePeer(

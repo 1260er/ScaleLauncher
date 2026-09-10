@@ -512,4 +512,5 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
 Diese Aktion sollte nur verwendet werden, wenn der Eintrag feststeckt und nicht mehr benötigt wird.</string>
     <string name="emergency_cleanup_confirm">Messung verwerfen</string>
     <string name="log_pending_discard_resolved_ignored">Notfallbereinigung für bereits zugeordnete Messung %1$.1f kg ignoriert</string>
+    <string name="log_peer_orphan_repair_failed">Peer-Reparatur vorübergehend fehlgeschlagen: %1$s</string>
 </resources>

@@ -234,6 +234,7 @@ public final class ScaleScanService extends Service {
 
         startPeerTransport();
 
+        repairPeerOrphans();
         repairPendingAfterPeerChanges();
         repairStaleAmbiguousPending();
         repairStoredResolvedPending();
@@ -299,6 +300,7 @@ public final class ScaleScanService extends Service {
                 && ACTION_SYNC_PEERS.equals(
                         intent.getAction())) {
             refreshTrustedPeerPresence();
+            repairPeerOrphans();
             repairPendingAfterPeerChanges();
 
             schedulePeerSync(
@@ -2820,6 +2822,154 @@ public final class ScaleScanService extends Service {
                     this,
                     getString(R.string.log_user_sync_temporary_failure));
         }
+    }
+
+    private void repairPeerOrphans() {
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<PeerTrustStore.Peer> trustedPeers;
+        List<PeerOutboxStore.Item> outboxItems;
+        List<HouseholdProfile> householdProfiles;
+        List<RemotePendingMeasurementStore.Item> remotePendingItems;
+        List<String> dedupSenderDeviceIds;
+
+        try {
+            trustedPeers =
+                    PeerTrustRoomStore.load(
+                            this);
+
+            outboxItems =
+                    PeerOutboxRoomStore.load(
+                            this);
+
+            householdProfiles =
+                    HouseholdProfileRoomStore.load(
+                            this);
+
+            remotePendingItems =
+                    RemotePendingMeasurementRoomStore.load(
+                            this);
+
+            dedupSenderDeviceIds =
+                    PeerInboxDedupRoomStore.senderDeviceIds(
+                            this);
+        } catch (RuntimeException exception) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_peer_orphan_repair_failed,
+                            exception.getClass()
+                                    .getSimpleName()));
+            return;
+        }
+
+        java.util.Set<String> trustedDeviceIds =
+                new java.util.HashSet<>();
+
+        for (PeerTrustStore.Peer peer :
+                trustedPeers) {
+            if (peer != null
+                    && PeerTrustStore.isValidDeviceId(
+                            peer.deviceId)) {
+                trustedDeviceIds.add(
+                        peer.deviceId);
+            }
+        }
+
+        java.util.Set<String> orphanDeviceIds =
+                new java.util.LinkedHashSet<>();
+
+        for (PeerOutboxStore.Item item :
+                outboxItems) {
+            if (item != null) {
+                addPeerOrphanCandidate(
+                        orphanDeviceIds,
+                        item.peerDeviceId,
+                        localDeviceId,
+                        trustedDeviceIds);
+            }
+        }
+
+        for (HouseholdProfile profile :
+                householdProfiles) {
+            if (profile != null) {
+                addPeerOrphanCandidate(
+                        orphanDeviceIds,
+                        profile.ownerDeviceId,
+                        localDeviceId,
+                        trustedDeviceIds);
+            }
+        }
+
+        for (RemotePendingMeasurementStore.Item item :
+                remotePendingItems) {
+            if (item != null) {
+                addPeerOrphanCandidate(
+                        orphanDeviceIds,
+                        item.collectorDeviceId,
+                        localDeviceId,
+                        trustedDeviceIds);
+            }
+        }
+
+        for (String senderDeviceId :
+                dedupSenderDeviceIds) {
+            addPeerOrphanCandidate(
+                    orphanDeviceIds,
+                    senderDeviceId,
+                    localDeviceId,
+                    trustedDeviceIds);
+        }
+
+        for (String orphanDeviceId :
+                orphanDeviceIds) {
+            try {
+                PeerOutboxRoomStore.removePeer(
+                        this,
+                        orphanDeviceId);
+
+                PeerInboxDedupRoomStore.removePeer(
+                        this,
+                        orphanDeviceId);
+
+                HouseholdProfileRoomStore.removeOwner(
+                        this,
+                        orphanDeviceId);
+
+                RemotePendingMeasurementRoomStore.removeCollector(
+                        this,
+                        orphanDeviceId);
+            } catch (RuntimeException exception) {
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_peer_orphan_repair_failed,
+                                exception.getClass()
+                                        .getSimpleName()));
+            }
+        }
+    }
+
+    private static void addPeerOrphanCandidate(
+            java.util.Set<String> orphanDeviceIds,
+            String deviceId,
+            String localDeviceId,
+            java.util.Set<String> trustedDeviceIds) {
+        if (orphanDeviceIds == null
+                || trustedDeviceIds == null
+                || !PeerTrustStore.isValidDeviceId(
+                        deviceId)
+                || deviceId.equals(
+                        localDeviceId)
+                || trustedDeviceIds.contains(
+                        deviceId)) {
+            return;
+        }
+
+        orphanDeviceIds.add(
+                deviceId);
     }
 
     private void repairPendingAfterPeerChanges() {

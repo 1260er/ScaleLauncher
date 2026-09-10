@@ -504,4 +504,5 @@ Both phones must show exactly the same code. If they match, press “Codes match
 Use this action only when the entry is stuck and no longer needed.</string>
     <string name="emergency_cleanup_confirm">Discard measurement</string>
     <string name="log_pending_discard_resolved_ignored">Emergency cleanup ignored for already assigned measurement of %1$.1f kg</string>
+    <string name="log_peer_orphan_repair_failed">Peer repair temporarily failed: %1$s</string>
 </resources>
