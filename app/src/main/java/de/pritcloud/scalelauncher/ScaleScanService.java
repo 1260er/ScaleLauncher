@@ -1319,10 +1319,9 @@ public final class ScaleScanService extends Service {
                                             decision.measurementId,
                                             decision.profileId,
                                             peer.deviceId)
-                                    : PendingMeasurementRoomStore.rejectCandidate(
-                                            this,
-                                            decision.measurementId,
-                                            decision.profileId);
+                                    : rejectPendingCandidatesOwnedByPeer(
+                                            pending,
+                                            peer.deviceId);
 
                     if (decision.isAccepted()) {
                         PendingMeasurementStore.Item resolved =
@@ -1920,6 +1919,33 @@ public final class ScaleScanService extends Service {
 
         schedulePeerSync(
                 100L);
+    }
+
+    private boolean rejectPendingCandidatesOwnedByPeer(
+            PendingMeasurementStore.Item pending,
+            String peerDeviceId) {
+        if (pending == null
+                || !PeerTrustStore.isValidDeviceId(peerDeviceId)) {
+            return false;
+        }
+
+        List<String> ownedProfileIds =
+                new java.util.ArrayList<>();
+
+        for (HouseholdProfile profile :
+                HouseholdProfileRoomStore.load(this)) {
+            if (profile != null
+                    && peerDeviceId.equals(profile.ownerDeviceId)
+                    && pending.candidateProfileIds.contains(profile.profileId)
+                    && !ownedProfileIds.contains(profile.profileId)) {
+                ownedProfileIds.add(profile.profileId);
+            }
+        }
+
+        return PendingMeasurementRoomStore.rejectCandidates(
+                this,
+                pending.id,
+                ownedProfileIds) > 0;
     }
 
     private void rejectUnclaimedPeerCandidates(

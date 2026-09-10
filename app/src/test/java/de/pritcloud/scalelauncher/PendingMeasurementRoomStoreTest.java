@@ -338,6 +338,52 @@ public final class PendingMeasurementRoomStoreTest {
     }
 
     @Test
+    public void batchRejectPersistsPeerCandidatesTogether() {
+        FakeDao dao = new FakeDao();
+
+        String first =
+                "11111111-1111-4111-8111-111111111111";
+        String second =
+                "22222222-2222-4222-8222-222222222222";
+        String other =
+                "33333333-3333-4333-8333-333333333333";
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementRoomStore.add(
+                        dao,
+                        new S400FinalMeasurement(
+                                "batch-reject",
+                                70.0f,
+                                510.0f,
+                                490.0f,
+                                1_700_000_000_000L,
+                                null),
+                        "test",
+                        List.of(first, second, other),
+                        false);
+
+        assertEquals(
+                2,
+                PendingMeasurementRoomStore.rejectCandidates(
+                        dao,
+                        pending.id,
+                        List.of(first, second)));
+
+        PendingMeasurementStore.Item updated =
+                PendingMeasurementRoomStore.find(
+                        dao,
+                        pending.id);
+
+        assertNotNull(updated);
+        assertEquals(
+                List.of(first, second),
+                updated.rejectedProfileIds);
+        assertEquals(
+                List.of(other),
+                updated.remainingCandidateProfileIds());
+    }
+
+    @Test
     public void roomBackendKeepsMeasurementsBeyondFormerLimit() {
         FakeDao dao = new FakeDao();
 

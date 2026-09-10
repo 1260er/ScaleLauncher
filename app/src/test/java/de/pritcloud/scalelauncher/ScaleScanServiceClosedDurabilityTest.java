@@ -264,6 +264,46 @@ public final class ScaleScanServiceClosedDurabilityTest {
     }
 
     @Test
+    public void peerRejectBatchesOwnedCandidatesBeforeAutoResolve()
+            throws Exception {
+        String source = loadSource();
+
+        String decision =
+                block(
+                        source,
+                        "if (PeerMeasurementDecisionPayload.TYPE.equals(",
+                        "if (PeerClaimPayload.TYPE.equals(type))");
+
+        int reject =
+                decision.indexOf(
+                        "rejectPendingCandidatesOwnedByPeer(");
+
+        int dedup =
+                decision.indexOf(
+                        "PeerInboxDedupRoomStore.mark(",
+                        reject);
+
+        int autoResolve =
+                decision.indexOf(
+                        "autoResolveSingleRemainingCandidate(",
+                        dedup);
+
+        assertTrue(reject >= 0);
+        assertTrue(dedup > reject);
+        assertTrue(autoResolve > dedup);
+
+        String helper =
+                block(
+                        source,
+                        "private boolean rejectPendingCandidatesOwnedByPeer(",
+                        "private void rejectUnclaimedPeerCandidates(");
+
+        assertTrue(
+                helper.contains(
+                        "PendingMeasurementRoomStore.rejectCandidates("));
+    }
+
+    @Test
     public void routeAckQueuesClosedBeforeDeletingPending()
             throws Exception {
         String source = loadSource();

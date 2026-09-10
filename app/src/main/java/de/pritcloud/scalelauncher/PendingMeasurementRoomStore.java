@@ -152,6 +152,21 @@ final class PendingMeasurementRoomStore {
                                 profileId));
     }
 
+    static int rejectCandidates(
+            Context context,
+            String measurementId,
+            List<String> profileIds) {
+        return runRoom(
+                context,
+                database ->
+                        database.runInTransaction(
+                                () ->
+                                        rejectCandidates(
+                                                database.pendingMeasurementDao(),
+                                                measurementId,
+                                                profileIds)));
+    }
+
     static boolean rejectSelectedCandidate(
             Context context,
             String measurementId,
@@ -418,6 +433,64 @@ final class PendingMeasurementRoomStore {
                 toEntity(
                         updated,
                         entity.sortOrder)) == 1;
+    }
+
+    static int rejectCandidates(
+            PendingMeasurementDao dao,
+            String measurementId,
+            List<String> profileIds) {
+        if (dao == null
+                || measurementId == null
+                || measurementId.isBlank()
+                || profileIds == null
+                || profileIds.isEmpty()) {
+            return 0;
+        }
+
+        PendingMeasurementEntity entity =
+                dao.findPending(measurementId);
+
+        if (entity == null) {
+            return 0;
+        }
+
+        PendingMeasurementStore.Item item =
+                fromEntity(entity);
+
+        if (item.isResolved()) {
+            return 0;
+        }
+
+        List<String> rejected =
+                new ArrayList<>(item.rejectedProfileIds);
+
+        int added = 0;
+
+        for (String profileId : profileIds) {
+            if (!UserProfile.isValidHouseholdProfileId(profileId)
+                    || !item.candidateProfileIds.contains(profileId)
+                    || rejected.contains(profileId)) {
+                continue;
+            }
+
+            rejected.add(profileId);
+            added++;
+        }
+
+        if (added == 0) {
+            return 0;
+        }
+
+        PendingMeasurementStore.Item updated =
+                copyWithDecision(item, rejected, "", "");
+
+        if (dao.updatePending(
+                toEntity(updated, entity.sortOrder)) != 1) {
+            throw new IllegalStateException(
+                    "Pending candidate batch reject failed");
+        }
+
+        return added;
     }
 
     static boolean rejectSelectedCandidate(
