@@ -12,6 +12,7 @@ final class PendingMeasurementCleanup {
         DISCARDED,
         MISSING,
         ALREADY_RESOLVED,
+        CLOSED_QUEUE_FAILED,
         INVALID
     }
 
@@ -121,11 +122,14 @@ final class PendingMeasurementCleanup {
                     0);
         }
 
-        PeerOutboxRoomStore.removeMeasurement(
+        PeerOutboxRoomStore.removeMeasurementExceptClosed(
                 context,
                 pendingId);
 
         int queued = 0;
+
+        boolean closedComplete =
+                true;
 
         for (String peerDeviceId :
                 peerDeviceIds) {
@@ -141,9 +145,19 @@ final class PendingMeasurementCleanup {
 
                 queued++;
             } catch (RuntimeException exception) {
+                closedComplete =
+                        false;
+
                 errorHandler.onError(
                         exception);
             }
+        }
+
+        if (!closedComplete) {
+            return new Result(
+                    Status.CLOSED_QUEUE_FAILED,
+                    pending.weightKg,
+                    queued);
         }
 
         PendingMeasurementRoomStore.remove(
@@ -206,12 +220,15 @@ final class PendingMeasurementCleanup {
                     0);
         }
 
-        PeerOutboxStore.removeMeasurement(
+        PeerOutboxStore.removeMeasurementExceptClosed(
                 outboxPreferences,
                 pendingId);
 
         int queued =
                 0;
+
+        boolean closedComplete =
+                true;
 
         for (String peerDeviceId :
                 peerDeviceIds) {
@@ -227,9 +244,19 @@ final class PendingMeasurementCleanup {
 
                 queued++;
             } catch (RuntimeException exception) {
+                closedComplete =
+                        false;
+
                 errorHandler.onError(
                         exception);
             }
+        }
+
+        if (!closedComplete) {
+            return new Result(
+                    Status.CLOSED_QUEUE_FAILED,
+                    pending.weightKg,
+                    queued);
         }
 
         PendingMeasurementStore.remove(

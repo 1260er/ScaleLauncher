@@ -1913,6 +1913,13 @@ public final class ScaleScanService extends Service {
                                 result.weightKg));
                 break;
 
+            case CLOSED_QUEUE_FAILED:
+                if (result.closedQueued > 0) {
+                    schedulePeerSync(
+                            100L);
+                }
+                break;
+
             case DISCARDED:
                 if (result.closedQueued > 0) {
                     schedulePeerSync(

@@ -153,4 +153,151 @@ public final class PendingMeasurementCleanupTest {
                                 item.dedupKey.startsWith(
                                         measurementId + ":")));
     }
+
+    @Test
+    public void discardKeepsPendingWhenClosedQueueIsIncomplete() {
+        InMemorySharedPreferences pendingPrefs =
+                new InMemorySharedPreferences();
+
+        InMemorySharedPreferences outboxPrefs =
+                new InMemorySharedPreferences();
+
+        String measurementId =
+                "cleanup-fail-closed";
+
+        PendingMeasurementStore.add(
+                pendingPrefs,
+                new S400FinalMeasurement(
+                        measurementId,
+                        71.2f,
+                        505.0f,
+                        485.0f,
+                        1_700_000_100_000L,
+                        null),
+                "test",
+                List.of(PROFILE_ID));
+
+        PendingMeasurementStore.recordClaimResponse(
+                pendingPrefs,
+                measurementId,
+                PEER_ONE,
+                List.of(PROFILE_ID));
+
+        PeerOutboxStore.enqueueClosed(
+                outboxPrefs,
+                PEER_TWO,
+                PeerMeasurementClosedPayload.create(
+                        measurementId));
+
+        PendingMeasurementCleanup.Result failed =
+                PendingMeasurementCleanup.discardLocal(
+                        pendingPrefs,
+                        outboxPrefs,
+                        List.of(
+                                PEER_ONE,
+                                "invalid-peer"),
+                        measurementId);
+
+        assertEquals(
+                PendingMeasurementCleanup.Status.CLOSED_QUEUE_FAILED,
+                failed.status);
+
+        assertEquals(
+                1,
+                failed.closedQueued);
+
+        assertTrue(
+                PendingMeasurementStore.find(
+                        pendingPrefs,
+                        measurementId) != null);
+
+        assertFalse(
+                PendingMeasurementStore.claimResponses(
+                        pendingPrefs,
+                        measurementId).isEmpty());
+
+        assertEquals(
+                2,
+                PeerOutboxStore.load(
+                                outboxPrefs)
+                        .stream()
+                        .filter(
+                                item ->
+                                        PeerOutboxStore.KIND_CLOSED.equals(
+                                                item.kind)
+                                                && measurementId.equals(
+                                                        item.dedupKey))
+                        .count());
+
+        PendingMeasurementCleanup.Result failedAgain =
+                PendingMeasurementCleanup.discardLocal(
+                        pendingPrefs,
+                        outboxPrefs,
+                        List.of(
+                                PEER_ONE,
+                                "invalid-peer"),
+                        measurementId);
+
+        assertEquals(
+                PendingMeasurementCleanup.Status.CLOSED_QUEUE_FAILED,
+                failedAgain.status);
+
+        assertEquals(
+                1,
+                failedAgain.closedQueued);
+
+        assertTrue(
+                PendingMeasurementStore.find(
+                        pendingPrefs,
+                        measurementId) != null);
+
+        assertEquals(
+                2,
+                PeerOutboxStore.load(
+                                outboxPrefs)
+                        .stream()
+                        .filter(
+                                item ->
+                                        PeerOutboxStore.KIND_CLOSED.equals(
+                                                item.kind)
+                                                && measurementId.equals(
+                                                        item.dedupKey))
+                        .count());
+
+        PendingMeasurementCleanup.Result retried =
+                PendingMeasurementCleanup.discardLocal(
+                        pendingPrefs,
+                        outboxPrefs,
+                        List.of(
+                                PEER_ONE,
+                                PEER_TWO),
+                        measurementId);
+
+        assertEquals(
+                PendingMeasurementCleanup.Status.DISCARDED,
+                retried.status);
+
+        assertTrue(
+                PendingMeasurementStore.find(
+                        pendingPrefs,
+                        measurementId) == null);
+
+        assertTrue(
+                PendingMeasurementStore.claimResponses(
+                        pendingPrefs,
+                        measurementId).isEmpty());
+
+        assertEquals(
+                2,
+                PeerOutboxStore.load(
+                                outboxPrefs)
+                        .stream()
+                        .filter(
+                                item ->
+                                        PeerOutboxStore.KIND_CLOSED.equals(
+                                                item.kind)
+                                                && measurementId.equals(
+                                                        item.dedupKey))
+                        .count());
+    }
 }

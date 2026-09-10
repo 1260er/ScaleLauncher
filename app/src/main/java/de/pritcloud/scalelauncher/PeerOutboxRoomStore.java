@@ -319,6 +319,33 @@ final class PeerOutboxRoomStore {
         return removed;
     }
 
+    static int removeMeasurementExceptClosed(
+            Context context,
+            String measurementId) {
+        int removed =
+                runRoom(
+                        context,
+                        database -> {
+                            int[] result =
+                                    new int[1];
+
+                            database.runInTransaction(
+                                    () ->
+                                            result[0] =
+                                                    removeMeasurementExceptClosed(
+                                                            database.peerOutboxDao(),
+                                                            measurementId));
+
+                            return result[0];
+                        });
+
+        if (removed > 0) {
+            notifyChanged();
+        }
+
+        return removed;
+    }
+
     static int removePeer(
             Context context,
             String peerDeviceId) {
@@ -474,6 +501,42 @@ final class PeerOutboxRoomStore {
         return dao.deleteMeasurement(
                 measurementId,
                 measurementId + ":");
+    }
+
+    static int removeMeasurementExceptClosed(
+            PeerOutboxDao dao,
+            String measurementId) {
+        if (dao == null
+                || measurementId == null
+                || measurementId.isBlank()) {
+            return 0;
+        }
+
+        int removed =
+                0;
+
+        for (PeerOutboxEntity entity :
+                dao.loadAll()) {
+            if (entity == null
+                    || PeerOutboxStore.KIND_CLOSED.equals(
+                            entity.kind)) {
+                continue;
+            }
+
+            if (!measurementId.equals(
+                        entity.dedupKey)
+                    && !entity.dedupKey.startsWith(
+                            measurementId + ":")) {
+                continue;
+            }
+
+            removed +=
+                    dao.delete(
+                            entity.peerDeviceId,
+                            entity.messageId);
+        }
+
+        return removed;
     }
 
     static int removePeer(

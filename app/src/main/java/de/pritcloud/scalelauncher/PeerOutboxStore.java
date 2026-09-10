@@ -398,6 +398,41 @@ final class PeerOutboxStore {
         return removed;
     }
 
+    static int removeMeasurementExceptClosed(
+            SharedPreferences preferences,
+            String measurementId) {
+        if (measurementId == null
+                || measurementId.isBlank()) {
+            return 0;
+        }
+
+        List<Item> items =
+                load(preferences);
+
+        int before =
+                items.size();
+
+        items.removeIf(
+                item ->
+                        !KIND_CLOSED.equals(
+                                item.kind)
+                                && (measurementId.equals(
+                                            item.dedupKey)
+                                    || item.dedupKey.startsWith(
+                                            measurementId + ":")));
+
+        int removed =
+                before - items.size();
+
+        if (removed > 0) {
+            save(
+                    preferences,
+                    items);
+        }
+
+        return removed;
+    }
+
     static int removePeer(
             Context context,
             String peerDeviceId) {
