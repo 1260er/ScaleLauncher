@@ -21,7 +21,7 @@ Auf dem Entwicklungszweig `ui-v1.6.0` ist **ScaleLauncher 1.6.0** als nächster 
 
 Für 1.6.0 wurden insbesondere die dauerhafte Speicherung kritischer Zustände über Room, die openScale-Schreibsicherheit, die Wiederherstellung nach Prozess- und Bluetooth-Unterbrechungen sowie die Peer-Kommunikation weiter abgesichert. Die openScale-Anbindung verwendet nun verbindlich **Provider API 3**.
 
-Die Überwachungsbenachrichtigung zeigt zusätzlich denselben Waagenstatus wie die Anwendung: grün bei erreichbarem Collector und rot, wenn derzeit keine Waage über einen Collector erreichbar ist.
+Die Überwachungsbenachrichtigung zeigt zusätzlich den aktuellen Status der Collector- und Waagenerreichbarkeit.
 
 Der vollständige Regressionstest und das abschließende Abnahmeergebnis werden in [TESTPLAN.md](TESTPLAN.md) dokumentiert.
 
@@ -260,7 +260,7 @@ ScaleLauncher kann beteiligte Handys über eine unzugeordnete Messung informiere
 
 Die Überwachung muss weiter aktiv sein und Android muss Benachrichtigungen erlauben.
 
-Die dauerhafte Überwachungsbenachrichtigung verwendet denselben Waagenstatus wie die App: **grün**, wenn ein lokaler oder entfernter Collector erreichbar ist, und **rot**, wenn derzeit keine Waage über einen Collector erreichbar ist. Das kleine Statusleisten-Symbol kann abhängig von Android bzw. Gerätehersteller weiterhin monochrom dargestellt werden.
+Die dauerhafte Überwachungsbenachrichtigung zeigt den aktuellen Status der Collector- und Waagenerreichbarkeit. Das kleine Statusleisten-Symbol kann abhängig von Android bzw. Gerätehersteller weiterhin monochrom dargestellt werden.
 
 ## Health Connect
 

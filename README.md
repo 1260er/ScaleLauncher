@@ -21,7 +21,7 @@ On the `ui-v1.6.0` development branch, **ScaleLauncher 1.6.0** is prepared as th
 
 For 1.6.0, durable Room storage of critical state, openScale write safety, recovery after process and Bluetooth interruptions, and peer communication have been further hardened. The openScale integration now requires **Provider API 3**.
 
-The monitoring notification also shows the same scale status as the application: green when a collector is reachable and red when no scale is currently reachable through a collector.
+The monitoring notification also reflects the current collector and scale reachability status.
 
 The full regression test and final acceptance result will be documented in [TESTPLAN.md](TESTPLAN.md).
 
@@ -260,7 +260,7 @@ ScaleLauncher can notify participating phones about an unassigned measurement ev
 
 Background monitoring must remain enabled and Android notification permission must be granted.
 
-The persistent monitoring notification uses the same scale status as the app: **green** when a local or remote collector is reachable and **red** when no scale is currently reachable through a collector. The small status-bar icon may still be rendered monochrome depending on Android or the device manufacturer.
+The persistent monitoring notification reflects the current collector and scale reachability status. The small status-bar icon may still be rendered monochrome depending on Android or the device manufacturer.
 
 ## Health Connect
 

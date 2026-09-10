@@ -1,0 +1,1 @@
+Improved Bluetooth, collector and multi-device reliability. Critical state is now persisted with Room, openScale integration uses Provider API 3, and recovery after Bluetooth or process interruptions has been further hardened.
