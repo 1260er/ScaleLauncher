@@ -1,0 +1,1 @@
+Zuverlässigkeit von Bluetooth-, Collector- und Mehrgerätebetrieb verbessert. Kritische Zustände werden nun dauerhaft über Room gespeichert, die openScale-Integration verwendet Provider API 3 und die Wiederherstellung nach Bluetooth- oder Prozessunterbrechungen wurde weiter abgesichert.

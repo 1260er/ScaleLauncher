@@ -44,6 +44,96 @@ public final class MeasurementRoutingPolicyTest {
     }
 
     @Test
+    public void localNoMatchWithTwoCandidatesOnSameRemotePhoneUsesRemoteHandoff() {
+        String localDeviceId =
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+        String remoteDeviceId =
+                "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+
+        HouseholdMeasurementRouter.Result result =
+                HouseholdMeasurementRouter.match(
+                        List.of(
+                                householdProfile(
+                                        "11111111-1111-1111-1111-111111111111",
+                                        "Andre",
+                                        remoteDeviceId,
+                                        68.5f,
+                                        2.0f),
+                                householdProfile(
+                                        "22222222-2222-2222-2222-222222222222",
+                                        "Ela",
+                                        remoteDeviceId,
+                                        68.7f,
+                                        2.0f)),
+                        68.6f);
+
+        assertTrue(
+                MeasurementRoutingPolicy
+                        .shouldCreateRemoteOnlyHouseholdAmbiguousPending(
+                                UserMatcher.Status.NO_MATCH,
+                                result,
+                                localDeviceId));
+    }
+
+    @Test
+    public void staleLocalHouseholdCandidateDoesNotUseRemoteHandoff() {
+        String localDeviceId =
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+        HouseholdMeasurementRouter.Result result =
+                HouseholdMeasurementRouter.match(
+                        List.of(
+                                householdProfile(
+                                        "11111111-1111-1111-1111-111111111111",
+                                        "Local",
+                                        localDeviceId,
+                                        68.5f,
+                                        2.0f),
+                                householdProfile(
+                                        "22222222-2222-2222-2222-222222222222",
+                                        "Remote",
+                                        "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                                        68.7f,
+                                        2.0f)),
+                        68.6f);
+
+        assertFalse(
+                MeasurementRoutingPolicy
+                        .shouldCreateRemoteOnlyHouseholdAmbiguousPending(
+                                UserMatcher.Status.NO_MATCH,
+                                result,
+                                localDeviceId));
+    }
+
+    @Test
+    public void candidatesOnDifferentRemotePhonesDoNotUseSinglePhoneHandoff() {
+        HouseholdMeasurementRouter.Result result =
+                HouseholdMeasurementRouter.match(
+                        List.of(
+                                householdProfile(
+                                        "11111111-1111-1111-1111-111111111111",
+                                        "Remote A",
+                                        "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                                        68.5f,
+                                        2.0f),
+                                householdProfile(
+                                        "22222222-2222-2222-2222-222222222222",
+                                        "Remote B",
+                                        "cccccccc-cccc-cccc-cccc-cccccccccccc",
+                                        68.7f,
+                                        2.0f)),
+                        68.6f);
+
+        assertFalse(
+                MeasurementRoutingPolicy
+                        .shouldCreateRemoteOnlyHouseholdAmbiguousPending(
+                                UserMatcher.Status.NO_MATCH,
+                                result,
+                                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+    }
+
+    @Test
     public void normalPendingAutoResolvesWhenOneCandidateRemains() {
         assertTrue(
                 MeasurementRoutingPolicy.shouldAutoResolveSingleRemainingCandidate(

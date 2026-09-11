@@ -15,8 +15,8 @@ final class EventLog {
     private static final String KEY = "lines";
     private static final String APP_PREFS = "prefs";
     private static final String PREF_DIAGNOSTIC = "diagnostic_logging";
-    private static final int MAX_LINES = 150;
-    private static final int MAX_CHARS = 48 * 1024;
+    private static final int MAX_LINES = 3000;
+    private static final int MAX_CHARS = 512 * 1024;
 
     static void info(Context context, String message) {
         append(context, context.getString(R.string.log_level_info), message);
@@ -47,20 +47,121 @@ final class EventLog {
     }
 
     static synchronized String read(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String stored = prefs.getString(KEY, "");
-        if (stored == null || stored.isBlank()) return context.getString(R.string.log_empty);
+        return readNewest(
+                context,
+                MAX_LINES);
+    }
 
-        String pruned = prune(stored);
-        if (!stored.equals(pruned)) prefs.edit().putString(KEY, pruned).apply();
-        if (pruned.isBlank()) return context.getString(R.string.log_empty);
-
-        List<String> newestFirst = new ArrayList<>();
-        for (String line : pruned.split("\n")) {
-            if (!line.isEmpty()) newestFirst.add(line);
+    static synchronized String readRecent(
+            Context context,
+            int maxLines) {
+        if (maxLines <= 0) {
+            throw new IllegalArgumentException(
+                    "Visible log line limit must be positive");
         }
-        java.util.Collections.reverse(newestFirst);
-        return String.join("\n", newestFirst);
+
+        return readNewest(
+                context,
+                maxLines);
+    }
+
+    private static String readNewest(
+            Context context,
+            int maxLines) {
+        SharedPreferences prefs =
+                context.getSharedPreferences(
+                        PREFS,
+                        Context.MODE_PRIVATE);
+
+        String stored =
+                prefs.getString(
+                        KEY,
+                        "");
+
+        if (stored == null
+                || stored.isBlank()) {
+            return context.getString(
+                    R.string.log_empty);
+        }
+
+        String pruned =
+                prune(
+                        stored);
+
+        if (!stored.equals(
+                pruned)) {
+            prefs.edit()
+                    .putString(
+                            KEY,
+                            pruned)
+                    .apply();
+        }
+
+        if (pruned.isBlank()) {
+            return context.getString(
+                    R.string.log_empty);
+        }
+
+        return newestFirst(
+                pruned,
+                maxLines);
+    }
+
+    static String newestFirst(
+            String stored,
+            int maxLines) {
+        if (maxLines <= 0) {
+            throw new IllegalArgumentException(
+                    "Log line limit must be positive");
+        }
+
+        if (stored == null
+                || stored.isBlank()) {
+            return "";
+        }
+
+        StringBuilder result =
+                new StringBuilder();
+
+        int end =
+                stored.length();
+
+        int count =
+                0;
+
+        while (end > 0
+                && count < maxLines) {
+            int separator =
+                    stored.lastIndexOf(
+                            "\n",
+                            end - 1);
+
+            int start =
+                    separator + 1;
+
+            if (start < end) {
+                if (result.length() > 0) {
+                    result.append(
+                            (char) 10);
+                }
+
+                result.append(
+                        stored,
+                        start,
+                        end);
+
+                count++;
+            }
+
+            if (separator < 0) {
+                break;
+            }
+
+            end =
+                    separator;
+        }
+
+        return result.toString();
     }
 
     static synchronized void clear(Context context) {
@@ -94,7 +195,7 @@ final class EventLog {
         prefs.edit().putString(KEY, String.join("\n", lines)).apply();
     }
 
-    private static String prune(String stored) {
+    static String prune(String stored) {
         List<String> lines = new ArrayList<>();
         for (String line : stored.split("\\n")) {
             if (!line.isEmpty()) lines.add(line);

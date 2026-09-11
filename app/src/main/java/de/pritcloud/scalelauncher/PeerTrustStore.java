@@ -259,19 +259,19 @@ final class PeerTrustStore {
                         array.toString())
                 .commit();
 
-        PeerOutboxStore.removePeer(
+        PeerOutboxRoomStore.removePeer(
                 context,
                 deviceId);
 
-        PeerInboxDedupStore.removePeer(
+        PeerInboxDedupRoomStore.removePeer(
                 context,
                 deviceId);
 
-        HouseholdProfileStore.removeOwner(
+        HouseholdProfileRoomStore.removeOwner(
                 context,
                 deviceId);
 
-        RemotePendingMeasurementStore.removeCollector(
+        RemotePendingMeasurementRoomStore.removeCollector(
                 context,
                 deviceId);
     }
@@ -327,7 +327,7 @@ final class PeerTrustStore {
         }
     }
 
-    private static String encryptSecret(
+    static String encryptSecret(
             byte[] secret) {
         try {
             Cipher cipher =
@@ -355,7 +355,7 @@ final class PeerTrustStore {
         }
     }
 
-    private static byte[] decryptSecret(
+    static byte[] decryptSecret(
             String encoded) {
         try {
             String[] parts =

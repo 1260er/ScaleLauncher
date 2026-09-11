@@ -3,7 +3,7 @@ name: Dev release
 on:
   push:
     branches:
-      - ui-v1.5.1
+      - ui-v1.6.0
   workflow_dispatch:
 
 permissions:
@@ -72,7 +72,7 @@ jobs:
         env:
           SCALELAUNCHER_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           SCALELAUNCHER_VERSION_CODE: ${{ github.run_number }}
-        run: gradle --no-daemon clean testDebugUnitTest assembleDebug
+        run: ./gradlew --no-daemon clean testDebugUnitTest assembleDebug
 
       - name: Verify APK signature
         shell: bash
@@ -106,7 +106,7 @@ jobs:
             "$APK_FILE" "$APK_FILE.sha256" \
             --target "$GITHUB_SHA" \
             --title "ScaleLauncher Dev ${GITHUB_RUN_NUMBER}" \
-            --notes "Automatischer Test-Build aus dem Branch ui-v1.5.1." \
+            --notes "Automatischer Test-Build aus dem Branch ui-v1.6.0." \
             --prerelease \
             --latest=false
 

@@ -141,7 +141,7 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="health_permissions_incomplete">Not all write permissions for the selected values were granted.</string>
     <string name="start_error_bluetooth_permission">Allow Bluetooth first.</string>
     <string name="start_error_openscale_missing">Connect openScale and load users first.</string>
-    <string name="start_error_provider_api">openScale Provider API 2 is required for a complete and verifiable measurement.</string>
+    <string name="start_error_provider_api">Access to openScale is currently unavailable. Please check openScale and, if necessary, the API version.</string>
     <string name="start_error_no_active_profile">No user profile is available for automatic assignment.</string>
     <string name="start_error_profile_incomplete">Profile %1$s is not complete yet.</string>
     <string name="health_connect_error_select_values">Select at least one Health Connect value.</string>
@@ -193,7 +193,7 @@ The app does not read health data from Health Connect, has no internet access, a
     <string name="state_enabled">enabled</string>
     <string name="state_disabled">disabled</string>
     <string name="log_empty">No events yet.</string>
-    <string name="log_limit_description">maximum %1$d entries / 48 KB</string>
+    <string name="log_limit_description">maximum %1$d entries / 512 KB</string>
     <string name="log_level_info">INFO</string>
     <string name="log_level_warning">WARNING</string>
     <string name="log_level_error">ERROR</string>
@@ -247,7 +247,7 @@ UUIDs: %1$s</string>
     <string name="service_error_bluetooth_permission">Bluetooth permission missing</string>
     <string name="service_error_invalid_mac">No valid scale MAC address saved</string>
     <string name="service_error_no_openscale_connection">No openScale connection saved</string>
-    <string name="service_error_provider_api">openScale Provider API 2 is required</string>
+    <string name="service_error_provider_api">Access to openScale is currently unavailable. Please check openScale and, if necessary, the API version.</string>
     <string name="service_error_openscale_permission">openScale permission missing</string>
     <string name="service_error_openscale_unreachable">openScale is not reachable</string>
     <string name="service_error_no_active_profile">No user profile configured</string>
@@ -279,6 +279,9 @@ UUIDs: %1$s</string>
     <string name="service_error_incomplete_composition">Body composition analysis incomplete: %1$s</string>
     <string name="log_impedance_labels_swapped">Impedance bands were swapped and corrected</string>
     <string name="log_reference_weight_updated">Weight for %1$s updated: %2$.1f kg</string>
+    <string name="log_reference_weight_update_failed">Reference weight for %1$s could not be updated after successful openScale storage – %2$s: %3$s</string>
+    <string name="log_stored_pending_repaired">Completed stored assignment %1$s after restart</string>
+    <string name="log_stored_pending_repair_failed">Could not complete stored assignment %1$s – %2$s: %3$s</string>
     <string name="service_error_openscale_access">openScale access denied – grant permission again</string>
     <string name="service_error_openscale_transfer">Transfer to openScale failed: %1$s – %2$s</string>
     <string name="service_error_openscale_unconfirmed">Saving to openScale could not be fully confirmed</string>
@@ -289,7 +292,7 @@ UUIDs: %1$s</string>
     <string name="log_health_connect_values_saved">Health Connect: %1$s – %2$d values saved</string>
     <string name="log_health_connect_written">Health Connect written: %1$s</string>
     <string name="log_health_connect_failed">Health Connect failed: %1$s</string>
-    <string name="transfer_health_connect_permissions">openScale was saved, but Health Connect was not. Check permissions.</string>
+    <string name="transfer_health_connect_failed">openScale was saved, but Health Connect was not. Please check Health Connect; details are available in the log.</string>
     <string name="service_health_connect_failed">openScale saved – Health Connect failed</string>
     <string name="service_error_measurement_incomplete">Measurement data was incomplete</string>
     <string name="log_measurement_rejected">Measurement discarded completely – %1$s</string>
@@ -466,6 +469,7 @@ Both phones must show exactly the same code. If they match, press “Codes match
     <string name="log_peer_routed_measurement_confirmed">Processing of measurement %2$s confirmed by %1$s</string>
     <string name="action_not_my_measurement">Not mine</string>
     <string name="pending_status_resolved">%1$.1f kg – assignment to %2$s is being completed</string>
+    <string name="pending_status_remote_handoff">%1$.1f kg – assignment is handled on the other phone</string>
     <string name="log_pending_candidate_invalid">Invalid candidate for pending measurement %1$s</string>
     <string name="log_pending_candidate_already_decided">Pending measurement %1$s has already been decided</string>
     <string name="log_pending_candidate_selected">%1$.1f kg confirmed as “My measurement” for %2$s</string>
@@ -501,4 +505,5 @@ Both phones must show exactly the same code. If they match, press “Codes match
 Use this action only when the entry is stuck and no longer needed.</string>
     <string name="emergency_cleanup_confirm">Discard measurement</string>
     <string name="log_pending_discard_resolved_ignored">Emergency cleanup ignored for already assigned measurement of %1$.1f kg</string>
+    <string name="log_peer_orphan_repair_failed">Peer repair temporarily failed: %1$s</string>
 </resources>

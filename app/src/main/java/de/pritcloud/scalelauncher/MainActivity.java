@@ -26,6 +26,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 public final class MainActivity extends Activity {
@@ -33,17 +36,40 @@ public final class MainActivity extends Activity {
     private static final int REQ_SCAN = 101;
     private static final int REQ_OPENSCALE_PERMISSION = 102;
     private static final int REQ_HEALTH_CONNECT = 103;
+    private static final long LOG_REFRESH_INTERVAL_MS = 3_000L;
+    private static final long LOG_NAVIGATION_REFRESH_PAUSE_MS = 2_000L;
+    private static final int LOG_VISIBLE_LINES = 250;
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-F]{2}:){5}[0-9A-F]{2}$");
     private static final Pattern TOKEN_PATTERN = Pattern.compile("^[0-9a-fA-F]{24}$");
 
-    private final Handler refreshHandler = new Handler(Looper.getMainLooper());
+    private final Handler refreshHandler =
+            new Handler(Looper.getMainLooper());
+
+    private final ExecutorService uiDataRefreshExecutor =
+            Executors.newSingleThreadExecutor(
+                    runnable -> {
+                        Thread thread =
+                                new Thread(
+                                        runnable,
+                                        "ScaleLauncherUiDataRefresh");
+                        thread.setDaemon(true);
+                        return thread;
+                    });
+
+    private final AtomicBoolean uiDataRefreshRunning =
+            new AtomicBoolean(false);
+
+    private long uiDataRefreshGeneration;
+    private boolean activityResumed;
+    private long lastLogRefreshRequestMs;
+    private long logRefreshPausedUntilMs;
+    private String renderedLogText;
+
     private final Runnable refreshTask = new Runnable() {
         @Override public void run() {
-            refreshLog();
-            refreshPending();
             refreshRuntimeStatus();
             refreshReliabilityRequirements();
-            refreshHomeUserSummary();
+            requestPeriodicUiDataRefresh();
             refreshHandler.postDelayed(this, 1_000L);
         }
     };
@@ -192,8 +218,16 @@ public final class MainActivity extends Activity {
             pageHealthConnect.setVisibility(View.GONE);
             pageEmergencyCleanup.setVisibility(View.GONE);
             pageLog.setVisibility(View.VISIBLE);
-            refreshLog();
-            drawerLayout.closeDrawer(android.view.Gravity.END);
+
+            lastLogRefreshRequestMs =
+                    0L;
+
+            logRefreshPausedUntilMs =
+                    System.currentTimeMillis()
+                            + LOG_NAVIGATION_REFRESH_PAUSE_MS;
+
+            drawerLayout.closeDrawer(
+                    android.view.Gravity.END);
         });
 
         findViewById(R.id.navHelp).setOnClickListener(view -> {
@@ -445,7 +479,8 @@ public final class MainActivity extends Activity {
             openScaleMeta = OpenScaleProvider.readMeta(this, openScaleAuthority);
             users = OpenScaleProvider.loadUsers(this, openScaleAuthority);
             SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-            profiles = UserProfileStore.synchronize(
+            profiles = UserProfileRoomStore.synchronize(
+                    this,
                     prefs,
                     users,
                     PeerTrustStore.localDeviceId(this));
@@ -461,7 +496,7 @@ public final class MainActivity extends Activity {
                     }
                 }
             }
-            if (changed) UserProfileStore.save(prefs, profiles);
+            if (changed) UserProfileRoomStore.save(this, profiles);
 
             long storedUser = prefs.getLong(
                     "profile_editor_user_id",
@@ -522,10 +557,7 @@ public final class MainActivity extends Activity {
 
     private void openUserDetail(long userId) {
         profiles =
-                UserProfileStore.load(
-                        getSharedPreferences(
-                                "prefs",
-                                MODE_PRIVATE));
+                UserProfileRoomStore.load(this);
 
         for (int position = 0; position < users.size(); position++) {
             OpenScaleProvider.User user = users.get(position);
@@ -565,7 +597,7 @@ public final class MainActivity extends Activity {
     private void loadProfileForPosition(int position) {
         if (loadingProfile || position < 0 || position >= users.size()) return;
         OpenScaleProvider.User user = users.get(position);
-        UserProfile profile = UserProfileStore.find(profiles, user.id);
+        UserProfile profile = UserProfileRoomStore.find(profiles, user.id);
         if (profile == null) return;
 
         loadingProfile = true;
@@ -612,7 +644,7 @@ public final class MainActivity extends Activity {
             return false;
         }
         OpenScaleProvider.User user = users.get(position);
-        UserProfile profile = UserProfileStore.find(profiles, user.id);
+        UserProfile profile = UserProfileRoomStore.find(profiles, user.id);
         if (profile == null) {
             profile = new UserProfile(user.id, user.name);
             profiles.add(profile);
@@ -673,7 +705,7 @@ public final class MainActivity extends Activity {
             editor.remove("health_connect_user_id");
         }
         editor.putLong("profile_editor_user_id", profile.userId).apply();
-        UserProfileStore.save(prefs, profiles);
+        UserProfileRoomStore.save(this, profiles);
 
         boolean profilePublished =
                 HouseholdProfileSync.publishProfile(
@@ -704,7 +736,7 @@ public final class MainActivity extends Activity {
         }
 
         profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(this);
 
         updateProfileStatus();
         refreshHomeUserSummary();
@@ -741,7 +773,7 @@ public final class MainActivity extends Activity {
                         inlineAssignedUsersText(localEndpoint.deviceId)));
 
         List<PeerTrustStore.Peer> peers =
-                PeerTrustStore.load(this);
+                PeerTrustRoomStore.load(this);
 
         trustedInfo.setVisibility(View.GONE);
 
@@ -783,10 +815,7 @@ public final class MainActivity extends Activity {
 
         if (localDeviceId.equals(deviceId)) {
             List<UserProfile> storedProfiles =
-                    UserProfileStore.load(
-                            getSharedPreferences(
-                                    "prefs",
-                                    MODE_PRIVATE));
+                    UserProfileRoomStore.load(this);
 
             for (UserProfile profile : storedProfiles) {
                 if (!profile.enabled) {
@@ -801,7 +830,7 @@ public final class MainActivity extends Activity {
             }
         } else {
             for (HouseholdProfile profile :
-                    HouseholdProfileStore.load(this)) {
+                    HouseholdProfileRoomStore.load(this)) {
                 if (!profile.active
                         || !deviceId.equals(profile.ownerDeviceId)) {
                     continue;
@@ -850,7 +879,7 @@ public final class MainActivity extends Activity {
                         (dialog, which) -> {
                             String label = peer.label;
 
-                            PeerTrustStore.remove(
+                            PeerTrustRoomStore.remove(
                                     this,
                                     peer.deviceId);
 
@@ -892,12 +921,216 @@ public final class MainActivity extends Activity {
                         getColor(R.color.ui_text_secondary));
     }
 
+    private void requestPeriodicUiDataRefresh() {
+        if (!activityResumed) {
+            return;
+        }
+
+        View homePage =
+                findViewById(
+                        R.id.pageHome);
+
+        View emergencyPage =
+                findViewById(
+                        R.id.pageEmergencyCleanup);
+
+        View logPage =
+                findViewById(
+                        R.id.pageLog);
+
+        boolean homeVisible =
+                homePage != null
+                        && homePage.getVisibility()
+                                == View.VISIBLE;
+
+        boolean emergencyVisible =
+                emergencyPage != null
+                        && emergencyPage.getVisibility()
+                                == View.VISIBLE;
+
+        boolean logVisible =
+                logPage != null
+                        && logPage.getVisibility()
+                                == View.VISIBLE;
+
+        long now =
+                System.currentTimeMillis();
+
+        boolean logRefreshDue =
+                logVisible
+                        && now >= logRefreshPausedUntilMs
+                        && now - lastLogRefreshRequestMs
+                                >= LOG_REFRESH_INTERVAL_MS;
+
+        if (!homeVisible
+                && !emergencyVisible
+                && !logRefreshDue) {
+            return;
+        }
+
+        if (!uiDataRefreshRunning.compareAndSet(
+                false,
+                true)) {
+            return;
+        }
+
+        if (logRefreshDue) {
+            lastLogRefreshRequestMs =
+                    now;
+        }
+
+        long generation =
+                uiDataRefreshGeneration;
+
+        uiDataRefreshExecutor.execute(
+                () -> {
+                    try {
+                        boolean pendingNeeded =
+                                homeVisible
+                                        || emergencyVisible;
+
+                        List<PendingMeasurementStore.Item> pending =
+                                pendingNeeded
+                                        ? PendingMeasurementRoomStore.load(
+                                                this)
+                                        : List.of();
+
+                        List<RemotePendingMeasurementStore.Item> remotePending =
+                                homeVisible
+                                        ? RemotePendingMeasurementRoomStore.load(
+                                                this)
+                                        : List.of();
+
+                        List<HouseholdProfile> householdProfiles =
+                                homeVisible
+                                        ? HouseholdProfileRoomStore.load(
+                                                this)
+                                        : List.of();
+
+                        List<UserProfile> storedProfiles =
+                                homeVisible
+                                        ? UserProfileRoomStore.load(
+                                                this)
+                                        : List.of();
+
+                        int pendingSync =
+                                homeVisible
+                                        ? PeerOutboxRoomStore.count(
+                                                this)
+                                        : 0;
+
+                        String logText =
+                                logRefreshDue
+                                        ? EventLog.readRecent(
+                                                this,
+                                                LOG_VISIBLE_LINES)
+                                        : null;
+
+                        refreshHandler.post(
+                                () -> {
+                                    try {
+                                        if (!activityResumed
+                                                || generation
+                                                        != uiDataRefreshGeneration) {
+                                            return;
+                                        }
+
+                                        View currentHome =
+                                                findViewById(
+                                                        R.id.pageHome);
+
+                                        if (homeVisible
+                                                && currentHome != null
+                                                && currentHome.getVisibility()
+                                                        == View.VISIBLE) {
+                                            applyPendingSnapshot(
+                                                    pending,
+                                                    remotePending,
+                                                    householdProfiles,
+                                                    storedProfiles);
+
+                                            applyHomeUserSummarySnapshot(
+                                                    householdProfiles,
+                                                    storedProfiles,
+                                                    pendingSync);
+                                        }
+
+                                        View currentEmergency =
+                                                findViewById(
+                                                        R.id.pageEmergencyCleanup);
+
+                                        if (emergencyVisible
+                                                && currentEmergency != null
+                                                && currentEmergency.getVisibility()
+                                                        == View.VISIBLE) {
+                                            refreshEmergencyCleanup(
+                                                    pending);
+                                        }
+
+                                        View currentLog =
+                                                findViewById(
+                                                        R.id.pageLog);
+
+                                        if (logRefreshDue
+                                                && logText != null
+                                                && currentLog != null
+                                                && currentLog.getVisibility()
+                                                        == View.VISIBLE
+                                                && !logText.equals(
+                                                        renderedLogText)) {
+                                            log.setText(
+                                                    logText);
+
+                                            renderedLogText =
+                                                    logText;
+                                        }
+                                    } finally {
+                                        uiDataRefreshRunning.set(
+                                                false);
+                                    }
+                                });
+                    } catch (RuntimeException exception) {
+                        refreshHandler.post(
+                                () ->
+                                        uiDataRefreshRunning.set(
+                                                false));
+                    }
+                });
+    }
+
     private void refreshHomeUserSummary() {
-        TextView usersSummary = findViewById(R.id.homeUsersSummary);
-        TextView usersList = findViewById(R.id.homeUsersList);
-        TextView peerSyncStatus = findViewById(R.id.homePeerSyncStatus);
-        TextView healthConnectState = findViewById(R.id.homeHealthConnectState);
-        TextView healthConnectUser = findViewById(R.id.homeHealthConnectUser);
+        applyHomeUserSummarySnapshot(
+                HouseholdProfileRoomStore.load(
+                        this),
+                UserProfileRoomStore.load(
+                        this),
+                PeerOutboxRoomStore.count(
+                        this));
+    }
+
+    private void applyHomeUserSummarySnapshot(
+            List<HouseholdProfile> householdProfiles,
+            List<UserProfile> storedProfiles,
+            int pendingSync) {
+        TextView usersSummary =
+                findViewById(
+                        R.id.homeUsersSummary);
+
+        TextView usersList =
+                findViewById(
+                        R.id.homeUsersList);
+
+        TextView peerSyncStatus =
+                findViewById(
+                        R.id.homePeerSyncStatus);
+
+        TextView healthConnectState =
+                findViewById(
+                        R.id.homeHealthConnectState);
+
+        TextView healthConnectUser =
+                findViewById(
+                        R.id.homeHealthConnectUser);
 
         List<OpenScaleProvider.User> localUsers =
                 users == null
@@ -912,14 +1145,14 @@ public final class MainActivity extends Activity {
                 new ArrayList<>();
 
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
-                        this)) {
-            if (localDeviceId.equals(
-                    profile.ownerDeviceId)) {
+                householdProfiles) {
+            if (!profile.active
+                    || localDeviceId.equals(
+                            profile.ownerDeviceId)) {
                 continue;
             }
 
-            if (!PeerTrustStore.isTrusted(
+            if (!PeerTrustRoomStore.isTrusted(
                     this,
                     profile.ownerDeviceId)) {
                 continue;
@@ -936,7 +1169,9 @@ public final class MainActivity extends Activity {
         if (totalUsers == 0) {
             usersSummary.setText(
                     R.string.home_users_none);
-            usersList.setText("");
+
+            usersList.setText(
+                    "");
         } else {
             usersSummary.setText(
                     getResources()
@@ -951,7 +1186,8 @@ public final class MainActivity extends Activity {
             for (OpenScaleProvider.User user :
                     localUsers) {
                 if (names.length() > 0) {
-                    names.append((char) 10);
+                    names.append(
+                            (char) 10);
                 }
 
                 names.append("• ")
@@ -965,7 +1201,8 @@ public final class MainActivity extends Activity {
             for (HouseholdProfile profile :
                     remoteUsers) {
                 if (names.length() > 0) {
-                    names.append((char) 10);
+                    names.append(
+                            (char) 10);
                 }
 
                 names.append("• ")
@@ -979,9 +1216,6 @@ public final class MainActivity extends Activity {
             usersList.setText(
                     names.toString());
         }
-
-        int pendingSync =
-                PeerOutboxStore.count(this);
 
         peerSyncStatus.setText(
                 getResources()
@@ -1005,17 +1239,13 @@ public final class MainActivity extends Activity {
                         ? R.string.home_health_connect_active
                         : R.string.home_health_connect_disabled);
 
-        List<UserProfile> storedProfiles =
-                UserProfileStore.load(
-                        prefs);
-
         long healthUserId =
                 prefs.getLong(
                         "health_connect_user_id",
                         -1L);
 
         UserProfile healthProfile =
-                UserProfileStore.find(
+                UserProfileRoomStore.find(
                         storedProfiles,
                         healthUserId);
 
@@ -1031,7 +1261,7 @@ public final class MainActivity extends Activity {
         for (UserProfile profile : profiles) if (profile.enabled) enabledCount++;
         long healthUserId = getSharedPreferences("prefs", MODE_PRIVATE)
                 .getLong("health_connect_user_id", -1L);
-        UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
+        UserProfile healthProfile = UserProfileRoomStore.find(profiles, healthUserId);
         String healthName = healthProfile == null
                 ? getString(R.string.profile_health_user_not_set)
                 : healthProfile.name;
@@ -1064,18 +1294,46 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        ScaleScanService.clearTransientNotifications(this);
+
+        activityResumed =
+                true;
+
+        uiDataRefreshGeneration++;
+
+        ScaleScanService.clearTransientNotifications(
+                this);
+
         refreshHealthConnectStatus();
         refreshInlinePeerSummary();
-        refreshPending();
         refreshRuntimeStatus();
         refreshReliabilityRequirements();
-        refreshHandler.post(refreshTask);
+
+        refreshHandler.removeCallbacks(
+                refreshTask);
+
+        refreshHandler.post(
+                refreshTask);
     }
 
     @Override protected void onPause() {
-        refreshHandler.removeCallbacks(refreshTask);
+        activityResumed =
+                false;
+
+        uiDataRefreshGeneration++;
+
+        refreshHandler.removeCallbacks(
+                refreshTask);
+
         super.onPause();
+    }
+
+    @Override protected void onDestroy() {
+        refreshHandler.removeCallbacks(
+                refreshTask);
+
+        uiDataRefreshExecutor.shutdownNow();
+
+        super.onDestroy();
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -1192,7 +1450,7 @@ public final class MainActivity extends Activity {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        if (!openScaleMeta.supportsGenericValues()) {
+        if (!openScaleMeta.supportsRequiredApi()) {
             LoggedToast.makeText(this,
                     getString(R.string.start_error_provider_api),
                     Toast.LENGTH_LONG).show();
@@ -1200,8 +1458,8 @@ public final class MainActivity extends Activity {
         }
         if (!saveCurrentProfile(false)) return;
 
-        profiles = UserProfileStore.load(getSharedPreferences("prefs", MODE_PRIVATE));
-        List<UserProfile> enabledProfiles = UserProfileStore.enabled(profiles);
+        profiles = UserProfileRoomStore.load(this);
+        List<UserProfile> enabledProfiles = UserProfileRoomStore.enabled(profiles);
         if (enabledProfiles.isEmpty()) {
             LoggedToast.makeText(this,
                     getString(R.string.start_error_no_active_profile),
@@ -1228,7 +1486,7 @@ public final class MainActivity extends Activity {
                         Toast.LENGTH_LONG).show();
                 return;
             }
-            UserProfile healthProfile = UserProfileStore.find(enabledProfiles, healthUserId);
+            UserProfile healthProfile = UserProfileRoomStore.find(enabledProfiles, healthUserId);
             if (healthProfile == null) {
                 LoggedToast.makeText(this,
                         getString(R.string.health_connect_error_main_user),
@@ -1283,11 +1541,11 @@ public final class MainActivity extends Activity {
             }
 
             List<UserProfile> currentProfiles = profiles.isEmpty()
-                    ? UserProfileStore.load(prefs)
+                    ? UserProfileRoomStore.load(this)
                     : profiles;
             long healthUserId = prefs.getLong("health_connect_user_id", -1L);
             UserProfile healthProfile =
-                    UserProfileStore.find(currentProfiles, healthUserId);
+                    UserProfileRoomStore.find(currentProfiles, healthUserId);
 
             if (healthProfile == null) {
                 LoggedToast.makeText(
@@ -1373,7 +1631,7 @@ public final class MainActivity extends Activity {
         int granted = HealthConnectSupport.grantedWritePermissionCount(this, selection);
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         long healthUserId = prefs.getLong("health_connect_user_id", -1L);
-        UserProfile healthProfile = UserProfileStore.find(profiles, healthUserId);
+        UserProfile healthProfile = UserProfileRoomStore.find(profiles, healthUserId);
         String userText = healthProfile == null
                 ? getString(R.string.health_connect_main_user_missing)
                 : getString(R.string.health_connect_user_name, healthProfile.name);
@@ -1397,7 +1655,25 @@ public final class MainActivity extends Activity {
                         R.id.pageEmergencyCleanup);
 
         if (page == null
-                || page.getVisibility() != View.VISIBLE) {
+                || page.getVisibility()
+                        != View.VISIBLE) {
+            return;
+        }
+
+        refreshEmergencyCleanup(
+                PendingMeasurementRoomStore.load(
+                        this));
+    }
+
+    private void refreshEmergencyCleanup(
+            List<PendingMeasurementStore.Item> items) {
+        View page =
+                findViewById(
+                        R.id.pageEmergencyCleanup);
+
+        if (page == null
+                || page.getVisibility()
+                        != View.VISIBLE) {
             return;
         }
 
@@ -1414,24 +1690,15 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        List<PendingMeasurementStore.Item> items =
-                PendingMeasurementStore.load(
-                        getSharedPreferences(
-                                "prefs",
-                                MODE_PRIVATE));
-
         list.removeAllViews();
 
         int openCount = 0;
+
         long now =
                 System.currentTimeMillis();
 
         for (PendingMeasurementStore.Item item :
                 items) {
-            if (item.isResolved()) {
-                continue;
-            }
-
             openCount++;
 
             View row =
@@ -1478,8 +1745,7 @@ public final class MainActivity extends Activity {
 
     private void confirmDiscardEmergencyMeasurement(
             PendingMeasurementStore.Item item) {
-        if (item == null
-                || item.isResolved()) {
+        if (item == null) {
             return;
         }
 
@@ -1538,38 +1804,65 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshPending() {
-        if (pendingStatus == null) return;
+        if (pendingStatus == null) {
+            return;
+        }
 
-        SharedPreferences prefs =
-                getSharedPreferences(
-                        "prefs",
-                        MODE_PRIVATE);
+        applyPendingSnapshot(
+                PendingMeasurementRoomStore.load(
+                        this),
+                RemotePendingMeasurementRoomStore.load(
+                        this),
+                HouseholdProfileRoomStore.load(
+                        this),
+                UserProfileRoomStore.load(
+                        this));
+    }
+
+    private void applyPendingSnapshot(
+            List<PendingMeasurementStore.Item> pending,
+            List<RemotePendingMeasurementStore.Item> remotePending,
+            List<HouseholdProfile> householdProfiles,
+            List<UserProfile> storedProfiles) {
+        if (pendingStatus == null) {
+            return;
+        }
 
         pendingMeasurements =
-                PendingMeasurementStore.load(
-                        prefs);
-
-        refreshEmergencyCleanup();
+                new ArrayList<>(
+                        pending);
 
         remotePendingMeasurements =
-                RemotePendingMeasurementStore.load(
-                        this);
+                new ArrayList<>(
+                        remotePending);
+
+        refreshEmergencyCleanup(
+                pendingMeasurements);
 
         pendingCandidates =
                 new ArrayList<>();
 
+        boolean collectorRemoteOnlyHandoff =
+                false;
+
         if (!pendingMeasurements.isEmpty()) {
             PendingMeasurementStore.Item item =
-                    pendingMeasurements.get(0);
+                    pendingMeasurements.get(
+                            0);
 
             String localDeviceId =
                     PeerTrustStore.localDeviceId(
                             this);
 
             List<UserProfile> localProfiles =
-                    UserProfileStore.enabled(
-                            UserProfileStore.load(
-                                    prefs));
+                    UserProfileRoomStore.enabled(
+                            storedProfiles);
+
+            collectorRemoteOnlyHandoff =
+                    isRemoteOnlyHandoffPending(
+                            item,
+                            householdProfiles,
+                            localDeviceId);
 
             List<String> remainingCandidateProfileIds =
                     item.remainingCandidateProfileIds();
@@ -1579,14 +1872,16 @@ public final class MainActivity extends Activity {
             for (String rejectedProfileId :
                     item.rejectedProfileIds) {
                 HouseholdProfile rejectedProfile =
-                        HouseholdProfileStore.find(
-                                this,
+                        findHouseholdProfile(
+                                householdProfiles,
                                 rejectedProfileId);
 
                 if (rejectedProfile != null
                         && localDeviceId.equals(
                                 rejectedProfile.ownerDeviceId)) {
-                    localUsersRejected = true;
+                    localUsersRejected =
+                            true;
+
                     break;
                 }
             }
@@ -1602,7 +1897,8 @@ public final class MainActivity extends Activity {
              */
             for (UserProfile local :
                     localProfiles) {
-                if (localUsersRejected
+                if (collectorRemoteOnlyHandoff
+                        || localUsersRejected
                         || !local.hasValidBodyData(
                                 item.timestampMs)) {
                     continue;
@@ -1611,8 +1907,8 @@ public final class MainActivity extends Activity {
                 HouseholdProfile household =
                         remainingCandidateProfileIds.contains(
                                 local.householdProfileId)
-                                ? HouseholdProfileStore.find(
-                                        this,
+                                ? findHouseholdProfile(
+                                        householdProfiles,
                                         local.householdProfileId)
                                 : null;
 
@@ -1641,14 +1937,13 @@ public final class MainActivity extends Activity {
                             this);
 
             List<UserProfile> localProfiles =
-                    UserProfileStore.enabled(
-                            UserProfileStore.load(
-                                    prefs));
+                    UserProfileRoomStore.enabled(
+                            storedProfiles);
 
             for (String profileId :
                     item.candidateProfileIds) {
                 UserProfile local =
-                        UserProfileStore.findByHouseholdProfileId(
+                        UserProfileRoomStore.findByHouseholdProfileId(
                                 localProfiles,
                                 profileId);
 
@@ -1678,25 +1973,25 @@ public final class MainActivity extends Activity {
                     .append("collector:")
                     .append(
                             pendingMeasurements.get(0).id)
-                    .append('|');
+                    .append("|");
         } else if (!remotePendingMeasurements.isEmpty()) {
             signatureBuilder
                     .append("remote:")
                     .append(
                             remotePendingMeasurements.get(0)
                                     .measurementId)
-                    .append('|');
+                    .append("|");
         }
 
         for (PendingCandidate candidate :
                 pendingCandidates) {
             signatureBuilder
                     .append(candidate.profileId)
-                    .append(':')
+                    .append(":")
                     .append(candidate.ownerDeviceId)
-                    .append(':')
+                    .append(":")
                     .append(candidate.name)
-                    .append('|');
+                    .append("|");
         }
 
         String signature =
@@ -1720,7 +2015,8 @@ public final class MainActivity extends Activity {
                     adapter);
 
             if (oldPosition >= 0
-                    && oldPosition < pendingCandidates.size()) {
+                    && oldPosition
+                            < pendingCandidates.size()) {
                 pendingUserSpinner.setSelection(
                         oldPosition);
             }
@@ -1770,6 +2066,7 @@ public final class MainActivity extends Activity {
         if (!hasPending) {
             pendingStatus.setText(
                     R.string.pending_none);
+
             return;
         }
 
@@ -1787,19 +2084,30 @@ public final class MainActivity extends Activity {
         }
 
         PendingMeasurementStore.Item item =
-                pendingMeasurements.get(0);
+                pendingMeasurements.get(
+                        0);
+
+        if (collectorRemoteOnlyHandoff) {
+            pendingStatus.setText(
+                    getString(
+                            R.string.pending_status_remote_handoff,
+                            item.weightKg));
+
+            return;
+        }
 
         if (item.isResolved()) {
             String selectedName =
                     item.selectedProfileId;
 
             for (HouseholdProfile profile :
-                    HouseholdProfileStore.active(
-                            this)) {
-                if (item.selectedProfileId.equals(
-                        profile.profileId)) {
+                    householdProfiles) {
+                if (profile.active
+                        && item.selectedProfileId.equals(
+                                profile.profileId)) {
                     selectedName =
                             profile.name;
+
                     break;
                 }
             }
@@ -1809,6 +2117,7 @@ public final class MainActivity extends Activity {
                             R.string.pending_status_resolved,
                             item.weightKg,
                             selectedName));
+
             return;
         }
 
@@ -1821,7 +2130,8 @@ public final class MainActivity extends Activity {
 
         String candidateSummary =
                 pendingMatchingCandidateSummary(
-                        item);
+                        item,
+                        householdProfiles);
 
         String detail =
                 candidateSummary.isBlank()
@@ -1841,8 +2151,77 @@ public final class MainActivity extends Activity {
                         + detail);
     }
 
+    private boolean isRemoteOnlyHandoffPending(
+            PendingMeasurementStore.Item item,
+            List<HouseholdProfile> householdProfiles,
+            String localDeviceId) {
+        if (item == null
+                || item.isResolved()
+                || localDeviceId == null
+                || localDeviceId.isBlank()) {
+            return false;
+        }
+
+        List<String> remaining =
+                item.remainingCandidateProfileIds();
+
+        if (remaining.isEmpty()) {
+            return false;
+        }
+
+        String remoteOwnerDeviceId =
+                null;
+
+        for (String profileId :
+                remaining) {
+            HouseholdProfile profile =
+                    findHouseholdProfile(
+                            householdProfiles,
+                            profileId);
+
+            if (profile == null
+                    || !profile.active
+                    || profile.ownerDeviceId == null
+                    || profile.ownerDeviceId.isBlank()
+                    || localDeviceId.equals(
+                            profile.ownerDeviceId)) {
+                return false;
+            }
+
+            if (remoteOwnerDeviceId == null) {
+                remoteOwnerDeviceId =
+                        profile.ownerDeviceId;
+            } else if (!remoteOwnerDeviceId.equals(
+                    profile.ownerDeviceId)) {
+                return false;
+            }
+        }
+
+        return remoteOwnerDeviceId != null;
+    }
+
+    private HouseholdProfile findHouseholdProfile(
+            List<HouseholdProfile> householdProfiles,
+            String profileId) {
+        if (householdProfiles == null
+                || profileId == null) {
+            return null;
+        }
+
+        for (HouseholdProfile profile :
+                householdProfiles) {
+            if (profileId.equals(
+                    profile.profileId)) {
+                return profile;
+            }
+        }
+
+        return null;
+    }
+
     private String pendingMatchingCandidateSummary(
-            PendingMeasurementStore.Item item) {
+            PendingMeasurementStore.Item item,
+            List<HouseholdProfile> householdProfiles) {
         if (item == null
                 || item.manualRescue) {
             return "";
@@ -1865,8 +2244,8 @@ public final class MainActivity extends Activity {
         for (String profileId :
                 remaining) {
             HouseholdProfile profile =
-                    HouseholdProfileStore.find(
-                            this,
+                    findHouseholdProfile(
+                            householdProfiles,
                             profileId);
 
             if (profile == null) {
@@ -1894,8 +2273,8 @@ public final class MainActivity extends Activity {
                 new StringBuilder();
 
         for (int i = 0;
-                i < labels.size();
-                i++) {
+             i < labels.size();
+             i++) {
             if (i > 0) {
                 names.append(
                         i == labels.size() - 1
@@ -2329,6 +2708,9 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshLog() {
-        log.setText(EventLog.read(this));
+        lastLogRefreshRequestMs =
+                0L;
+
+        requestPeriodicUiDataRefresh();
     }
 }

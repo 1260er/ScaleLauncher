@@ -12,6 +12,7 @@ final class PendingMeasurementCleanup {
         DISCARDED,
         MISSING,
         ALREADY_RESOLVED,
+        CLOSED_QUEUE_FAILED,
         INVALID
     }
 
@@ -47,19 +48,15 @@ final class PendingMeasurementCleanup {
                 new ArrayList<>();
 
         for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         context)) {
             peerDeviceIds.add(
                     peer.deviceId);
         }
 
         Result result =
-                discardLocal(
-                        context.getSharedPreferences(
-                                "prefs",
-                                Context.MODE_PRIVATE),
-                        PeerOutboxStore.prefs(
-                                context),
+                discardLocalRoom(
+                        context,
                         peerDeviceIds,
                         pendingId,
                         exception ->
@@ -89,6 +86,81 @@ final class PendingMeasurementCleanup {
         }
 
         return result;
+    }
+
+    private static Result discardLocalRoom(
+            Context context,
+            List<String> peerDeviceIds,
+            String pendingId,
+            ErrorHandler errorHandler) {
+        if (context == null
+                || peerDeviceIds == null
+                || pendingId == null
+                || pendingId.isBlank()) {
+            return new Result(
+                    Status.INVALID,
+                    0f,
+                    0);
+        }
+
+        PendingMeasurementStore.Item pending =
+                PendingMeasurementRoomStore.find(
+                        context,
+                        pendingId);
+
+        if (pending == null) {
+            return new Result(
+                    Status.MISSING,
+                    0f,
+                    0);
+        }
+
+        PeerOutboxRoomStore.removeMeasurementExceptClosed(
+                context,
+                pendingId);
+
+        int queued = 0;
+
+        boolean closedComplete =
+                true;
+
+        for (String peerDeviceId :
+                peerDeviceIds) {
+            try {
+                PeerMeasurementClosedPayload payload =
+                        PeerMeasurementClosedPayload.create(
+                                pendingId);
+
+                PeerOutboxRoomStore.enqueueClosed(
+                        context,
+                        peerDeviceId,
+                        payload);
+
+                queued++;
+            } catch (RuntimeException exception) {
+                closedComplete =
+                        false;
+
+                errorHandler.onError(
+                        exception);
+            }
+        }
+
+        if (!closedComplete) {
+            return new Result(
+                    Status.CLOSED_QUEUE_FAILED,
+                    pending.weightKg,
+                    queued);
+        }
+
+        PendingMeasurementRoomStore.remove(
+                context,
+                pendingId);
+
+        return new Result(
+                Status.DISCARDED,
+                pending.weightKg,
+                queued);
     }
 
     static Result discardLocal(
@@ -134,19 +206,15 @@ final class PendingMeasurementCleanup {
                     0);
         }
 
-        if (pending.isResolved()) {
-            return new Result(
-                    Status.ALREADY_RESOLVED,
-                    pending.weightKg,
-                    0);
-        }
-
-        PeerOutboxStore.removeMeasurement(
+        PeerOutboxStore.removeMeasurementExceptClosed(
                 outboxPreferences,
                 pendingId);
 
         int queued =
                 0;
+
+        boolean closedComplete =
+                true;
 
         for (String peerDeviceId :
                 peerDeviceIds) {
@@ -162,9 +230,19 @@ final class PendingMeasurementCleanup {
 
                 queued++;
             } catch (RuntimeException exception) {
+                closedComplete =
+                        false;
+
                 errorHandler.onError(
                         exception);
             }
+        }
+
+        if (!closedComplete) {
+            return new Result(
+                    Status.CLOSED_QUEUE_FAILED,
+                    pending.weightKg,
+                    queued);
         }
 
         PendingMeasurementStore.remove(

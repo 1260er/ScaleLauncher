@@ -892,7 +892,7 @@ public final class PeerPairingActivity extends Activity {
                         remote.deviceId);
 
         try {
-            PeerTrustStore.trust(
+            PeerTrustRoomStore.trust(
                     this,
                     remote.deviceId,
                     label,

@@ -24,6 +24,7 @@ import org.json.JSONObject;
 
 import java.time.LocalDate;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -57,9 +58,25 @@ public final class ScaleScanService extends Service {
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
     private static final long PEER_SYNC_RETRY_MS = 30_000L;
+    private static final long PEER_ACK_RETRY_MS = 10_000L;
+    private static final long OPEN_SCALE_RETRY_DELAY_MS = 2_000L;
+    private static final long PEER_DIAGNOSTIC_INTERVAL_MS = 15 * 60_000L;
     private static final boolean ENABLE_REVERSE_ACK_FALLBACK = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private final java.util.Set<String>
+            openScaleProcessingMeasurements =
+            new java.util.HashSet<>();
+
+    private final Map<String, ArrayDeque<OpenScaleQueueRequest>>
+            openScaleQueueRequests =
+            new HashMap<>();
+
+    private final java.util.Set<String>
+            openScaleActiveProfiles =
+            new java.util.HashSet<>();
+
     private final Runnable watchdogRunnable = this::runWatchdog;
     private final Runnable gattReconnectRunnable = this::runGattReconnect;
     private boolean userSyncCompletedOnce;
@@ -86,14 +103,14 @@ public final class ScaleScanService extends Service {
     private final Runnable peerSyncRunnable =
             this::dispatchPeerOutbox;
 
-    private SharedPreferences peerOutboxPreferences;
-
-    private final SharedPreferences.OnSharedPreferenceChangeListener
+    private final PeerOutboxRoomStore.ChangeListener
             peerOutboxListener =
-            (preferences, key) -> {
-                peerErrorRetryAttempt = 0;
-                schedulePeerSync(0L);
-            };
+            () ->
+                    handler.post(
+                            () -> {
+                                peerErrorRetryAttempt = 0;
+                                schedulePeerSync(0L);
+                            });
 
     private final ArrayDeque<DirectPeerMessage> peerDirectQueue =
             new ArrayDeque<>();
@@ -180,9 +197,11 @@ public final class ScaleScanService extends Service {
     private boolean gattReconnectScheduled;
     private int gattReconnectAttempt;
     private long lastGattFinalTimestampSeconds;
+    private long lastPeerDiagnosticLogMs;
     private boolean explicitStop;
     private boolean terminalError;
     private String monitorText = "";
+    private long visibleStatusGeneration;
 
     public static void clearTransientNotifications(Context context) {
         NotificationManager manager =
@@ -200,7 +219,8 @@ public final class ScaleScanService extends Service {
         super.onCreate();
         createChannels();
 
-        monitorText = getString(R.string.service_gatt_connecting);
+        setMonitorText(
+                getString(R.string.service_gatt_connecting));
         ServiceState.starting(
                 this,
                 getString(R.string.service_gatt_connecting));
@@ -210,16 +230,15 @@ public final class ScaleScanService extends Service {
 
         registerBluetoothStateReceiver();
 
-        peerOutboxPreferences =
-                PeerOutboxStore.prefs(this);
-        peerOutboxPreferences
-                .registerOnSharedPreferenceChangeListener(
-                        peerOutboxListener);
+        PeerOutboxRoomStore.registerChangeListener(
+                peerOutboxListener);
 
         startPeerTransport();
 
+        repairPeerOrphans();
         repairPendingAfterPeerChanges();
         repairStaleAmbiguousPending();
+        repairStoredResolvedPending();
 
         schedulePeerSync(
                 1_000L);
@@ -233,6 +252,7 @@ public final class ScaleScanService extends Service {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             explicitStop = true;
+            invalidateVisibleStatusCallbacks();
             ServiceState.stopped(this, getString(R.string.service_stopped_by_user));
             stopSelf();
             return START_NOT_STICKY;
@@ -281,7 +301,9 @@ public final class ScaleScanService extends Service {
                 && ACTION_SYNC_PEERS.equals(
                         intent.getAction())) {
             refreshTrustedPeerPresence();
+            repairPeerOrphans();
             repairPendingAfterPeerChanges();
+            repairStoredResolvedPending();
 
             schedulePeerSync(
                     100L);
@@ -340,7 +362,7 @@ public final class ScaleScanService extends Service {
                                  * next outbox item immediately.
                                  */
                                 schedulePeerSync(
-                                        PEER_SYNC_RETRY_MS);
+                                        PEER_ACK_RETRY_MS);
                             }
 
                             @Override
@@ -350,19 +372,44 @@ public final class ScaleScanService extends Service {
                                 ServiceState.CollectorSource previousSource =
                                         collectorSource();
 
+                                boolean wasRemoteCollector =
+                                        remoteCollectorLastSeenMs.containsKey(
+                                                peer.deviceId);
+
                                 if (collector) {
                                     remoteCollectorLastSeenMs.put(
                                             peer.deviceId,
                                             SystemClock.elapsedRealtime());
+
+                                    if (!wasRemoteCollector) {
+                                        EventLog.debug(
+                                                ScaleScanService.this,
+                                                "Peer-Diagnose: "
+                                                        + peer.label
+                                                        + " als Remote-Collector erkannt");
+                                    }
                                 } else {
                                     remoteCollectorLastSeenMs.remove(
                                             peer.deviceId);
+
+                                    if (wasRemoteCollector) {
+                                        EventLog.debug(
+                                                ScaleScanService.this,
+                                                "Peer-Diagnose: "
+                                                        + peer.label
+                                                        + " meldet nicht mehr Collector");
+                                    }
                                 }
 
                                 ServiceState.CollectorSource currentSource =
                                         collectorSource();
 
                                 if (currentSource != previousSource) {
+                                    logCollectorTransition(
+                                            previousSource,
+                                            currentSource,
+                                            "Peer-Präsenz " + peer.label);
+
                                     ServiceState.heartbeat(
                                             ScaleScanService.this,
                                             gattCollectorOwned,
@@ -436,7 +483,7 @@ public final class ScaleScanService extends Service {
         }
 
         List<PeerTrustStore.Peer> trustedPeers =
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         this);
 
         remoteCollectorLastSeenMs.keySet()
@@ -452,6 +499,11 @@ public final class ScaleScanService extends Service {
                 collectorSource();
 
         if (currentSource != previousSource) {
+            logCollectorTransition(
+                    previousSource,
+                    currentSource,
+                    "Peer-Liste aktualisiert");
+
             ServiceState.heartbeat(
                     this,
                     gattCollectorOwned,
@@ -496,6 +548,11 @@ public final class ScaleScanService extends Service {
                     collectorSource();
 
             if (currentSource != previousSource) {
+                logCollectorTransition(
+                        previousSource,
+                        currentSource,
+                        "Peer-Transport gestoppt");
+
                 ServiceState.heartbeat(
                         this,
                         gattCollectorOwned,
@@ -564,7 +621,7 @@ public final class ScaleScanService extends Service {
         String authority =
                 prefs.getString("openscale_authority", "");
         List<UserProfile> profiles =
-                UserProfileStore.enabled(UserProfileStore.load(prefs));
+                UserProfileRoomStore.enabled(UserProfileRoomStore.load(this));
 
         if (!S400GattProtocol.isValidMacAddress(mac)) {
             enterTerminalError(
@@ -596,7 +653,7 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        if (!providerMeta.supportsGenericValues()) {
+        if (!providerMeta.supportsRequiredApi()) {
             enterTerminalError(
                     getString(R.string.service_error_provider_api));
             return;
@@ -684,7 +741,8 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        monitorText = getString(R.string.service_gatt_standby);
+        setMonitorText(
+                getString(R.string.service_gatt_standby));
         ServiceState.running(
                 this,
                 monitorText,
@@ -710,8 +768,8 @@ public final class ScaleScanService extends Service {
                         if (state == S400GattClient.State.DISCOVERING
                                 || state == S400GattClient.State.SUBSCRIBING
                                 || state == S400GattClient.State.AUTHENTICATING) {
-                            monitorText =
-                                    getString(R.string.service_gatt_claiming);
+                            setMonitorText(
+                                    getString(R.string.service_gatt_claiming));
                             ServiceState.running(
                                     ScaleScanService.this,
                                     monitorText,
@@ -860,9 +918,9 @@ public final class ScaleScanService extends Service {
                         impedance,
                         impedanceLow));
 
-        long timestampMs = deviceTimestamp > 0L
-                ? deviceTimestamp * 1000L
-                : System.currentTimeMillis();
+        // The collector reception time is the canonical measurement time.
+        // The S400 device clock can reset or drift after battery removal.
+        long timestampMs = System.currentTimeMillis();
 
         String scaleMac =
                 getSharedPreferences(
@@ -875,9 +933,7 @@ public final class ScaleScanService extends Service {
         String measurementId =
                 S400FinalMeasurement.stableLocalMeasurementId(
                         scaleMac,
-                        deviceTimestamp > 0L
-                                ? timestampMs
-                                : 0L);
+                        timestampMs);
 
         S400FinalMeasurement finalized =
                 new S400FinalMeasurement(
@@ -934,7 +990,87 @@ public final class ScaleScanService extends Service {
                 return;
             }
 
-            if (PeerOutboxStore.remove(
+            if (ack.acknowledgedMessageId.startsWith(
+                    "route:")) {
+                String measurementId =
+                        ack.acknowledgedMessageId.substring(
+                                "route:".length());
+
+                PendingMeasurementStore.Item pending =
+                        PendingMeasurementRoomStore.find(
+                                this,
+                                measurementId);
+
+                boolean routeStillPending =
+                        false;
+
+                for (PeerOutboxStore.Item item :
+                        PeerOutboxRoomStore.forPeer(
+                                this,
+                                peer.deviceId)) {
+                    if (item != null
+                            && ack.acknowledgedMessageId.equals(
+                                    item.messageId)
+                            && PeerOutboxStore.KIND_MEASUREMENT.equals(
+                                    item.kind)
+                            && measurementId.equals(
+                                    item.dedupKey)) {
+                        routeStillPending =
+                                true;
+                        break;
+                    }
+                }
+
+                if (pending != null
+                        && pending.isResolved()
+                        && peer.deviceId.equals(
+                                pending.selectedOwnerDeviceId)
+                        && routeStillPending) {
+                    EventLog.debug(
+                            this,
+                            getString(
+                                    R.string.log_peer_ack_received,
+                                    peer.label));
+
+                    /*
+                     * Accept the ACK only while the exact routed measurement is
+                     * still durably present for this peer. Keep that route in
+                     * the outbox until CLOSED is durably queued for every
+                     * trusted peer. If that step fails, the route is sent again
+                     * and its repeated ACK gives us another safe opportunity to
+                     * finish the handoff.
+                     */
+                    if (!broadcastMeasurementClosed(
+                            measurementId)) {
+                        schedulePeerSync(
+                                PEER_ACK_RETRY_MS);
+                        return;
+                    }
+
+                    PeerOutboxRoomStore.removeMeasurementExceptClosed(
+                            this,
+                            measurementId);
+
+                    PendingMeasurementRoomStore.remove(
+                            this,
+                            measurementId);
+
+                    EventLog.info(
+                            this,
+                            getString(
+                                    R.string.log_peer_routed_measurement_confirmed,
+                                    peer.label,
+                                    measurementId));
+
+                    updateAssignmentNotification();
+
+                    schedulePeerSync(
+                            250L);
+                    return;
+                }
+            }
+
+            if (PeerOutboxRoomStore.remove(
                     this,
                     peer.deviceId,
                     ack.acknowledgedMessageId)) {
@@ -943,41 +1079,6 @@ public final class ScaleScanService extends Service {
                         getString(
                                 R.string.log_peer_ack_received,
                                 peer.label));
-
-                if (ack.acknowledgedMessageId.startsWith(
-                        "route:")) {
-                    String measurementId =
-                            ack.acknowledgedMessageId.substring(
-                                    "route:".length());
-
-                    SharedPreferences prefs =
-                            getSharedPreferences(
-                                    "prefs",
-                                    MODE_PRIVATE);
-
-                    PendingMeasurementStore.Item pending =
-                            PendingMeasurementStore.find(
-                                    prefs,
-                                    measurementId);
-
-                    if (pending != null
-                            && pending.isResolved()
-                            && peer.deviceId.equals(
-                                    pending.selectedOwnerDeviceId)) {
-                        PendingMeasurementStore.remove(
-                                prefs,
-                                measurementId);
-
-                        EventLog.info(
-                                this,
-                                getString(
-                                        R.string.log_peer_routed_measurement_confirmed,
-                                        peer.label,
-                                        measurementId));
-
-                        updateAssignmentNotification();
-                    }
-                }
 
                 schedulePeerSync(
                         250L);
@@ -996,7 +1097,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             payload.messageId);
@@ -1009,7 +1110,7 @@ public final class ScaleScanService extends Service {
                     return;
                 }
 
-                PeerInboxDedupStore.mark(
+                PeerInboxDedupRoomStore.mark(
                         this,
                         peer.deviceId,
                         payload.messageId);
@@ -1032,7 +1133,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             payload.messageId);
@@ -1052,7 +1153,7 @@ public final class ScaleScanService extends Service {
                     return;
                 }
 
-                PeerInboxDedupStore.mark(
+                PeerInboxDedupRoomStore.mark(
                         this,
                         peer.deviceId,
                         payload.messageId);
@@ -1083,7 +1184,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             status.messageId);
@@ -1097,7 +1198,7 @@ public final class ScaleScanService extends Service {
                             peer.deviceId);
                 }
 
-                PeerInboxDedupStore.mark(
+                PeerInboxDedupRoomStore.mark(
                         this,
                         peer.deviceId,
                         status.messageId);
@@ -1133,14 +1234,14 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             closed.messageId);
 
             if (!duplicate) {
                 RemotePendingMeasurementStore.Item remote =
-                        RemotePendingMeasurementStore.find(
+                        RemotePendingMeasurementRoomStore.find(
                                 this,
                                 closed.measurementId);
 
@@ -1148,11 +1249,11 @@ public final class ScaleScanService extends Service {
                         remote != null
                                 && peer.deviceId.equals(
                                         remote.collectorDeviceId)
-                                && RemotePendingMeasurementStore.remove(
+                                && RemotePendingMeasurementRoomStore.remove(
                                         this,
                                         closed.measurementId);
 
-                PeerInboxDedupStore.mark(
+                PeerInboxDedupRoomStore.mark(
                         this,
                         peer.deviceId,
                         closed.messageId);
@@ -1187,7 +1288,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             decision.messageId);
@@ -1199,8 +1300,8 @@ public final class ScaleScanService extends Service {
                                 MODE_PRIVATE);
 
                 PendingMeasurementStore.Item pending =
-                        PendingMeasurementStore.find(
-                                prefs,
+                        PendingMeasurementRoomStore.find(
+                                this,
                                 decision.measurementId);
 
                 if (pending != null
@@ -1211,17 +1312,41 @@ public final class ScaleScanService extends Service {
                                 decision)) {
                     boolean changed =
                             decision.isAccepted()
-                                    ? PendingMeasurementStore.selectCandidate(
-                                            prefs,
+                                    ? PendingMeasurementRoomStore.selectCandidate(
+                                            this,
                                             decision.measurementId,
                                             decision.profileId,
                                             peer.deviceId)
-                                    : PendingMeasurementStore.rejectCandidate(
-                                            prefs,
-                                            decision.measurementId,
-                                            decision.profileId);
+                                    : rejectPendingCandidatesOwnedByPeer(
+                                            pending,
+                                            peer.deviceId);
 
-                    PeerInboxDedupStore.mark(
+                    if (decision.isAccepted()) {
+                        PendingMeasurementStore.Item resolved =
+                                PendingMeasurementRoomStore.find(
+                                        this,
+                                        decision.measurementId);
+
+                        if (resolved == null
+                                || !resolved.isResolved()
+                                || !decision.profileId.equals(
+                                        resolved.selectedProfileId)
+                                || !peer.deviceId.equals(
+                                        resolved.selectedOwnerDeviceId)
+                                || !enqueueRoutedMeasurement(
+                                        resolved,
+                                        decision.profileId,
+                                        peer.deviceId)) {
+                            /*
+                             * The selection may already be durable, but the
+                             * peer decision must stay unacknowledged until its
+                             * route is durably present in the outbox.
+                             */
+                            return;
+                        }
+                    }
+
+                    PeerInboxDedupRoomStore.mark(
                             this,
                             peer.deviceId,
                             decision.messageId);
@@ -1236,11 +1361,7 @@ public final class ScaleScanService extends Service {
                                         peer.label,
                                         decision.measurementId));
 
-                        if (decision.isAccepted()) {
-                            resolvePendingDecision(
-                                    prefs,
-                                    decision.measurementId);
-                        } else {
+                        if (!decision.isAccepted()) {
                             autoResolveSingleRemainingCandidate(
                                     prefs,
                                     decision.measurementId);
@@ -1286,7 +1407,7 @@ public final class ScaleScanService extends Service {
             }
 
             boolean duplicate =
-                    PeerInboxDedupStore.contains(
+                    PeerInboxDedupRoomStore.contains(
                             this,
                             peer.deviceId,
                             claim.messageId);
@@ -1298,8 +1419,8 @@ public final class ScaleScanService extends Service {
                                 MODE_PRIVATE);
 
                 PendingMeasurementStore.Item pending =
-                        PendingMeasurementStore.find(
-                                prefs,
+                        PendingMeasurementRoomStore.find(
+                                this,
                                 claim.measurementId);
 
                 if (pending != null
@@ -1307,8 +1428,8 @@ public final class ScaleScanService extends Service {
                                 peer,
                                 pending,
                                 claim.claimedProfileIds)) {
-                    PendingMeasurementStore.recordClaimResponse(
-                            prefs,
+                    PendingMeasurementRoomStore.recordClaimResponse(
+                            this,
                             claim.measurementId,
                             peer.deviceId,
                             claim.claimedProfileIds);
@@ -1327,7 +1448,7 @@ public final class ScaleScanService extends Service {
                             prefs,
                             claim.measurementId);
 
-                    PeerInboxDedupStore.mark(
+                    PeerInboxDedupRoomStore.mark(
                             this,
                             peer.deviceId,
                             claim.messageId);
@@ -1377,7 +1498,7 @@ public final class ScaleScanService extends Service {
                                     + payload.measurementId;
 
                 boolean duplicate =
-                        PeerInboxDedupStore.contains(
+                        PeerInboxDedupRoomStore.contains(
                                 this,
                                 peer.deviceId,
                                 dedupKey);
@@ -1400,7 +1521,7 @@ public final class ScaleScanService extends Service {
                      * restart/retry we can therefore safely suppress another
                      * response and only ACK the repeated request.
                      */
-                    PeerInboxDedupStore.mark(
+                    PeerInboxDedupRoomStore.mark(
                             this,
                             peer.deviceId,
                             dedupKey);
@@ -1444,20 +1565,6 @@ public final class ScaleScanService extends Service {
                 "route:"
                         + payload.measurementId;
 
-        String dedupKey =
-                "routed-measurement:"
-                        + payload.measurementId;
-
-        if (PeerInboxDedupStore.contains(
-                this,
-                peer.deviceId,
-                dedupKey)) {
-            queuePeerAck(
-                    peer,
-                    ackId);
-            return;
-        }
-
         SharedPreferences prefs =
                 getSharedPreferences(
                         "prefs",
@@ -1473,12 +1580,11 @@ public final class ScaleScanService extends Service {
                         this);
 
         List<UserProfile> localProfiles =
-                UserProfileStore.enabled(
-                        UserProfileStore.load(
-                                prefs));
+                UserProfileRoomStore.enabled(
+                        UserProfileRoomStore.load(this));
 
         UserProfile target =
-                UserProfileStore.findByHouseholdProfileId(
+                UserProfileRoomStore.findByHouseholdProfileId(
                         localProfiles,
                         payload.targetProfileId);
 
@@ -1500,6 +1606,57 @@ public final class ScaleScanService extends Service {
             return;
         }
 
+        S400FinalMeasurement measurement =
+                payload.toMeasurement();
+
+        PeerInboxDedupRoomStore.FingerprintStatus
+                acceptanceStatus;
+
+        try {
+            acceptanceStatus =
+                    RoutedMeasurementAcceptanceRoomStore.accept(
+                            this,
+                            peer.deviceId,
+                            target.userId,
+                            payload);
+        } catch (RuntimeException exception) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_peer_routed_measurement_rejected,
+                            peer.label,
+                            payload.measurementId));
+            return;
+        }
+
+        if (acceptanceStatus
+                == PeerInboxDedupRoomStore.FingerprintStatus.CONFLICT
+                || acceptanceStatus
+                == PeerInboxDedupRoomStore.FingerprintStatus.LEGACY_UNKNOWN) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_peer_routed_measurement_rejected,
+                            peer.label,
+                            payload.measurementId));
+            return;
+        }
+
+        queuePeerAck(
+                peer,
+                ackId);
+
+        RemotePendingMeasurementRoomStore.remove(
+                this,
+                payload.measurementId);
+
+        updateAssignmentNotification();
+
+        if (acceptanceStatus
+                == PeerInboxDedupRoomStore.FingerprintStatus.MATCH) {
+            return;
+        }
+
         EventLog.info(
                 this,
                 getString(
@@ -1508,26 +1665,9 @@ public final class ScaleScanService extends Service {
                         target.name,
                         payload.weightKg));
 
-        if (!processMeasurement(
-                payload.toMeasurement(),
-                target)) {
-            return;
-        }
-
-        RemotePendingMeasurementStore.remove(
-                this,
-                payload.measurementId);
-
-        updateAssignmentNotification();
-
-        PeerInboxDedupStore.mark(
-                this,
-                peer.deviceId,
-                dedupKey);
-
-        queuePeerAck(
-                peer,
-                ackId);
+        processMeasurement(
+                measurement,
+                target);
     }
 
     private void handleIncomingClaimRequest(
@@ -1549,9 +1689,8 @@ public final class ScaleScanService extends Service {
                         this);
 
         List<UserProfile> localProfiles =
-                UserProfileStore.enabled(
-                        UserProfileStore.load(
-                                prefs));
+                UserProfileRoomStore.enabled(
+                        UserProfileRoomStore.load(this));
 
         List<String> claimedProfileIds =
                 new java.util.ArrayList<>();
@@ -1559,7 +1698,7 @@ public final class ScaleScanService extends Service {
         for (String candidateProfileId :
                 payload.candidateProfileIds) {
             UserProfile profile =
-                    UserProfileStore.findByHouseholdProfileId(
+                    UserProfileRoomStore.findByHouseholdProfileId(
                             localProfiles,
                             candidateProfileId);
 
@@ -1594,7 +1733,7 @@ public final class ScaleScanService extends Service {
         }
 
         if (!claimedProfileIds.isEmpty()) {
-            if (RemotePendingMeasurementStore.upsert(
+            if (RemotePendingMeasurementRoomStore.upsert(
                     this,
                     peer,
                     payload,
@@ -1615,7 +1754,7 @@ public final class ScaleScanService extends Service {
                         payload.measurementId,
                         claimedProfileIds);
 
-        PeerOutboxStore.enqueueClaim(
+        PeerOutboxRoomStore.enqueueClaim(
                 this,
                 peer.deviceId,
                 claim);
@@ -1643,7 +1782,7 @@ public final class ScaleScanService extends Service {
         }
 
         RemotePendingMeasurementStore.Item pending =
-                RemotePendingMeasurementStore.find(
+                RemotePendingMeasurementRoomStore.find(
                         this,
                         measurementId);
 
@@ -1654,7 +1793,7 @@ public final class ScaleScanService extends Service {
         }
 
         PeerTrustStore.Peer collector =
-                PeerTrustStore.find(
+                PeerTrustRoomStore.find(
                         this,
                         pending.collectorDeviceId);
 
@@ -1668,10 +1807,9 @@ public final class ScaleScanService extends Service {
                         MODE_PRIVATE);
 
         UserProfile local =
-                UserProfileStore.findByHouseholdProfileId(
-                        UserProfileStore.enabled(
-                                UserProfileStore.load(
-                                        prefs)),
+                UserProfileRoomStore.findByHouseholdProfileId(
+                        UserProfileRoomStore.enabled(
+                                UserProfileRoomStore.load(this)),
                         profileId);
 
         String localDeviceId =
@@ -1692,12 +1830,12 @@ public final class ScaleScanService extends Service {
                         profileId,
                         true);
 
-        PeerOutboxStore.enqueueDecision(
+        PeerOutboxRoomStore.enqueueDecision(
                 this,
                 collector.deviceId,
                 decision);
 
-        RemotePendingMeasurementStore.remove(
+        RemotePendingMeasurementRoomStore.remove(
                 this,
                 pending.measurementId);
 
@@ -1723,7 +1861,7 @@ public final class ScaleScanService extends Service {
         }
 
         RemotePendingMeasurementStore.Item pending =
-                RemotePendingMeasurementStore.find(
+                RemotePendingMeasurementRoomStore.find(
                         this,
                         measurementId);
 
@@ -1732,7 +1870,7 @@ public final class ScaleScanService extends Service {
         }
 
         PeerTrustStore.Peer collector =
-                PeerTrustStore.find(
+                PeerTrustRoomStore.find(
                         this,
                         pending.collectorDeviceId);
 
@@ -1751,7 +1889,7 @@ public final class ScaleScanService extends Service {
                             profileId,
                             false);
 
-            PeerOutboxStore.enqueueDecision(
+            PeerOutboxRoomStore.enqueueDecision(
                     this,
                     collector.deviceId,
                     decision);
@@ -1763,7 +1901,7 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        RemotePendingMeasurementStore.remove(
+        RemotePendingMeasurementRoomStore.remove(
                 this,
                 pending.measurementId);
 
@@ -1779,6 +1917,33 @@ public final class ScaleScanService extends Service {
 
         schedulePeerSync(
                 100L);
+    }
+
+    private boolean rejectPendingCandidatesOwnedByPeer(
+            PendingMeasurementStore.Item pending,
+            String peerDeviceId) {
+        if (pending == null
+                || !PeerTrustStore.isValidDeviceId(peerDeviceId)) {
+            return false;
+        }
+
+        List<String> ownedProfileIds =
+                new java.util.ArrayList<>();
+
+        for (HouseholdProfile profile :
+                HouseholdProfileRoomStore.load(this)) {
+            if (profile != null
+                    && peerDeviceId.equals(profile.ownerDeviceId)
+                    && pending.candidateProfileIds.contains(profile.profileId)
+                    && !ownedProfileIds.contains(profile.profileId)) {
+                ownedProfileIds.add(profile.profileId);
+            }
+        }
+
+        return PendingMeasurementRoomStore.rejectCandidates(
+                this,
+                pending.id,
+                ownedProfileIds) > 0;
     }
 
     private void rejectUnclaimedPeerCandidates(
@@ -1802,7 +1967,7 @@ public final class ScaleScanService extends Service {
                 new java.util.ArrayList<>(
                         pending.remainingCandidateProfileIds())) {
             HouseholdProfile profile =
-                    HouseholdProfileStore.find(
+                    HouseholdProfileRoomStore.find(
                             this,
                             profileId);
 
@@ -1811,8 +1976,8 @@ public final class ScaleScanService extends Service {
                             profile.ownerDeviceId)
                     && !claimed.contains(
                             profileId)) {
-                PendingMeasurementStore.rejectCandidate(
-                        prefs,
+                PendingMeasurementRoomStore.rejectCandidate(
+                        this,
                         pending.id,
                         profileId);
             }
@@ -1842,6 +2007,13 @@ public final class ScaleScanService extends Service {
                                 result.weightKg));
                 break;
 
+            case CLOSED_QUEUE_FAILED:
+                if (result.closedQueued > 0) {
+                    schedulePeerSync(
+                            100L);
+                }
+                break;
+
             case DISCARDED:
                 if (result.closedQueued > 0) {
                     schedulePeerSync(
@@ -1861,8 +2033,8 @@ public final class ScaleScanService extends Service {
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -1872,15 +2044,13 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        PeerOutboxStore.removeMeasurement(
+        if (!queueMeasurementClosedForLocalRemoval(
+                pendingId)) {
+            return;
+        }
+
+        PendingMeasurementRoomStore.remove(
                 this,
-                pendingId);
-
-        broadcastMeasurementClosed(
-                pendingId);
-
-        PendingMeasurementStore.remove(
-                prefs,
                 pendingId);
 
         EventLog.info(
@@ -1909,7 +2079,7 @@ public final class ScaleScanService extends Service {
                 false;
 
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (decision.profileId.equals(
                         profile.profileId)
@@ -1934,8 +2104,8 @@ public final class ScaleScanService extends Service {
         }
 
         for (PendingMeasurementStore.ClaimResponse response :
-                PendingMeasurementStore.claimResponses(
-                        prefs,
+                PendingMeasurementRoomStore.claimResponses(
+                        this,
                         pending.id)) {
             if (peer.deviceId.equals(
                         response.peerDeviceId)
@@ -1959,7 +2129,7 @@ public final class ScaleScanService extends Service {
         }
 
         List<HouseholdProfile> householdProfiles =
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this);
 
         for (String profileId :
@@ -2005,7 +2175,7 @@ public final class ScaleScanService extends Service {
         }
 
         PeerTrustStore.Peer peer =
-                PeerTrustStore.find(
+                PeerTrustRoomStore.find(
                         this,
                         targetDeviceId);
 
@@ -2035,7 +2205,7 @@ public final class ScaleScanService extends Service {
                             pending.toMeasurement(),
                             targetProfileId);
 
-            PeerOutboxStore.enqueueMeasurement(
+            PeerOutboxRoomStore.enqueueMeasurement(
                     this,
                     targetDeviceId,
                     payload);
@@ -2065,6 +2235,9 @@ public final class ScaleScanService extends Service {
     private void setCollectorOwned(
             boolean collector,
             boolean forceAnnounce) {
+        ServiceState.CollectorSource previousSource =
+                collectorSource();
+
         boolean changed =
                 gattCollectorOwned != collector;
 
@@ -2074,6 +2247,16 @@ public final class ScaleScanService extends Service {
         if (peerTransport != null) {
             peerTransport.setCollectorAdvertising(
                     collector);
+        }
+
+        ServiceState.CollectorSource currentSource =
+                collectorSource();
+
+        if (currentSource != previousSource) {
+            logCollectorTransition(
+                    previousSource,
+                    currentSource,
+                    "S400-Collector=" + collector);
         }
 
         if (changed
@@ -2093,14 +2276,14 @@ public final class ScaleScanService extends Service {
                 0;
 
         for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         this)) {
             try {
                 PeerCollectorStatusPayload payload =
                         PeerCollectorStatusPayload.create(
                                 collector);
 
-                PeerOutboxStore.enqueueCollectorStatus(
+                PeerOutboxRoomStore.enqueueCollectorStatus(
                         this,
                         peer.deviceId,
                         payload);
@@ -2122,31 +2305,47 @@ public final class ScaleScanService extends Service {
         }
     }
 
-    private void broadcastMeasurementClosed(
+    private boolean queueMeasurementClosedForLocalRemoval(
+            String measurementId) {
+        PeerOutboxRoomStore.removeMeasurementExceptClosed(
+                this,
+                measurementId);
+
+        return broadcastMeasurementClosed(
+                measurementId);
+    }
+
+    private boolean broadcastMeasurementClosed(
             String measurementId) {
         if (measurementId == null
                 || measurementId.isBlank()) {
-            return;
+            return false;
         }
 
         int queued =
                 0;
 
+        boolean complete =
+                true;
+
         for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         this)) {
             try {
                 PeerMeasurementClosedPayload payload =
                         PeerMeasurementClosedPayload.create(
                                 measurementId);
 
-                PeerOutboxStore.enqueueClosed(
+                PeerOutboxRoomStore.enqueueClosed(
                         this,
                         peer.deviceId,
                         payload);
 
                 queued++;
             } catch (RuntimeException exception) {
+                complete =
+                        false;
+
                 EventLog.warning(
                         this,
                         getString(
@@ -2167,6 +2366,8 @@ public final class ScaleScanService extends Service {
             schedulePeerSync(
                     100L);
         }
+
+        return complete;
     }
 
     private void enqueueManualRescueRequests(
@@ -2197,7 +2398,7 @@ public final class ScaleScanService extends Service {
                 0;
 
         for (PeerTrustStore.Peer peer :
-                PeerTrustStore.load(
+                PeerTrustRoomStore.load(
                         this)) {
             List<String> peerCandidateProfileIds =
                     new java.util.ArrayList<>();
@@ -2205,7 +2406,7 @@ public final class ScaleScanService extends Service {
             for (String profileId :
                     candidateProfileIds) {
                 HouseholdProfile profile =
-                        HouseholdProfileStore.find(
+                        HouseholdProfileRoomStore.find(
                                 this,
                                 profileId);
 
@@ -2228,7 +2429,7 @@ public final class ScaleScanService extends Service {
                                 measurement,
                                 peerCandidateProfileIds);
 
-                PeerOutboxStore.enqueueMeasurement(
+                PeerOutboxRoomStore.enqueueMeasurement(
                         this,
                         peer.deviceId,
                         payload);
@@ -2295,7 +2496,7 @@ public final class ScaleScanService extends Service {
             }
 
             PeerTrustStore.Peer peer =
-                    PeerTrustStore.find(
+                    PeerTrustRoomStore.find(
                             this,
                             targetDeviceId);
 
@@ -2318,7 +2519,7 @@ public final class ScaleScanService extends Service {
                                 measurement,
                                 candidateProfileIds);
 
-                PeerOutboxStore.enqueueMeasurement(
+                PeerOutboxRoomStore.enqueueMeasurement(
                         this,
                         targetDeviceId,
                         payload);
@@ -2494,7 +2695,7 @@ public final class ScaleScanService extends Service {
                     peerDirectQueue.peek();
 
             PeerTrustStore.Peer peer =
-                    PeerTrustStore.find(
+                    PeerTrustRoomStore.find(
                             this,
                             direct.peerDeviceId);
 
@@ -2518,7 +2719,7 @@ public final class ScaleScanService extends Service {
         }
 
         List<PeerOutboxStore.Item> items =
-                PeerOutboxStore.load(
+                PeerOutboxRoomStore.load(
                         this);
 
         items.sort(
@@ -2542,12 +2743,12 @@ public final class ScaleScanService extends Service {
         for (PeerOutboxStore.Item item :
                 items) {
             PeerTrustStore.Peer peer =
-                    PeerTrustStore.find(
+                    PeerTrustRoomStore.find(
                             this,
                             item.peerDeviceId);
 
             if (peer == null) {
-                PeerOutboxStore.removePeer(
+                PeerOutboxRoomStore.removePeer(
                         this,
                         item.peerDeviceId);
                 continue;
@@ -2619,16 +2820,18 @@ public final class ScaleScanService extends Service {
                 adapter != null && adapter.isEnabled();
 
         if (bluetoothEnabled) {
-            monitorText = getString(
-                    R.string.service_gatt_reconnecting,
-                    delayMs / 1000L);
+            setMonitorText(
+                    getString(
+                            R.string.service_gatt_reconnecting,
+                            delayMs / 1000L));
             ServiceState.running(
                     this,
                     monitorText,
                     false,
                     collectorSource());
         } else {
-            monitorText = reason;
+            setMonitorText(
+                    reason);
             ServiceState.error(
                     this,
                     reason);
@@ -2674,11 +2877,12 @@ public final class ScaleScanService extends Service {
         if (authority == null || authority.isBlank()) return;
 
         try {
-            int previousCount = UserProfileStore.load(prefs).size();
+            int previousCount = UserProfileRoomStore.load(this).size();
             List<OpenScaleProvider.User> currentUsers =
                     OpenScaleProvider.loadUsers(this, authority);
             List<UserProfile> synchronizedProfiles =
-                    UserProfileStore.synchronize(
+                    UserProfileRoomStore.synchronize(
+                            this,
                             prefs,
                             currentUsers,
                             PeerTrustStore.localDeviceId(this));
@@ -2691,7 +2895,7 @@ public final class ScaleScanService extends Service {
                     0;
 
             for (PeerTrustStore.Peer peer :
-                    PeerTrustStore.load(this)) {
+                    PeerTrustRoomStore.load(this)) {
                 queuedProfiles +=
                         HouseholdProfileSync.enqueueAllProfilesForPeer(
                                 this,
@@ -2720,6 +2924,154 @@ public final class ScaleScanService extends Service {
         }
     }
 
+    private void repairPeerOrphans() {
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<PeerTrustStore.Peer> trustedPeers;
+        List<PeerOutboxStore.Item> outboxItems;
+        List<HouseholdProfile> householdProfiles;
+        List<RemotePendingMeasurementStore.Item> remotePendingItems;
+        List<String> dedupSenderDeviceIds;
+
+        try {
+            trustedPeers =
+                    PeerTrustRoomStore.load(
+                            this);
+
+            outboxItems =
+                    PeerOutboxRoomStore.load(
+                            this);
+
+            householdProfiles =
+                    HouseholdProfileRoomStore.load(
+                            this);
+
+            remotePendingItems =
+                    RemotePendingMeasurementRoomStore.load(
+                            this);
+
+            dedupSenderDeviceIds =
+                    PeerInboxDedupRoomStore.senderDeviceIds(
+                            this);
+        } catch (RuntimeException exception) {
+            EventLog.warning(
+                    this,
+                    getString(
+                            R.string.log_peer_orphan_repair_failed,
+                            exception.getClass()
+                                    .getSimpleName()));
+            return;
+        }
+
+        java.util.Set<String> trustedDeviceIds =
+                new java.util.HashSet<>();
+
+        for (PeerTrustStore.Peer peer :
+                trustedPeers) {
+            if (peer != null
+                    && PeerTrustStore.isValidDeviceId(
+                            peer.deviceId)) {
+                trustedDeviceIds.add(
+                        peer.deviceId);
+            }
+        }
+
+        java.util.Set<String> orphanDeviceIds =
+                new java.util.LinkedHashSet<>();
+
+        for (PeerOutboxStore.Item item :
+                outboxItems) {
+            if (item != null) {
+                addPeerOrphanCandidate(
+                        orphanDeviceIds,
+                        item.peerDeviceId,
+                        localDeviceId,
+                        trustedDeviceIds);
+            }
+        }
+
+        for (HouseholdProfile profile :
+                householdProfiles) {
+            if (profile != null) {
+                addPeerOrphanCandidate(
+                        orphanDeviceIds,
+                        profile.ownerDeviceId,
+                        localDeviceId,
+                        trustedDeviceIds);
+            }
+        }
+
+        for (RemotePendingMeasurementStore.Item item :
+                remotePendingItems) {
+            if (item != null) {
+                addPeerOrphanCandidate(
+                        orphanDeviceIds,
+                        item.collectorDeviceId,
+                        localDeviceId,
+                        trustedDeviceIds);
+            }
+        }
+
+        for (String senderDeviceId :
+                dedupSenderDeviceIds) {
+            addPeerOrphanCandidate(
+                    orphanDeviceIds,
+                    senderDeviceId,
+                    localDeviceId,
+                    trustedDeviceIds);
+        }
+
+        for (String orphanDeviceId :
+                orphanDeviceIds) {
+            try {
+                PeerOutboxRoomStore.removePeer(
+                        this,
+                        orphanDeviceId);
+
+                PeerInboxDedupRoomStore.removePeer(
+                        this,
+                        orphanDeviceId);
+
+                HouseholdProfileRoomStore.removeOwner(
+                        this,
+                        orphanDeviceId);
+
+                RemotePendingMeasurementRoomStore.removeCollector(
+                        this,
+                        orphanDeviceId);
+            } catch (RuntimeException exception) {
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_peer_orphan_repair_failed,
+                                exception.getClass()
+                                        .getSimpleName()));
+            }
+        }
+    }
+
+    private static void addPeerOrphanCandidate(
+            java.util.Set<String> orphanDeviceIds,
+            String deviceId,
+            String localDeviceId,
+            java.util.Set<String> trustedDeviceIds) {
+        if (orphanDeviceIds == null
+                || trustedDeviceIds == null
+                || !PeerTrustStore.isValidDeviceId(
+                        deviceId)
+                || deviceId.equals(
+                        localDeviceId)
+                || trustedDeviceIds.contains(
+                        deviceId)) {
+            return;
+        }
+
+        orphanDeviceIds.add(
+                deviceId);
+    }
+
     private void repairPendingAfterPeerChanges() {
         SharedPreferences prefs =
                 getSharedPreferences(
@@ -2731,18 +3083,17 @@ public final class ScaleScanService extends Service {
                         this);
 
         List<HouseholdProfile> activeProfiles =
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this);
 
         List<UserProfile> localProfiles =
-                UserProfileStore.enabled(
-                        UserProfileStore.load(
-                                prefs));
+                UserProfileRoomStore.enabled(
+                        UserProfileRoomStore.load(this));
 
         List<PendingMeasurementStore.Item> snapshot =
                 new java.util.ArrayList<>(
-                        PendingMeasurementStore.load(
-                                prefs));
+                        PendingMeasurementRoomStore.load(
+                                this));
 
         for (PendingMeasurementStore.Item pending :
                 snapshot) {
@@ -2752,16 +3103,16 @@ public final class ScaleScanService extends Service {
 
             for (PendingMeasurementStore.ClaimResponse response :
                     new java.util.ArrayList<>(
-                            PendingMeasurementStore.claimResponses(
-                                    prefs,
+                            PendingMeasurementRoomStore.claimResponses(
+                                    this,
                                     pending.id))) {
                 if (!localDeviceId.equals(
                                 response.peerDeviceId)
-                        && PeerTrustStore.find(
+                        && PeerTrustRoomStore.find(
                                 this,
                                 response.peerDeviceId) == null) {
-                    PendingMeasurementStore.removeClaimResponsesForPeer(
-                            prefs,
+                    PendingMeasurementRoomStore.removeClaimResponsesForPeer(
+                            this,
                             response.peerDeviceId);
                 }
             }
@@ -2769,23 +3120,42 @@ public final class ScaleScanService extends Service {
             if (pending.isResolved()
                     && !localDeviceId.equals(
                             pending.selectedOwnerDeviceId)
-                    && PeerTrustStore.find(
+                    && PeerTrustRoomStore.find(
                             this,
                             pending.selectedOwnerDeviceId) == null) {
-                PendingMeasurementStore.rejectSelectedCandidate(
-                        prefs,
+                PendingMeasurementRoomStore.rejectSelectedCandidate(
+                        this,
                         pending.id,
                         pending.selectedProfileId,
                         pending.selectedOwnerDeviceId);
             }
 
             PendingMeasurementStore.Item current =
-                    PendingMeasurementStore.find(
-                            prefs,
+                    PendingMeasurementRoomStore.find(
+                            this,
                             pending.id);
 
-            if (current == null
-                    || current.isResolved()) {
+            if (current == null) {
+                continue;
+            }
+
+            if (current.isResolved()) {
+                if (!localDeviceId.equals(
+                            current.selectedOwnerDeviceId)
+                        && PeerTrustRoomStore.find(
+                                this,
+                                current.selectedOwnerDeviceId) != null) {
+                    /*
+                     * A remote decision can survive a process death before its
+                     * route was queued, or after a route ACK while CLOSED was
+                     * still incomplete. Re-queuing the stable route is safe.
+                     */
+                    enqueueRoutedMeasurement(
+                            current,
+                            current.selectedProfileId,
+                            current.selectedOwnerDeviceId);
+                }
+
                 continue;
             }
 
@@ -2793,7 +3163,7 @@ public final class ScaleScanService extends Service {
                     new java.util.ArrayList<>(
                             current.remainingCandidateProfileIds())) {
                 boolean available =
-                        UserProfileStore.findByHouseholdProfileId(
+                        UserProfileRoomStore.findByHouseholdProfileId(
                                 localProfiles,
                                 profileId) != null;
 
@@ -2807,7 +3177,7 @@ public final class ScaleScanService extends Service {
 
                         if (localDeviceId.equals(
                                         profile.ownerDeviceId)
-                                || PeerTrustStore.find(
+                                || PeerTrustRoomStore.find(
                                         this,
                                         profile.ownerDeviceId) != null) {
                             available =
@@ -2819,8 +3189,8 @@ public final class ScaleScanService extends Service {
                 }
 
                 if (!available) {
-                    PendingMeasurementStore.rejectCandidate(
-                            prefs,
+                    PendingMeasurementRoomStore.rejectCandidate(
+                            this,
                             current.id,
                             profileId);
                 }
@@ -2830,9 +3200,16 @@ public final class ScaleScanService extends Service {
                     prefs,
                     pending.id);
 
-            removePendingWithoutCandidates(
-                    prefs,
-                    pending.id);
+            boolean remoteRescueHandled =
+                    promoteRejectedLocalPendingToRemoteRescue(
+                            prefs,
+                            pending.id);
+
+            if (!remoteRescueHandled) {
+                removePendingWithoutCandidates(
+                        prefs,
+                        pending.id);
+            }
         }
     }
 
@@ -2844,8 +3221,8 @@ public final class ScaleScanService extends Service {
 
         List<PendingMeasurementStore.Item> snapshot =
                 new java.util.ArrayList<>(
-                        PendingMeasurementStore.load(
-                                prefs));
+                        PendingMeasurementRoomStore.load(
+                                this));
 
         for (PendingMeasurementStore.Item pending :
                 snapshot) {
@@ -2859,8 +3236,8 @@ public final class ScaleScanService extends Service {
                     false;
 
             for (PendingMeasurementStore.ClaimResponse response :
-                    PendingMeasurementStore.claimResponses(
-                            prefs,
+                    PendingMeasurementRoomStore.claimResponses(
+                            this,
                             pending.id)) {
                 if (response.profileIds.isEmpty()) {
                     hasEmptyRemoteClaim =
@@ -2874,9 +3251,8 @@ public final class ScaleScanService extends Service {
             }
 
             List<UserProfile> localProfiles =
-                    UserProfileStore.enabled(
-                            UserProfileStore.load(
-                                    prefs));
+                    UserProfileRoomStore.enabled(
+                            UserProfileRoomStore.load(this));
 
             UserMatcher.Result localMatch =
                     UserMatcher.match(
@@ -2892,7 +3268,7 @@ public final class ScaleScanService extends Service {
                     new java.util.ArrayList<>();
 
             for (HouseholdProfile profile :
-                    HouseholdProfileStore.active(
+                    HouseholdProfileRoomStore.active(
                             this)) {
                 if (profile != null
                         && UserProfile.isValidHouseholdProfileId(
@@ -2924,15 +3300,13 @@ public final class ScaleScanService extends Service {
              * Remove the obsolete normal CLAIM from the outbox before
              * queuing CLOSED + the new rescue request.
              */
-            PeerOutboxStore.removeMeasurement(
+            if (!queueMeasurementClosedForLocalRemoval(
+                    pending.id)) {
+                continue;
+            }
+
+            PendingMeasurementRoomStore.remove(
                     this,
-                    pending.id);
-
-            broadcastMeasurementClosed(
-                    pending.id);
-
-            PendingMeasurementStore.remove(
-                    prefs,
                     pending.id);
 
             String reason =
@@ -2940,8 +3314,8 @@ public final class ScaleScanService extends Service {
                             R.string.pending_reason_no_weight_match);
 
             PendingMeasurementStore.Item repaired =
-                    PendingMeasurementStore.add(
-                            prefs,
+                    PendingMeasurementRoomStore.add(
+                            this,
                             pending.toMeasurement(),
                             reason,
                             candidateProfileIds,
@@ -2966,13 +3340,100 @@ public final class ScaleScanService extends Service {
         }
     }
 
+    private void repairStoredResolvedPending() {
+        String localDeviceId =
+                PeerTrustStore.localDeviceId(
+                        this);
+
+        List<UserProfile> localProfiles =
+                UserProfileRoomStore.load(
+                        this);
+
+        List<PendingMeasurementStore.Item> snapshot =
+                new ArrayList<>(
+                        PendingMeasurementRoomStore.load(
+                                this));
+
+        boolean changed =
+                false;
+
+        for (PendingMeasurementStore.Item pending :
+                snapshot) {
+            if (pending == null
+                    || !pending.isResolved()
+                    || !localDeviceId.equals(
+                            pending.selectedOwnerDeviceId)) {
+                continue;
+            }
+
+            UserProfile profile =
+                    UserProfileRoomStore.findByHouseholdProfileId(
+                            localProfiles,
+                            pending.selectedProfileId);
+
+            if (profile == null) {
+                continue;
+            }
+
+            if (!MeasurementWriteJournalStore.confirmsStored(
+                    this,
+                    pending.id,
+                    profile.userId,
+                    pending.timestampMs)) {
+                continue;
+            }
+
+            try {
+                /*
+                 * openScale is already durably confirmed by STORED.
+                 * Remove a possibly surviving openScale pending row first,
+                 * then repeat only the local completion steps that were
+                 * previously held by the in-memory onSuccess Runnable.
+                 */
+                OpenScalePendingRoomStore.remove(
+                        this,
+                        pending.id);
+
+                if (!queueMeasurementClosedForLocalRemoval(
+                        pending.id)) {
+                    throw new IllegalStateException(
+                            "peer CLOSED queue incomplete");
+                }
+
+                PendingMeasurementRoomStore.remove(
+                        this,
+                        pending.id);
+
+                EventLog.info(
+                        this,
+                        getString(
+                                R.string.log_stored_pending_repaired,
+                                pending.id));
+
+                changed =
+                        true;
+            } catch (RuntimeException exception) {
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_stored_pending_repair_failed,
+                                pending.id,
+                                exception.getClass().getSimpleName(),
+                                safeMessage(exception)));
+            }
+        }
+
+        if (changed) {
+            updateAssignmentNotification();
+        }
+    }
+
     private void routeMeasurement(S400FinalMeasurement measurement) {
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
 
         List<UserProfile> profiles =
-                UserProfileStore.enabled(
-                        UserProfileStore.load(
-                                prefs));
+                UserProfileRoomStore.enabled(
+                        UserProfileRoomStore.load(this));
 
         UserMatcher.Result match =
                 UserMatcher.match(
@@ -2989,7 +3450,7 @@ public final class ScaleScanService extends Service {
 
         HouseholdMeasurementRouter.Result householdMatch =
                 HouseholdMeasurementRouter.match(
-                        HouseholdProfileStore.active(
+                        HouseholdProfileRoomStore.active(
                                 this),
                         measurement.weightKg);
 
@@ -3047,20 +3508,20 @@ public final class ScaleScanService extends Service {
 
             if (!localDeviceId.equals(
                         target.ownerDeviceId)
-                    && PeerTrustStore.find(
+                    && PeerTrustRoomStore.find(
                             this,
                             target.ownerDeviceId) != null) {
                 PendingMeasurementStore.Item pending =
-                        PendingMeasurementStore.add(
-                                prefs,
+                        PendingMeasurementRoomStore.add(
+                                this,
                                 measurement,
                                 getString(
                                         R.string.pending_reason_no_weight_match),
                                 List.of(
                                         target.profileId));
 
-                if (PendingMeasurementStore.selectCandidate(
-                        prefs,
+                if (PendingMeasurementRoomStore.selectCandidate(
+                        this,
                         pending.id,
                         target.profileId,
                         target.ownerDeviceId)) {
@@ -3070,22 +3531,31 @@ public final class ScaleScanService extends Service {
                     return;
                 }
 
-                PendingMeasurementStore.remove(
-                        prefs,
+                PendingMeasurementRoomStore.remove(
+                        this,
                         pending.id);
             }
         }
 
+        boolean remoteOnlyHouseholdAmbiguity =
+                MeasurementRoutingPolicy
+                        .shouldCreateRemoteOnlyHouseholdAmbiguousPending(
+                                match.status,
+                                householdMatch,
+                                PeerTrustStore.localDeviceId(
+                                        this));
+
         if (MeasurementRoutingPolicy.shouldCreateHouseholdAmbiguousPending(
-                match.status,
-                householdMatch.status)) {
+                    match.status,
+                    householdMatch.status)
+                || remoteOnlyHouseholdAmbiguity) {
             String reason =
                     getString(
                             R.string.pending_reason_similar_users);
 
             PendingMeasurementStore.Item pending =
-                    PendingMeasurementStore.add(
-                            prefs,
+                    PendingMeasurementRoomStore.add(
+                            this,
                             measurement,
                             reason,
                             householdCandidateProfileIds);
@@ -3103,11 +3573,13 @@ public final class ScaleScanService extends Service {
                             R.string.log_pending_measurement_saved,
                             pending.id));
 
-            updateMonitor(
-                    getString(
-                            R.string.service_user_assignment_required));
+            if (!remoteOnlyHouseholdAmbiguity) {
+                updateMonitor(
+                        getString(
+                                R.string.service_user_assignment_required));
 
-            updateAssignmentNotification();
+                updateAssignmentNotification();
+            }
 
             /*
              * Persist the pending measurement before sending CLAIM requests.
@@ -3145,18 +3617,20 @@ public final class ScaleScanService extends Service {
         if (match.status
                 == UserMatcher.Status.NO_MATCH) {
             for (HouseholdProfile profile :
-                    HouseholdProfileStore.active(
+                    HouseholdProfileRoomStore.active(
                             this)) {
                 if (UserProfile.isValidHouseholdProfileId(
-                        profile.profileId)) {
+                            profile.profileId)
+                        && !pendingCandidateProfileIds.contains(
+                                profile.profileId)) {
                     pendingCandidateProfileIds.add(
                             profile.profileId);
                 }
             }
         }
 
-        PendingMeasurementStore.Item pending = PendingMeasurementStore.add(
-                prefs,
+        PendingMeasurementStore.Item pending = PendingMeasurementRoomStore.add(
+                this,
                 measurement,
                 reason,
                 pendingCandidateProfileIds,
@@ -3196,8 +3670,8 @@ public final class ScaleScanService extends Service {
                         MODE_PRIVATE);
 
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         String localDeviceId =
@@ -3221,8 +3695,8 @@ public final class ScaleScanService extends Service {
             return;
         }
 
-        if (!PendingMeasurementStore.selectCandidate(
-                prefs,
+        if (!PendingMeasurementRoomStore.selectCandidate(
+                this,
                 pendingId,
                 profileId,
                 ownerDeviceId)) {
@@ -3261,8 +3735,8 @@ public final class ScaleScanService extends Service {
                         MODE_PRIVATE);
 
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -3284,7 +3758,7 @@ public final class ScaleScanService extends Service {
         for (String profileId :
                 remaining) {
             HouseholdProfile household =
-                    HouseholdProfileStore.find(
+                    HouseholdProfileRoomStore.find(
                             this,
                             profileId);
 
@@ -3294,8 +3768,8 @@ public final class ScaleScanService extends Service {
                 continue;
             }
 
-            if (PendingMeasurementStore.rejectCandidate(
-                    prefs,
+            if (PendingMeasurementRoomStore.rejectCandidate(
+                    this,
                     pendingId,
                     profileId)) {
                 rejectedCount++;
@@ -3315,13 +3789,12 @@ public final class ScaleScanService extends Service {
                 prefs,
                 pendingId);
 
-        boolean remoteRescueStarted =
-                rejectedCount > 0
-                        && promoteRejectedLocalPendingToRemoteRescue(
-                                prefs,
-                                pendingId);
+        boolean remoteRescueHandled =
+                promoteRejectedLocalPendingToRemoteRescue(
+                        prefs,
+                        pendingId);
 
-        if (!remoteRescueStarted) {
+        if (!remoteRescueHandled) {
             removePendingWithoutCandidates(
                     prefs,
                     pendingId);
@@ -3334,8 +3807,8 @@ public final class ScaleScanService extends Service {
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -3352,6 +3825,9 @@ public final class ScaleScanService extends Service {
         List<String> rescueCandidateProfileIds =
                 new java.util.ArrayList<>();
 
+        boolean hasRejectedLocalCandidate =
+                false;
+
         /*
          * Preserve the rejected local candidates so the collector continues
          * to remember that all local users were explicitly excluded.
@@ -3359,18 +3835,27 @@ public final class ScaleScanService extends Service {
         for (String profileId :
                 pending.candidateProfileIds) {
             HouseholdProfile profile =
-                    HouseholdProfileStore.find(
+                    HouseholdProfileRoomStore.find(
                             this,
                             profileId);
 
             if (profile != null
                     && localDeviceId.equals(
                             profile.ownerDeviceId)
+                    && pending.rejectedProfileIds.contains(
+                            profileId)
                     && !rescueCandidateProfileIds.contains(
                             profileId)) {
                 rescueCandidateProfileIds.add(
                         profileId);
+
+                hasRejectedLocalCandidate =
+                        true;
             }
+        }
+
+        if (!hasRejectedLocalCandidate) {
+            return false;
         }
 
         boolean hasRemoteCandidate =
@@ -3383,7 +3868,7 @@ public final class ScaleScanService extends Service {
          * measurement must not be asked again.
          */
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (profile == null
                     || !UserProfile.isValidHouseholdProfileId(
@@ -3392,7 +3877,7 @@ public final class ScaleScanService extends Service {
                             profile.ownerDeviceId)
                     || pending.rejectedProfileIds.contains(
                             profile.profileId)
-                    || PeerTrustStore.find(
+                    || PeerTrustRoomStore.find(
                             this,
                             profile.ownerDeviceId) == null) {
                 continue;
@@ -3415,15 +3900,13 @@ public final class ScaleScanService extends Service {
         S400FinalMeasurement measurement =
                 pending.toMeasurement();
 
-        PeerOutboxStore.removeMeasurement(
+        if (!queueMeasurementClosedForLocalRemoval(
+                pending.id)) {
+            return true;
+        }
+
+        PendingMeasurementRoomStore.remove(
                 this,
-                pending.id);
-
-        broadcastMeasurementClosed(
-                pending.id);
-
-        PendingMeasurementStore.remove(
-                prefs,
                 pending.id);
 
         String reason =
@@ -3431,8 +3914,8 @@ public final class ScaleScanService extends Service {
                         R.string.pending_reason_no_weight_match);
 
         PendingMeasurementStore.Item rescue =
-                PendingMeasurementStore.add(
-                        prefs,
+                PendingMeasurementRoomStore.add(
+                        this,
                         measurement,
                         reason,
                         rescueCandidateProfileIds,
@@ -3442,15 +3925,15 @@ public final class ScaleScanService extends Service {
                 new java.util.ArrayList<>(
                         rescue.candidateProfileIds)) {
             HouseholdProfile profile =
-                    HouseholdProfileStore.find(
+                    HouseholdProfileRoomStore.find(
                             this,
                             profileId);
 
             if (profile != null
                     && localDeviceId.equals(
                             profile.ownerDeviceId)) {
-                PendingMeasurementStore.rejectCandidate(
-                        prefs,
+                PendingMeasurementRoomStore.rejectCandidate(
+                        this,
                         rescue.id,
                         profileId);
             }
@@ -3487,7 +3970,7 @@ public final class ScaleScanService extends Service {
                 null;
 
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (profileId.equals(
                         profile.profileId)
@@ -3510,10 +3993,9 @@ public final class ScaleScanService extends Service {
         if (localDeviceId.equals(
                 ownerDeviceId)) {
             UserProfile local =
-                    UserProfileStore.findByHouseholdProfileId(
-                            UserProfileStore.enabled(
-                                    UserProfileStore.load(
-                                            prefs)),
+                    UserProfileRoomStore.findByHouseholdProfileId(
+                            UserProfileRoomStore.enabled(
+                                    UserProfileRoomStore.load(this)),
                             profileId);
 
             return local != null
@@ -3521,15 +4003,15 @@ public final class ScaleScanService extends Service {
                             pending.timestampMs);
         }
 
-        if (PeerTrustStore.find(
+        if (PeerTrustRoomStore.find(
                 this,
                 ownerDeviceId) == null) {
             return false;
         }
 
         for (PendingMeasurementStore.ClaimResponse response :
-                PendingMeasurementStore.claimResponses(
-                        prefs,
+                PendingMeasurementRoomStore.claimResponses(
+                        this,
                         pending.id)) {
             if (ownerDeviceId.equals(
                         response.peerDeviceId)
@@ -3546,8 +4028,8 @@ public final class ScaleScanService extends Service {
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -3569,7 +4051,7 @@ public final class ScaleScanService extends Service {
                 remaining.get(0);
 
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (!profileId.equals(
                     profile.profileId)) {
@@ -3584,8 +4066,8 @@ public final class ScaleScanService extends Service {
                 return;
             }
 
-            if (PendingMeasurementStore.selectCandidate(
-                    prefs,
+            if (PendingMeasurementRoomStore.selectCandidate(
+                    this,
                     pendingId,
                     profileId,
                     profile.ownerDeviceId)) {
@@ -3609,8 +4091,8 @@ public final class ScaleScanService extends Service {
             SharedPreferences prefs,
             String pendingId) {
         PendingMeasurementStore.Item pending =
-                PendingMeasurementStore.find(
-                        prefs,
+                PendingMeasurementRoomStore.find(
+                        this,
                         pendingId);
 
         if (pending == null
@@ -3625,10 +4107,9 @@ public final class ScaleScanService extends Service {
         if (localDeviceId.equals(
                 pending.selectedOwnerDeviceId)) {
             UserProfile target =
-                    UserProfileStore.findByHouseholdProfileId(
-                            UserProfileStore.enabled(
-                                    UserProfileStore.load(
-                                            prefs)),
+                    UserProfileRoomStore.findByHouseholdProfileId(
+                            UserProfileRoomStore.enabled(
+                                    UserProfileRoomStore.load(this)),
                             pending.selectedProfileId);
 
             if (target == null
@@ -3648,22 +4129,21 @@ public final class ScaleScanService extends Service {
                             pending.weightKg,
                             target.name));
 
-            if (processMeasurement(
+            processMeasurement(
                     pending.toMeasurement(),
-                    target)) {
-                PeerOutboxStore.removeMeasurement(
-                        this,
-                        pending.id);
+                    target,
+                    () -> {
+                        if (!queueMeasurementClosedForLocalRemoval(
+                                pending.id)) {
+                            return;
+                        }
 
-                broadcastMeasurementClosed(
-                        pending.id);
+                        PendingMeasurementRoomStore.remove(
+                                this,
+                                pending.id);
 
-                PendingMeasurementStore.remove(
-                        prefs,
-                        pending.id);
-
-                updateAssignmentNotification();
-            }
+                        updateAssignmentNotification();
+                    });
 
             return;
         }
@@ -3672,9 +4152,10 @@ public final class ScaleScanService extends Service {
                 pending,
                 pending.selectedProfileId,
                 pending.selectedOwnerDeviceId)) {
-            broadcastMeasurementClosed(
-                    pending.id);
-
+            /*
+             * CLOSED is intentionally deferred until the target peer ACKs the
+             * routed measurement.
+             */
             updateAssignmentNotification();
         }
     }
@@ -3682,7 +4163,7 @@ public final class ScaleScanService extends Service {
     private String pendingDisplayName(
             String profileId) {
         for (HouseholdProfile profile :
-                HouseholdProfileStore.active(
+                HouseholdProfileRoomStore.active(
                         this)) {
             if (profileId.equals(
                     profile.profileId)) {
@@ -3696,8 +4177,8 @@ public final class ScaleScanService extends Service {
     private void assignPending(String pendingId, long userId) {
         if (pendingId == null || pendingId.isBlank() || userId < 0L) return;
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        PendingMeasurementStore.Item pending = PendingMeasurementStore.find(prefs, pendingId);
-        UserProfile profile = UserProfileStore.find(UserProfileStore.load(prefs), userId);
+        PendingMeasurementStore.Item pending = PendingMeasurementRoomStore.find(this, pendingId);
+        UserProfile profile = UserProfileRoomStore.find(UserProfileRoomStore.load(this), userId);
         if (pending == null) {
             EventLog.warning(this, getString(R.string.log_pending_measurement_missing));
             updateAssignmentNotification();
@@ -3712,73 +4193,692 @@ public final class ScaleScanService extends Service {
                 R.string.log_measurement_manually_assigned,
                 pending.weightKg,
                 profile.name));
-        if (processMeasurement(pending.toMeasurement(), profile)) {
-            PeerOutboxStore.removeMeasurement(
-                    this,
-                    pending.id);
+        processMeasurement(
+                pending.toMeasurement(),
+                profile,
+                () -> {
+                    if (!queueMeasurementClosedForLocalRemoval(
+                            pending.id)) {
+                        return;
+                    }
 
-            broadcastMeasurementClosed(
-                    pending.id);
+                    PendingMeasurementRoomStore.remove(
+                            this,
+                            pending.id);
 
-            PendingMeasurementStore.remove(
-                    prefs,
-                    pending.id);
+                    updateAssignmentNotification();
+                });
+    }
 
-            updateAssignmentNotification();
+    private static final class OpenScalePreparedMeasurement {
+        final long timestamp;
+        final S400BodyComposition.Result composition;
+        final String failureReason;
+
+        OpenScalePreparedMeasurement(
+                long timestamp,
+                S400BodyComposition.Result composition,
+                String failureReason) {
+            this.timestamp =
+                    timestamp;
+            this.composition =
+                    composition;
+            this.failureReason =
+                    failureReason == null
+                            ? ""
+                            : failureReason;
+        }
+
+        boolean isValid() {
+            return composition != null;
         }
     }
 
-    private boolean processMeasurement(S400FinalMeasurement measurement,
-                                       UserProfile profile) {
-        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        String authority = prefs.getString("openscale_authority", "");
-        LocalDate birthDate = BirthDateUtils.parseIso(profile.birthDateIso);
-        long timestamp = measurement.timestampMs > 0L
-                ? measurement.timestampMs
-                : System.currentTimeMillis();
-        int age = BirthDateUtils.ageOn(birthDate, timestamp);
+    private static final class OpenScaleQueueRequest {
+        final S400FinalMeasurement currentMeasurement;
+        final UserProfile profile;
+        final OpenScalePreparedMeasurement currentPrepared;
+        final Runnable onSuccess;
 
-        if (age < 18 || age > 120) {
-            rejectMeasurement(getString(
-                    R.string.service_error_invalid_birth_date,
-                    profile.name));
-            return false;
+        OpenScaleQueueRequest(
+                S400FinalMeasurement currentMeasurement,
+                UserProfile profile,
+                OpenScalePreparedMeasurement currentPrepared,
+                Runnable onSuccess) {
+            this.currentMeasurement =
+                    currentMeasurement;
+            this.profile =
+                    profile;
+            this.currentPrepared =
+                    currentPrepared;
+            this.onSuccess =
+                    onSuccess;
+        }
+    }
+
+    private static final class OpenScaleQueueRun {
+        final String queueKey;
+        final OpenScaleQueueRequest request;
+        final SharedPreferences prefs;
+        final String authority;
+        final OpenScaleQueuePolicy.Plan plan;
+        final List<OpenScaleQueuePolicy.Outcome> outcomes =
+                new ArrayList<>();
+
+        int index;
+        String currentFailureReason = "";
+
+        OpenScaleQueueRun(
+                String queueKey,
+                OpenScaleQueueRequest request,
+                SharedPreferences prefs,
+                String authority,
+                OpenScaleQueuePolicy.Plan plan) {
+            this.queueKey =
+                    queueKey;
+            this.request =
+                    request;
+            this.prefs =
+                    prefs;
+            this.authority =
+                    authority;
+            this.plan =
+                    plan;
+        }
+    }
+
+    private void processMeasurement(
+            S400FinalMeasurement measurement,
+            UserProfile profile) {
+        processMeasurement(
+                measurement,
+                profile,
+                null);
+    }
+
+    private void processMeasurement(
+            S400FinalMeasurement measurement,
+            UserProfile profile,
+            Runnable onSuccess) {
+        OpenScalePreparedMeasurement prepared =
+                prepareOpenScaleMeasurement(
+                        measurement,
+                        profile,
+                        true);
+
+        if (!prepared.isValid()) {
+            rejectMeasurement(
+                    prepared.failureReason);
+            return;
         }
 
-        if (!measurement.isComplete() || measurement.impedanceLow == null) {
-            rejectMeasurement(getString(R.string.service_error_measurement_incomplete));
-            return false;
+        if (!UserProfile.isValidHouseholdProfileId(
+                profile.householdProfileId)) {
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_selected_profile));
+            return;
         }
-        S400BodyComposition.Result composition = S400BodyComposition.compute(
-                new S400BodyComposition.Inputs(
-                        age,
-                        profile.male,
-                        profile.heightCm,
-                        measurement.weightKg,
-                        measurement.impedanceHigh,
-                        measurement.impedanceLow));
 
-        String compositionError = validateCompleteComposition(composition);
-        if (compositionError != null) {
-            rejectMeasurement(getString(
-                    R.string.service_error_incomplete_composition,
-                    compositionError));
-            return false;
-        }
-        if (composition.impedanceLabelsSwapped) {
-            EventLog.debug(this, getString(R.string.log_impedance_labels_swapped));
-        }
-        EventLog.debug(this, buildCalculationLog(profile.name, age, measurement, composition));
-
-        boolean openScaleStored = false;
         try {
-            OpenScaleProvider.Meta meta = OpenScaleProvider.readMeta(this, authority);
-            if (!meta.supportsGenericValues()) {
-                rejectMeasurement(getString(R.string.service_error_provider_api));
-                return false;
+            OpenScalePendingRoomStore.add(
+                    this,
+                    profile.userId,
+                    profile.householdProfileId,
+                    measurement);
+        } catch (RuntimeException exception) {
+            EventLog.error(
+                    this,
+                    getString(
+                            R.string.service_error_openscale_transfer,
+                            exception.getClass().getSimpleName(),
+                            safeMessage(exception)));
+
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_openscale_unconfirmed));
+            return;
+        }
+
+        if (!openScaleProcessingMeasurements.add(
+                measurement.measurementId)) {
+            return;
+        }
+
+        enqueueOpenScaleQueueRequest(
+                new OpenScaleQueueRequest(
+                        measurement,
+                        profile,
+                        prepared,
+                        onSuccess));
+    }
+
+    private OpenScalePreparedMeasurement prepareOpenScaleMeasurement(
+            S400FinalMeasurement measurement,
+            UserProfile profile,
+            boolean logCalculation) {
+        LocalDate birthDate =
+                BirthDateUtils.parseIso(
+                        profile.birthDateIso);
+
+        long timestamp =
+                measurement.timestampMs > 0L
+                        ? measurement.timestampMs
+                        : System.currentTimeMillis();
+
+        int age =
+                BirthDateUtils.ageOn(
+                        birthDate,
+                        timestamp);
+
+        if (age < 18
+                || age > 120) {
+            return new OpenScalePreparedMeasurement(
+                    timestamp,
+                    null,
+                    getString(
+                            R.string.service_error_invalid_birth_date,
+                            profile.name));
+        }
+
+        if (!measurement.isComplete()
+                || measurement.impedanceLow == null) {
+            return new OpenScalePreparedMeasurement(
+                    timestamp,
+                    null,
+                    getString(
+                            R.string.service_error_measurement_incomplete));
+        }
+
+        S400BodyComposition.Result composition =
+                S400BodyComposition.compute(
+                        new S400BodyComposition.Inputs(
+                                age,
+                                profile.male,
+                                profile.heightCm,
+                                measurement.weightKg,
+                                measurement.impedanceHigh,
+                                measurement.impedanceLow));
+
+        String compositionError =
+                validateCompleteComposition(
+                        composition);
+
+        if (compositionError != null) {
+            return new OpenScalePreparedMeasurement(
+                    timestamp,
+                    null,
+                    getString(
+                            R.string.service_error_incomplete_composition,
+                            compositionError));
+        }
+
+        if (composition.impedanceLabelsSwapped) {
+            EventLog.debug(
+                    this,
+                    getString(
+                            R.string.log_impedance_labels_swapped));
+        }
+
+        if (logCalculation) {
+            EventLog.debug(
+                    this,
+                    buildCalculationLog(
+                            profile.name,
+                            age,
+                            measurement,
+                            composition));
+        }
+
+        return new OpenScalePreparedMeasurement(
+                timestamp,
+                composition,
+                "");
+    }
+
+    private void enqueueOpenScaleQueueRequest(
+            OpenScaleQueueRequest request) {
+        String queueKey =
+                openScaleQueueKey(
+                        request.profile);
+
+        ArrayDeque<OpenScaleQueueRequest> requests =
+                openScaleQueueRequests.computeIfAbsent(
+                        queueKey,
+                        ignored ->
+                                new ArrayDeque<>());
+
+        requests.addLast(
+                request);
+
+        if (openScaleActiveProfiles.add(
+                queueKey)) {
+            startNextOpenScaleQueueRequest(
+                    queueKey);
+        }
+    }
+
+    private String openScaleQueueKey(
+            UserProfile profile) {
+        return profile.userId
+                + "|"
+                + profile.householdProfileId;
+    }
+
+    private void startNextOpenScaleQueueRequest(
+            String queueKey) {
+        ArrayDeque<OpenScaleQueueRequest> requests =
+                openScaleQueueRequests.get(
+                        queueKey);
+
+        OpenScaleQueueRequest request =
+                requests == null
+                        ? null
+                        : requests.pollFirst();
+
+        if (request == null) {
+            openScaleQueueRequests.remove(
+                    queueKey);
+
+            openScaleActiveProfiles.remove(
+                    queueKey);
+
+            return;
+        }
+
+        try {
+            List<OpenScalePendingRoomStore.Item> queued =
+                    OpenScalePendingRoomStore.loadForProfile(
+                            this,
+                            request.profile.householdProfileId);
+
+            OpenScaleQueuePolicy.Plan plan =
+                    OpenScaleQueuePolicy.plan(
+                            queued,
+                            request.profile.userId,
+                            request.profile.householdProfileId,
+                            request.currentMeasurement.measurementId);
+
+            SharedPreferences prefs =
+                    getSharedPreferences(
+                            "prefs",
+                            MODE_PRIVATE);
+
+            String authority =
+                    prefs.getString(
+                            "openscale_authority",
+                            "");
+
+            continueOpenScaleQueueRun(
+                    new OpenScaleQueueRun(
+                            queueKey,
+                            request,
+                            prefs,
+                            authority,
+                            plan));
+        } catch (RuntimeException exception) {
+            EventLog.error(
+                    this,
+                    getString(
+                            R.string.service_error_openscale_transfer,
+                            exception.getClass().getSimpleName(),
+                            safeMessage(exception)));
+
+            rejectMeasurement(
+                    getString(
+                            R.string.service_error_openscale_unconfirmed));
+
+            finishOpenScaleQueueRequest(
+                    queueKey,
+                    request);
+        }
+    }
+
+    private void continueOpenScaleQueueRun(
+            OpenScaleQueueRun run) {
+        if (run.index
+                >= run.plan.attempts.size()) {
+            finishOpenScaleQueueRun(
+                    run);
+            return;
+        }
+
+        OpenScalePendingRoomStore.Item item =
+                run.plan.attempts.get(
+                        run.index);
+
+        boolean current =
+                run.request.currentMeasurement.measurementId.equals(
+                        item.measurement.measurementId);
+
+        OpenScalePreparedMeasurement prepared =
+                current
+                        ? run.request.currentPrepared
+                        : prepareOpenScaleMeasurement(
+                                item.measurement,
+                                run.request.profile,
+                                false);
+
+        if (!prepared.isValid()) {
+            finishOpenScaleQueueItem(
+                    run,
+                    item,
+                    OpenScaleQueuePolicy.Outcome.FAILED,
+                    prepared.failureReason);
+            return;
+        }
+
+        OpenScaleWriteAttempt firstAttempt =
+                attemptOpenScaleWrite(
+                        run.prefs,
+                        run.authority,
+                        run.request.profile,
+                        prepared.timestamp,
+                        item.measurement,
+                        prepared.composition);
+
+        if (firstAttempt.stored) {
+            finishOpenScaleQueueItem(
+                    run,
+                    item,
+                    OpenScaleQueuePolicy.Outcome.STORED,
+                    "");
+            return;
+        }
+
+        if (!firstAttempt.retryable) {
+            finishOpenScaleQueueItem(
+                    run,
+                    item,
+                    OpenScaleQueuePolicy.Outcome.FAILED,
+                    firstAttempt.failureReason);
+            return;
+        }
+
+        boolean scheduled =
+                handler.postDelayed(
+                        () -> {
+                            OpenScaleWriteAttempt retryAttempt =
+                                    attemptOpenScaleWrite(
+                                            run.prefs,
+                                            run.authority,
+                                            run.request.profile,
+                                            prepared.timestamp,
+                                            item.measurement,
+                                            prepared.composition);
+
+                            finishOpenScaleQueueItem(
+                                    run,
+                                    item,
+                                    retryAttempt.stored
+                                            ? OpenScaleQueuePolicy.Outcome.STORED
+                                            : OpenScaleQueuePolicy.Outcome.FAILED,
+                                    retryAttempt.stored
+                                            ? ""
+                                            : retryAttempt.failureReason);
+                        },
+                        OPEN_SCALE_RETRY_DELAY_MS);
+
+        if (!scheduled) {
+            finishOpenScaleQueueItem(
+                    run,
+                    item,
+                    OpenScaleQueuePolicy.Outcome.FAILED,
+                    firstAttempt.failureReason);
+        }
+    }
+
+    private void finishOpenScaleQueueItem(
+            OpenScaleQueueRun run,
+            OpenScalePendingRoomStore.Item item,
+            OpenScaleQueuePolicy.Outcome outcome,
+            String failureReason) {
+        boolean current =
+                run.request.currentMeasurement.measurementId.equals(
+                        item.measurement.measurementId);
+
+        run.outcomes.add(
+                outcome);
+
+        if (current
+                && outcome
+                == OpenScaleQueuePolicy.Outcome.FAILED) {
+            run.currentFailureReason =
+                    failureReason == null
+                            || failureReason.isBlank()
+                            ? getString(
+                                    R.string.service_error_openscale_unconfirmed)
+                            : failureReason;
+        }
+
+        run.index++;
+
+        if (run.index
+                >= run.plan.attempts.size()) {
+            finishOpenScaleQueueRun(
+                    run);
+            return;
+        }
+
+        handler.post(
+                () ->
+                        continueOpenScaleQueueRun(
+                                run));
+    }
+
+    private void finishOpenScaleQueueRun(
+            OpenScaleQueueRun run) {
+        int currentIndex =
+                run.plan.attempts.size() - 1;
+
+        boolean currentStored =
+                run.outcomes.size()
+                        == run.plan.attempts.size()
+                && run.outcomes.get(
+                        currentIndex)
+                        == OpenScaleQueuePolicy.Outcome.STORED;
+
+        if (!currentStored) {
+            rejectMeasurement(
+                    run.currentFailureReason == null
+                            || run.currentFailureReason.isBlank()
+                            ? getString(
+                                    R.string.service_error_openscale_unconfirmed)
+                            : run.currentFailureReason);
+
+            finishOpenScaleQueueRequest(
+                    run.queueKey,
+                    run.request);
+            return;
+        }
+
+        try {
+            java.util.Set<String> removals =
+                    OpenScaleQueuePolicy.removalsAfterRun(
+                            run.plan,
+                            run.outcomes);
+
+            if (!removals.isEmpty()) {
+                OpenScalePendingRoomStore.removeAll(
+                        this,
+                        new ArrayList<>(
+                                removals));
+            }
+        } catch (RuntimeException exception) {
+            /*
+             * openScale has already been durably confirmed at this point.
+             * A failure while removing the local pending rows must therefore
+             * not turn that external success into a measurement failure.
+             *
+             * Keep the queue conservative. The STORED journal entry makes a
+             * later retry idempotent and prevents a duplicate openScale row.
+             */
+            EventLog.error(
+                    this,
+                    getString(
+                            R.string.service_error_openscale_transfer,
+                            exception.getClass().getSimpleName(),
+                            safeMessage(exception)));
+        }
+
+        try {
+            completeMeasurementAfterOpenScale(
+                    run.prefs,
+                    run.request.profile,
+                    run.request.currentPrepared.timestamp,
+                    run.request.currentMeasurement,
+                    run.request.currentPrepared.composition,
+                    run.request.onSuccess);
+        } finally {
+            finishOpenScaleQueueRequest(
+                    run.queueKey,
+                    run.request);
+        }
+    }
+
+    private void finishOpenScaleQueueRequest(
+            String queueKey,
+            OpenScaleQueueRequest request) {
+        openScaleProcessingMeasurements.remove(
+                request.currentMeasurement.measurementId);
+
+        ArrayDeque<OpenScaleQueueRequest> requests =
+                openScaleQueueRequests.get(
+                        queueKey);
+
+        if (requests == null
+                || requests.isEmpty()) {
+            openScaleQueueRequests.remove(
+                    queueKey);
+
+            openScaleActiveProfiles.remove(
+                    queueKey);
+
+            return;
+        }
+
+        handler.post(
+                () ->
+                        startNextOpenScaleQueueRequest(
+                                queueKey));
+    }
+
+    private void completeMeasurementAfterOpenScale(
+            SharedPreferences prefs,
+            UserProfile profile,
+            long timestamp,
+            S400FinalMeasurement measurement,
+            S400BodyComposition.Result composition,
+            Runnable onSuccess) {
+        try {
+            try {
+                boolean referenceUpdated =
+                        HouseholdProfileSync.updateReferenceWeight(
+                                this,
+                                prefs,
+                                profile.userId,
+                                measurement.weightKg);
+
+                if (referenceUpdated) {
+                    profile.referenceWeightKg =
+                            measurement.weightKg;
+
+                    EventLog.debug(
+                            this,
+                            getString(
+                                    R.string.log_reference_weight_updated,
+                                    profile.name,
+                                    measurement.weightKg));
+
+                    schedulePeerSync(
+                            100L);
+                }
+            } catch (RuntimeException exception) {
+                EventLog.warning(
+                        this,
+                        getString(
+                                R.string.log_reference_weight_update_failed,
+                                profile.name,
+                                exception.getClass().getSimpleName(),
+                                safeMessage(exception)));
             }
 
-            prefs.edit().putInt("openscale_api_version", meta.apiVersion).apply();
+            boolean healthConnectStarted =
+                    writeToHealthConnect(
+                            prefs,
+                            profile,
+                            timestamp,
+                            measurement,
+                            composition);
+
+            if (!healthConnectStarted) {
+                markMeasurementSuccess(
+                        profile.name);
+            }
+        } finally {
+            if (onSuccess != null) {
+                onSuccess.run();
+            }
+        }
+    }
+
+    private static final class OpenScaleWriteAttempt {
+        final boolean stored;
+        final boolean retryable;
+        final String failureReason;
+
+        OpenScaleWriteAttempt(
+                boolean stored,
+                String failureReason) {
+            this(
+                    stored,
+                    !stored,
+                    failureReason);
+        }
+
+        OpenScaleWriteAttempt(
+                boolean stored,
+                boolean retryable,
+                String failureReason) {
+            this.stored = stored;
+            this.retryable =
+                    !stored && retryable;
+            this.failureReason =
+                    failureReason == null
+                            ? ""
+                            : failureReason;
+        }
+    }
+
+    private OpenScaleWriteAttempt attemptOpenScaleWrite(
+            SharedPreferences prefs,
+            String authority,
+            UserProfile profile,
+            long timestamp,
+            S400FinalMeasurement measurement,
+            S400BodyComposition.Result composition) {
+        boolean openScaleStored =
+                false;
+
+        try {
+            OpenScaleProvider.Meta meta =
+                    OpenScaleProvider.readMeta(
+                            this,
+                            authority);
+
+            if (!meta.supportsRequiredApi()) {
+                return new OpenScaleWriteAttempt(
+                        false,
+                        false,
+                        getString(
+                                R.string.service_error_provider_api));
+            }
+
+            prefs.edit()
+                    .putInt(
+                            "openscale_api_version",
+                            meta.apiVersion)
+                    .apply();
 
             MeasurementWriteJournalStore.Status journalStatus =
                     MeasurementWriteJournalStore.status(
@@ -3790,14 +4890,17 @@ public final class ScaleScanService extends Service {
 
             if (journalStatus
                     == MeasurementWriteJournalStore.Status.CONFLICT) {
-                rejectMeasurement(
-                        getString(R.string.service_error_openscale_unconfirmed));
-                return false;
+                return new OpenScaleWriteAttempt(
+                        false,
+                        false,
+                        getString(
+                                R.string.service_error_openscale_unconfirmed));
             }
 
             if (journalStatus
                     == MeasurementWriteJournalStore.Status.STORED) {
-                openScaleStored = true;
+                openScaleStored =
+                        true;
             } else {
                 if (journalStatus
                         == MeasurementWriteJournalStore.Status.PREPARED) {
@@ -3817,17 +4920,20 @@ public final class ScaleScanService extends Service {
                                 authority,
                                 profile.userId,
                                 timestamp)) {
-                            rejectMeasurement(
-                                    getString(R.string.service_error_openscale_unconfirmed));
-                            return false;
+                            return new OpenScaleWriteAttempt(
+                                    false,
+                                    getString(
+                                            R.string.service_error_openscale_unconfirmed));
                         }
 
-                        openScaleStored = true;
+                        openScaleStored =
+                                true;
                     } else if (existing
                             == OpenScaleProvider.ExistingMeasurementStatus.UNKNOWN) {
-                        rejectMeasurement(
-                                getString(R.string.service_error_openscale_unconfirmed));
-                        return false;
+                        return new OpenScaleWriteAttempt(
+                                false,
+                                getString(
+                                        R.string.service_error_openscale_unconfirmed));
                     }
                 } else if (!MeasurementWriteJournalStore.prepare(
                         this,
@@ -3835,9 +4941,10 @@ public final class ScaleScanService extends Service {
                         authority,
                         profile.userId,
                         timestamp)) {
-                    rejectMeasurement(
-                            getString(R.string.service_error_openscale_unconfirmed));
-                    return false;
+                    return new OpenScaleWriteAttempt(
+                            false,
+                            getString(
+                                    R.string.service_error_openscale_unconfirmed));
                 }
 
                 if (!openScaleStored) {
@@ -3863,55 +4970,34 @@ public final class ScaleScanService extends Service {
                                     authority,
                                     profile.userId,
                                     timestamp)) {
-                        rejectMeasurement(
-                                getString(R.string.service_error_openscale_unconfirmed));
-                        return false;
+                        return new OpenScaleWriteAttempt(
+                                false,
+                                getString(
+                                        R.string.service_error_openscale_unconfirmed));
                     }
                 }
             }
 
-            if (openScaleStored) {
-                boolean referenceUpdated =
-                        HouseholdProfileSync.updateReferenceWeight(
-                                this,
-                                prefs,
-                                profile.userId,
-                                measurement.weightKg);
-
-                if (referenceUpdated) {
-                    profile.referenceWeightKg =
-                            measurement.weightKg;
-
-                    EventLog.debug(this, getString(
-                            R.string.log_reference_weight_updated,
-                            profile.name,
-                            measurement.weightKg));
-
-                    schedulePeerSync(
-                            100L);
-                }
-            }
-        } catch (SecurityException e) {
-            rejectMeasurement(
-                    getString(R.string.service_error_openscale_access));
-            return false;
-        } catch (RuntimeException e) {
-            rejectMeasurement(getString(
-                    R.string.service_error_openscale_transfer,
-                    e.getClass().getSimpleName(),
-                    safeMessage(e)));
-            return false;
+            return new OpenScaleWriteAttempt(
+                    openScaleStored,
+                    openScaleStored
+                            ? ""
+                            : getString(
+                                    R.string.service_error_openscale_unconfirmed));
+        } catch (SecurityException exception) {
+            return new OpenScaleWriteAttempt(
+                    false,
+                    false,
+                    getString(
+                            R.string.service_error_openscale_access));
+        } catch (RuntimeException exception) {
+            return new OpenScaleWriteAttempt(
+                    false,
+                    getString(
+                            R.string.service_error_openscale_transfer,
+                            exception.getClass().getSimpleName(),
+                            safeMessage(exception)));
         }
-
-        if (!openScaleStored) {
-            rejectMeasurement(getString(R.string.service_error_openscale_unconfirmed));
-            return false;
-        }
-
-        boolean healthConnectStarted = writeToHealthConnect(
-                prefs, profile, timestamp, measurement, composition);
-        if (!healthConnectStarted) markMeasurementSuccess(profile.name);
-        return true;
     }
 
     private boolean writeToHealthConnect(SharedPreferences prefs,
@@ -3940,6 +5026,10 @@ public final class ScaleScanService extends Service {
         }
 
         String scaleMac = prefs.getString("mac", "");
+
+        long callbackGeneration =
+                visibleStatusGeneration;
+
         HealthConnectWriter.write(
                 this,
                 timestamp,
@@ -3961,7 +5051,14 @@ public final class ScaleScanService extends Service {
                                 getString(
                                         R.string.log_health_connect_written,
                                         writtenValues));
-                        markMeasurementSuccess(profile.name);
+
+                        if (callbackGeneration
+                                != visibleStatusGeneration) {
+                            return;
+                        }
+
+                        markMeasurementSuccess(
+                                profile.name);
                     }
 
                     @Override public void onError(String message) {
@@ -3970,8 +5067,14 @@ public final class ScaleScanService extends Service {
                                 getString(
                                         R.string.log_health_connect_failed,
                                         message));
+
+                        if (callbackGeneration
+                                != visibleStatusGeneration) {
+                            return;
+                        }
+
                         notifyTransferFailure(
-                                getString(R.string.transfer_health_connect_permissions));
+                                getString(R.string.transfer_health_connect_failed));
                         updateMonitor(getString(R.string.service_health_connect_failed));
                     }
                 });
@@ -4118,9 +5221,9 @@ public final class ScaleScanService extends Service {
             return true;
         }
 
-        String missing = result.missingValueKeys == null || result.missingValueKeys.isEmpty()
+        String missing = result.missingValueIdentities == null || result.missingValueIdentities.isEmpty()
                 ? getString(R.string.log_openscale_unknown_values)
-                : String.join(", ", result.missingValueKeys);
+                : String.join(", ", result.missingValueIdentities);
         EventLog.error(this, getString(
                 result.rollbackPerformed
                         ? R.string.log_openscale_incomplete_deleted
@@ -4210,6 +5313,52 @@ public final class ScaleScanService extends Service {
         return ServiceState.CollectorSource.NONE;
     }
 
+    private void logCollectorTransition(
+            ServiceState.CollectorSource previousSource,
+            ServiceState.CollectorSource currentSource,
+            String reason) {
+        if (previousSource == currentSource) {
+            return;
+        }
+
+        EventLog.debug(
+                this,
+                "Collector-Diagnose: "
+                        + previousSource
+                        + " -> "
+                        + currentSource
+                        + " – "
+                        + reason);
+    }
+
+    private void logPeerDiagnosticSnapshot() {
+        if (peerTransport != null) {
+            peerTransport.logDiagnosticState();
+        }
+
+        String gattState =
+                gattClient == null
+                        ? "none"
+                        : gattClient.getState().name();
+
+        EventLog.debug(
+                this,
+                "Collector-Diagnose: source="
+                        + collectorSource()
+                        + " localOwned="
+                        + gattCollectorOwned
+                        + " remoteCollectors="
+                        + remoteCollectorLastSeenMs.size()
+                        + " gattMonitoring="
+                        + gattMonitoringActive
+                        + " gattState="
+                        + gattState
+                        + " reconnectScheduled="
+                        + gattReconnectScheduled
+                        + " reconnectAttempt="
+                        + gattReconnectAttempt);
+    }
+
     private void expireRemoteCollectorPresence() {
         ServiceState.CollectorSource previousSource =
                 collectorSource();
@@ -4217,16 +5366,35 @@ public final class ScaleScanService extends Service {
         long now =
                 SystemClock.elapsedRealtime();
 
+        int previousCount =
+                remoteCollectorLastSeenMs.size();
+
         remoteCollectorLastSeenMs.entrySet()
                 .removeIf(
                         entry ->
                                 now - entry.getValue()
                                         >= REMOTE_COLLECTOR_REACHABLE_MS);
 
+        int expiredCount =
+                previousCount - remoteCollectorLastSeenMs.size();
+
+        if (expiredCount > 0) {
+            EventLog.debug(
+                    this,
+                    "Peer-Diagnose: "
+                            + expiredCount
+                            + " Remote-Collector-Präsenz nach 60 s abgelaufen");
+        }
+
         ServiceState.CollectorSource currentSource =
                 collectorSource();
 
         if (currentSource != previousSource) {
+            logCollectorTransition(
+                    previousSource,
+                    currentSource,
+                    "Remote-Collector nicht mehr gesehen");
+
             ServiceState.heartbeat(
                     this,
                     gattCollectorOwned,
@@ -4241,6 +5409,19 @@ public final class ScaleScanService extends Service {
         if (explicitStop) return;
 
         expireRemoteCollectorPresence();
+
+        long diagnosticNow =
+                SystemClock.elapsedRealtime();
+
+        if (EventLog.isDiagnosticEnabled(this)
+                && (lastPeerDiagnosticLogMs == 0L
+                    || diagnosticNow - lastPeerDiagnosticLogMs
+                            >= PEER_DIAGNOSTIC_INTERVAL_MS)) {
+            lastPeerDiagnosticLogMs =
+                    diagnosticNow;
+
+            logPeerDiagnosticSnapshot();
+        }
 
         if (terminalError) {
             ServiceState.heartbeat(
@@ -4318,6 +5499,7 @@ public final class ScaleScanService extends Service {
                     && adapter != null
                     && adapter.isEnabled()
                     && peerTransport != null) {
+                peerTransport.ensureAdvertising();
                 peerTransport.ensurePresenceScan();
             }
         }
@@ -4334,7 +5516,8 @@ public final class ScaleScanService extends Service {
                 false,
                 false);
         stopGattCollector();
-        monitorText = reason;
+        setMonitorText(
+                reason);
         ServiceState.error(this, reason);
         EventLog.error(this, getString(R.string.log_monitor_stopped, reason));
         notifyMonitor();
@@ -4342,7 +5525,8 @@ public final class ScaleScanService extends Service {
 
     private void enterRecoverableError(String reason) {
         terminalError = false;
-        monitorText = reason;
+        setMonitorText(
+                reason);
         ServiceState.error(this, reason);
         notifyMonitor();
     }
@@ -4354,6 +5538,7 @@ public final class ScaleScanService extends Service {
 
     private Notification monitorNotification(String text) {
         ServiceState.Snapshot state = ServiceState.read(this);
+
         String title;
         String notificationText = text;
         switch (state.mode) {
@@ -4504,13 +5689,10 @@ public final class ScaleScanService extends Service {
                         NOTIFICATION_SERVICE);
 
         List<PendingMeasurementStore.Item> pending =
-                PendingMeasurementStore.load(
-                        getSharedPreferences(
-                                "prefs",
-                                MODE_PRIVATE));
+                PendingMeasurementRoomStore.load(this);
 
         List<RemotePendingMeasurementStore.Item> remotePending =
-                RemotePendingMeasurementStore.load(
+                RemotePendingMeasurementRoomStore.load(
                         this);
 
         if (!pending.isEmpty()) {
@@ -4535,10 +5717,25 @@ public final class ScaleScanService extends Service {
                 NOTIFICATION_ASSIGNMENT);
     }
 
+    private void invalidateVisibleStatusCallbacks() {
+        visibleStatusGeneration++;
+    }
+
+    private void setMonitorText(
+            String text) {
+        monitorText =
+                text == null
+                        ? ""
+                        : text;
+
+        invalidateVisibleStatusCallbacks();
+    }
+
     private void updateMonitor(String text) {
-        monitorText = text == null || text.isBlank()
-                ? getString(R.string.service_waiting_for_measurement)
-                : text;
+        setMonitorText(
+                text == null || text.isBlank()
+                        ? getString(R.string.service_waiting_for_measurement)
+                        : text);
         if (gattMonitoringActive && !terminalError) {
             ServiceState.running(
                     this,
@@ -4587,12 +5784,12 @@ public final class ScaleScanService extends Service {
     }
 
     @Override public void onDestroy() {
-        if (peerOutboxPreferences != null) {
-            peerOutboxPreferences
-                    .unregisterOnSharedPreferenceChangeListener(
-                            peerOutboxListener);
-            peerOutboxPreferences = null;
-        }
+        openScaleProcessingMeasurements.clear();
+        openScaleQueueRequests.clear();
+        openScaleActiveProfiles.clear();
+
+        PeerOutboxRoomStore.unregisterChangeListener(
+                peerOutboxListener);
 
         if (bluetoothStateReceiverRegistered) {
             try {

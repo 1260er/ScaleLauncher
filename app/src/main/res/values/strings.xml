@@ -147,7 +147,7 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="health_permissions_incomplete">Nicht alle Schreibrechte für die ausgewählten Werte wurden erlaubt.</string>
     <string name="start_error_bluetooth_permission">Bitte zuerst Bluetooth erlauben.</string>
     <string name="start_error_openscale_missing">Bitte zuerst openScale verbinden und Benutzer laden.</string>
-    <string name="start_error_provider_api">Für eine vollständige und überprüfbare Messung wird openScale Provider-API 2 benötigt.</string>
+    <string name="start_error_provider_api">Zugriff auf openScale aktuell nicht möglich. Bitte openScale und evtl. die API-Version prüfen.</string>
     <string name="start_error_no_active_profile">Kein Benutzerprofil für die automatische Zuordnung verfügbar.</string>
     <string name="start_error_profile_incomplete">Das Profil %1$s ist noch nicht vollständig.</string>
     <string name="health_connect_error_select_values">Bitte mindestens einen Health-Connect-Wert auswählen.</string>
@@ -199,7 +199,7 @@ Die App liest keine Gesundheitsdaten aus Health Connect, besitzt keinen Internet
     <string name="state_enabled">aktiviert</string>
     <string name="state_disabled">deaktiviert</string>
     <string name="log_empty">Noch keine Ereignisse.</string>
-    <string name="log_limit_description">maximal %1$d Einträge / 48 KB</string>
+    <string name="log_limit_description">maximal %1$d Einträge / 512 KB</string>
     <string name="log_level_info">INFO</string>
     <string name="log_level_warning">WARNUNG</string>
     <string name="log_level_error">FEHLER</string>
@@ -253,7 +253,7 @@ UUIDs: %1$s</string>
     <string name="service_error_bluetooth_permission">Bluetooth-Berechtigung fehlt</string>
     <string name="service_error_invalid_mac">Keine gültige Waagen-MAC gespeichert</string>
     <string name="service_error_no_openscale_connection">Keine openScale-Verbindung gespeichert</string>
-    <string name="service_error_provider_api">openScale Provider-API 2 wird benötigt</string>
+    <string name="service_error_provider_api">Zugriff auf openScale aktuell nicht möglich. Bitte openScale und evtl. die API-Version prüfen.</string>
     <string name="service_error_openscale_permission">openScale-Berechtigung fehlt</string>
     <string name="service_error_openscale_unreachable">openScale ist nicht erreichbar</string>
     <string name="service_error_no_active_profile">Kein Benutzerprofil eingerichtet</string>
@@ -285,6 +285,9 @@ UUIDs: %1$s</string>
     <string name="service_error_incomplete_composition">Körperanalyse unvollständig: %1$s</string>
     <string name="log_impedance_labels_swapped">Impedanzbänder waren vertauscht und wurden korrigiert</string>
     <string name="log_reference_weight_updated">Gewicht %1$s aktualisiert: %2$.1f kg</string>
+    <string name="log_reference_weight_update_failed">Referenzgewicht für %1$s konnte nach erfolgreicher openScale-Speicherung nicht aktualisiert werden – %2$s: %3$s</string>
+    <string name="log_stored_pending_repaired">Gespeicherte Zuordnung %1$s nach Neustart abgeschlossen</string>
+    <string name="log_stored_pending_repair_failed">Abschluss der gespeicherten Zuordnung %1$s fehlgeschlagen – %2$s: %3$s</string>
     <string name="service_error_openscale_access">openScale-Zugriff verweigert – Berechtigung erneut erteilen</string>
     <string name="service_error_openscale_transfer">Übergabe an openScale fehlgeschlagen: %1$s – %2$s</string>
     <string name="service_error_openscale_unconfirmed">Speicherung in openScale konnte nicht vollständig bestätigt werden</string>
@@ -295,7 +298,7 @@ UUIDs: %1$s</string>
     <string name="log_health_connect_values_saved">Health Connect: %1$s – %2$d Werte gespeichert</string>
     <string name="log_health_connect_written">Health Connect geschrieben: %1$s</string>
     <string name="log_health_connect_failed">Health Connect fehlgeschlagen: %1$s</string>
-    <string name="transfer_health_connect_permissions">openScale wurde gespeichert, Health Connect jedoch nicht. Bitte Berechtigungen prüfen.</string>
+    <string name="transfer_health_connect_failed">openScale wurde gespeichert, Health Connect jedoch nicht. Bitte Health Connect prüfen; Details stehen im Protokoll.</string>
     <string name="service_health_connect_failed">openScale gespeichert – Health Connect fehlgeschlagen</string>
     <string name="service_error_measurement_incomplete">Messdaten waren unvollständig</string>
     <string name="log_measurement_rejected">Messung vollständig verworfen – %1$s</string>
@@ -474,6 +477,7 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="log_peer_routed_measurement_confirmed">Verarbeitung von Messung %2$s durch %1$s bestätigt</string>
     <string name="action_not_my_measurement">Nicht meins</string>
     <string name="pending_status_resolved">%1$.1f kg – Zuordnung zu %2$s wird abgeschlossen</string>
+    <string name="pending_status_remote_handoff">%1$.1f kg – Zuordnung erfolgt auf dem anderen Handy</string>
     <string name="log_pending_candidate_invalid">Ungültiger Kandidat für offene Messung %1$s</string>
     <string name="log_pending_candidate_already_decided">Offene Messung %1$s wurde bereits entschieden</string>
     <string name="log_pending_candidate_selected">%1$.1f kg wurde als „Meine Messung“ für %2$s bestätigt</string>
@@ -509,4 +513,5 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
 Diese Aktion sollte nur verwendet werden, wenn der Eintrag feststeckt und nicht mehr benötigt wird.</string>
     <string name="emergency_cleanup_confirm">Messung verwerfen</string>
     <string name="log_pending_discard_resolved_ignored">Notfallbereinigung für bereits zugeordnete Messung %1$.1f kg ignoriert</string>
+    <string name="log_peer_orphan_repair_failed">Peer-Reparatur vorübergehend fehlgeschlagen: %1$s</string>
 </resources>

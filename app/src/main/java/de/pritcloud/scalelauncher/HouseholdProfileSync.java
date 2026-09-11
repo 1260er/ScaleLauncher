@@ -13,10 +13,10 @@ final class HouseholdProfileSync {
             SharedPreferences prefs,
             long userId) {
         List<UserProfile> profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         UserProfile profile =
-                UserProfileStore.find(
+                UserProfileRoomStore.find(
                         profiles,
                         userId);
 
@@ -32,8 +32,8 @@ final class HouseholdProfileSync {
                         true);
 
         if (changed) {
-            UserProfileStore.save(
-                    prefs,
+            UserProfileRoomStore.save(
+                    context,
                     profiles);
         }
 
@@ -59,10 +59,10 @@ final class HouseholdProfileSync {
         }
 
         List<UserProfile> profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         UserProfile profile =
-                UserProfileStore.find(
+                UserProfileRoomStore.find(
                         profiles,
                         userId);
 
@@ -78,8 +78,8 @@ final class HouseholdProfileSync {
                 profile,
                 true);
 
-        UserProfileStore.save(
-                prefs,
+        UserProfileRoomStore.save(
+                    context,
                 profiles);
 
         return publishPrepared(
@@ -93,7 +93,7 @@ final class HouseholdProfileSync {
             SharedPreferences prefs,
             String peerDeviceId) {
         PeerTrustStore.Peer peer =
-                PeerTrustStore.find(
+                PeerTrustRoomStore.find(
                         context,
                         peerDeviceId);
 
@@ -102,7 +102,7 @@ final class HouseholdProfileSync {
         }
 
         List<UserProfile> profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         boolean changed = false;
         int queued = 0;
@@ -121,8 +121,8 @@ final class HouseholdProfileSync {
         }
 
         if (changed) {
-            UserProfileStore.save(
-                    prefs,
+            UserProfileRoomStore.save(
+                    context,
                     profiles);
         }
 
@@ -147,11 +147,11 @@ final class HouseholdProfileSync {
                                         context),
                                 profile.householdUpdatedAtMs);
 
-                HouseholdProfileStore.upsert(
+                HouseholdProfileRoomStore.upsert(
                         context,
                         household);
 
-                PeerOutboxStore.enqueueProfile(
+                PeerOutboxRoomStore.enqueueProfile(
                         context,
                         peer.deviceId,
                         PeerProfilePayload.fromProfile(
@@ -169,7 +169,7 @@ final class HouseholdProfileSync {
         }
 
         try {
-            PeerOutboxStore.enqueueProfileManifest(
+            PeerOutboxRoomStore.enqueueProfileManifest(
                     context,
                     peer.deviceId,
                     PeerProfileManifestPayload.create(
@@ -206,7 +206,7 @@ final class HouseholdProfileSync {
                         peer.deviceId);
 
         List<UserProfile> localProfiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         boolean localChanged =
                 false;
@@ -259,12 +259,12 @@ final class HouseholdProfileSync {
         }
 
         if (localChanged) {
-            UserProfileStore.save(
-                    prefs,
+            UserProfileRoomStore.save(
+                    context,
                     localProfiles);
         }
 
-        HouseholdProfileStore.upsert(
+        HouseholdProfileRoomStore.upsert(
                 context,
                 incoming);
 
@@ -274,7 +274,7 @@ final class HouseholdProfileSync {
                 && ownerProfileIds.contains(
                         incoming.profileId)) {
             int removed =
-                    HouseholdProfileStore.removeOwnerExcept(
+                    HouseholdProfileRoomStore.removeOwnerExcept(
                             context,
                             peer.deviceId,
                             ownerProfileIds);
@@ -320,7 +320,7 @@ final class HouseholdProfileSync {
         }
 
         int removed =
-                HouseholdProfileStore.removeOwnerExcept(
+                HouseholdProfileRoomStore.removeOwnerExcept(
                         context,
                         peer.deviceId,
                         ownerProfileIds);
@@ -349,17 +349,14 @@ final class HouseholdProfileSync {
                                     context),
                             profile.householdUpdatedAtMs);
 
-            HouseholdProfileStore.upsert(
+            HouseholdProfileRoomStore.upsert(
                     context,
                     household);
 
             int queued = 0;
 
             List<UserProfile> currentProfiles =
-                    UserProfileStore.load(
-                            context.getSharedPreferences(
-                                    "prefs",
-                                    Context.MODE_PRIVATE));
+                    UserProfileRoomStore.load(context);
 
             List<String> ownerProfileIds =
                     currentOwnedProfileIds(
@@ -375,7 +372,7 @@ final class HouseholdProfileSync {
                                 ownerProfileIds);
             } else {
                 for (PeerTrustStore.Peer peer :
-                        PeerTrustStore.load(context)) {
+                        PeerTrustRoomStore.load(context)) {
                     queued +=
                             enqueue(
                                     context,
@@ -412,7 +409,7 @@ final class HouseholdProfileSync {
             HouseholdProfile profile,
             List<String> ownerProfileIds) {
         try {
-            PeerOutboxStore.enqueueProfile(
+            PeerOutboxRoomStore.enqueueProfile(
                     context,
                     peer.deviceId,
                     PeerProfilePayload.fromProfile(
@@ -440,14 +437,14 @@ final class HouseholdProfileSync {
         }
 
         List<UserProfile> profiles =
-                UserProfileStore.load(prefs);
+                UserProfileRoomStore.load(context);
 
         List<String> ownerProfileIds =
                 currentOwnedProfileIds(
                         context,
                         profiles);
 
-        return HouseholdProfileStore.removeOwnerExcept(
+        return HouseholdProfileRoomStore.removeOwnerExcept(
                 context,
                 PeerTrustStore.localDeviceId(
                         context),
