@@ -3537,9 +3537,18 @@ public final class ScaleScanService extends Service {
             }
         }
 
+        boolean remoteOnlyHouseholdAmbiguity =
+                MeasurementRoutingPolicy
+                        .shouldCreateRemoteOnlyHouseholdAmbiguousPending(
+                                match.status,
+                                householdMatch,
+                                PeerTrustStore.localDeviceId(
+                                        this));
+
         if (MeasurementRoutingPolicy.shouldCreateHouseholdAmbiguousPending(
-                match.status,
-                householdMatch.status)) {
+                    match.status,
+                    householdMatch.status)
+                || remoteOnlyHouseholdAmbiguity) {
             String reason =
                     getString(
                             R.string.pending_reason_similar_users);
@@ -3564,11 +3573,13 @@ public final class ScaleScanService extends Service {
                             R.string.log_pending_measurement_saved,
                             pending.id));
 
-            updateMonitor(
-                    getString(
-                            R.string.service_user_assignment_required));
+            if (!remoteOnlyHouseholdAmbiguity) {
+                updateMonitor(
+                        getString(
+                                R.string.service_user_assignment_required));
 
-            updateAssignmentNotification();
+                updateAssignmentNotification();
+            }
 
             /*
              * Persist the pending measurement before sending CLAIM requests.
@@ -3609,7 +3620,9 @@ public final class ScaleScanService extends Service {
                     HouseholdProfileRoomStore.active(
                             this)) {
                 if (UserProfile.isValidHouseholdProfileId(
-                        profile.profileId)) {
+                            profile.profileId)
+                        && !pendingCandidateProfileIds.contains(
+                                profile.profileId)) {
                     pendingCandidateProfileIds.add(
                             profile.profileId);
                 }

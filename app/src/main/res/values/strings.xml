@@ -477,6 +477,7 @@ Auf beiden Handys muss exakt derselbe Code stehen. Wenn er übereinstimmt, auf b
     <string name="log_peer_routed_measurement_confirmed">Verarbeitung von Messung %2$s durch %1$s bestätigt</string>
     <string name="action_not_my_measurement">Nicht meins</string>
     <string name="pending_status_resolved">%1$.1f kg – Zuordnung zu %2$s wird abgeschlossen</string>
+    <string name="pending_status_remote_handoff">%1$.1f kg – Zuordnung erfolgt auf dem anderen Handy</string>
     <string name="log_pending_candidate_invalid">Ungültiger Kandidat für offene Messung %1$s</string>
     <string name="log_pending_candidate_already_decided">Offene Messung %1$s wurde bereits entschieden</string>
     <string name="log_pending_candidate_selected">%1$.1f kg wurde als „Meine Messung“ für %2$s bestätigt</string>

@@ -1842,6 +1842,9 @@ public final class MainActivity extends Activity {
         pendingCandidates =
                 new ArrayList<>();
 
+        boolean collectorRemoteOnlyHandoff =
+                false;
+
         if (!pendingMeasurements.isEmpty()) {
             PendingMeasurementStore.Item item =
                     pendingMeasurements.get(
@@ -1854,6 +1857,12 @@ public final class MainActivity extends Activity {
             List<UserProfile> localProfiles =
                     UserProfileRoomStore.enabled(
                             storedProfiles);
+
+            collectorRemoteOnlyHandoff =
+                    isRemoteOnlyHandoffPending(
+                            item,
+                            householdProfiles,
+                            localDeviceId);
 
             List<String> remainingCandidateProfileIds =
                     item.remainingCandidateProfileIds();
@@ -1888,7 +1897,8 @@ public final class MainActivity extends Activity {
              */
             for (UserProfile local :
                     localProfiles) {
-                if (localUsersRejected
+                if (collectorRemoteOnlyHandoff
+                        || localUsersRejected
                         || !local.hasValidBodyData(
                                 item.timestampMs)) {
                     continue;
@@ -2077,6 +2087,15 @@ public final class MainActivity extends Activity {
                 pendingMeasurements.get(
                         0);
 
+        if (collectorRemoteOnlyHandoff) {
+            pendingStatus.setText(
+                    getString(
+                            R.string.pending_status_remote_handoff,
+                            item.weightKg));
+
+            return;
+        }
+
         if (item.isResolved()) {
             String selectedName =
                     item.selectedProfileId;
@@ -2130,6 +2149,55 @@ public final class MainActivity extends Activity {
                 countLine
                         + "\n"
                         + detail);
+    }
+
+    private boolean isRemoteOnlyHandoffPending(
+            PendingMeasurementStore.Item item,
+            List<HouseholdProfile> householdProfiles,
+            String localDeviceId) {
+        if (item == null
+                || item.isResolved()
+                || localDeviceId == null
+                || localDeviceId.isBlank()) {
+            return false;
+        }
+
+        List<String> remaining =
+                item.remainingCandidateProfileIds();
+
+        if (remaining.isEmpty()) {
+            return false;
+        }
+
+        String remoteOwnerDeviceId =
+                null;
+
+        for (String profileId :
+                remaining) {
+            HouseholdProfile profile =
+                    findHouseholdProfile(
+                            householdProfiles,
+                            profileId);
+
+            if (profile == null
+                    || !profile.active
+                    || profile.ownerDeviceId == null
+                    || profile.ownerDeviceId.isBlank()
+                    || localDeviceId.equals(
+                            profile.ownerDeviceId)) {
+                return false;
+            }
+
+            if (remoteOwnerDeviceId == null) {
+                remoteOwnerDeviceId =
+                        profile.ownerDeviceId;
+            } else if (!remoteOwnerDeviceId.equals(
+                    profile.ownerDeviceId)) {
+                return false;
+            }
+        }
+
+        return remoteOwnerDeviceId != null;
     }
 
     private HouseholdProfile findHouseholdProfile(
