@@ -15,17 +15,15 @@
 
 ## Status
 
-**ScaleLauncher 1.5.1** ist weiterhin der aktuelle veröffentlichte stabile Stand.
+**ScaleLauncher 1.6.0** ist der aktuelle veröffentlichte stabile Stand.
 
-Auf dem Entwicklungszweig `ui-v1.6.0` ist **ScaleLauncher 1.6.0** als nächster Release vorbereitet. Die geplanten Code-Arbeiten, der vollständige 1.6.0-Review und die praktische Endabnahme sind erfolgreich abgeschlossen. Bis zur Veröffentlichung des Tags `v1.6.0` bleibt 1.5.1 der aktuelle stabile Release.
+Version 1.6.0 wurde vollständig technisch geprüft und am 11. September 2026 praktisch abgenommen. Der stabile Release ist als Tag `v1.6.0` veröffentlicht.
 
-Für 1.6.0 wurden insbesondere die dauerhafte Speicherung kritischer Zustände über Room, die openScale-Schreibsicherheit, die Wiederherstellung nach Prozess- und Bluetooth-Unterbrechungen sowie die Peer-Kommunikation weiter abgesichert. Die openScale-Anbindung verwendet nun verbindlich **Provider API 3**.
+Für 1.6.0 wurden insbesondere die dauerhafte Speicherung kritischer Zustände über Room, die openScale-Schreibsicherheit, die Wiederherstellung nach Prozess- und Bluetooth-Unterbrechungen sowie die Peer-Kommunikation weiter abgesichert. Die openScale-Anbindung verwendet verbindlich **Provider API 3**.
 
 Die Überwachungsbenachrichtigung zeigt zusätzlich den aktuellen Status der Collector- und Waagenerreichbarkeit.
 
-Der vollständige Regressionstest und das abschließende Abnahmeergebnis werden in [TESTPLAN.md](TESTPLAN.md) dokumentiert.
-
-Die bisherige praktische Regressionsbasis stammt aus 1.4.0 und den gezielten Nachprüfungen von 1.5.0 mit dev-262. Version 1.5.1 ergänzte danach ausschließlich die F-Droid- und reproduzierbare Build-Infrastruktur.
+Der vollständige Regressionstest und das abschließende Abnahmeergebnis sind in [TESTPLAN.md](TESTPLAN.md) dokumentiert.
 
 ## Wozu dient ScaleLauncher?
 
