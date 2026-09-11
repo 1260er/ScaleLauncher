@@ -2,6 +2,10 @@
 
 ## 1.6.0
 
+- Zeitstempel vollständiger Live-GATT-Messungen verwenden die Uhrzeit des Collector-Handys als kanonischen Messzeitpunkt; der Waagenzeitstempel bleibt nur für Diagnose und Deduplizierung relevant
+- bereits aufgelöste, aber durch einen unterbrochenen Abschluss hängen gebliebene Pending-Messungen können über die Notfallbereinigung sicher entfernt und per CLOSED auf den gekoppelten Geräten abgeschlossen werden
+- besitzt der Collector selbst keinen passenden lokalen Benutzer, während mehrere passende Profile demselben Remote-Handy gehören, wird die Messung vollständig an dieses Besitzer-Handy zur dortigen Auswahl übergeben
+- manuelle Rescue-Kandidaten werden vor dem Peer-Versand dedupliziert, sodass gültige Remote-Rescue-Anfragen nicht durch doppelte Profil-IDs verworfen werden
 - openScale-Integration auf Provider API 3 umgestellt; Provider API 2 wird für 1.6.0 bewusst abgelehnt
 - Profile, offene Messungen, openScale-Warteschlange, Peer-Outbox, Empfangs-Deduplizierung und Schreibjournal dauerhaft über Room abgesichert
 - bestätigte openScale-Schreibvorgänge können nach Prozessabbrüchen ohne doppelten Eintrag sicher abgeschlossen werden

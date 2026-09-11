@@ -1,16 +1,16 @@
 # ScaleLauncher – Abnahme- und Regressionstestplan
 
-Stand: 2. September 2026
-Branch: `ui-v1.5.0`
-Status: **Gezielte Release-Abnahme 1.5.0 erfolgreich abgeschlossen**
+Stand: 11. September 2026
+Branch: `ui-v1.6.0`
+Status: **Praktische Release-Abnahme 1.6.0 erfolgreich abgeschlossen**
 
-Abnahme-Build: `dev-262`
-Technischer Abnahme-Commit: `a97e872`
-Abnahmedatum: 2. September 2026
+Abnahme-Build: `dev-311`
+Technischer Abnahme-Commit: `f508576`
+Abnahmedatum: 11. September 2026
 
-Technische Regressionsbasis: 1.4.0 / `dev-259` / `c29aa8a`
+Technische Regressionsbasis: 1.5.1 und vollständige 1.6.0-RC-Abnahme
 
-Für 1.5.0 wurden wegen der ausschließlich buildbezogenen Änderungen gezielt Java-21-Build und App-Start auf beiden Geräten, Dienststart, eine normale Messung sowie geräteübergreifendes Routing geprüft. Alle Prüfungen waren erfolgreich. Messlogik, Bluetooth-Routing und Benutzerzuordnung wurden gegenüber 1.4.0 funktional nicht geändert.
+Für 1.6.0 wurden alle neun Testblöcke einschließlich der Mehrgeräte-, Pending-, Retry-, Collector-Failover- und Benachrichtigungspfade praktisch abgedeckt. Im Verlauf der RC-Abnahme gefundene Fehler wurden jeweils reproduziert, gezielt korrigiert und die direkt betroffenen Pfade anschließend erneut geprüft. Die abschließende Nachprüfung auf `dev-311` bestätigte insbesondere die vollständige Übergabe einer lokal nicht passenden, aber auf einem Remote-Handy mehrdeutigen Messung an dieses Besitzer-Handy sowie die unveränderte Funktion der NO_MATCH-/Rescue-Pfade.
 
 ## Zweck
 
@@ -401,6 +401,8 @@ Folgende besonders wichtige Randfälle sind ausdrücklich abgesichert:
 - Bei `manualRescue` muss eine gültige ACCEPT-Entscheidung auch dann verarbeitet werden, wenn sie vor der CLAIM-Antwort beim Collector ankommt.
 - Wenn **alle** Kandidaten ausdrücklich ablehnen, muss die Messung vollständig verschwinden; sie darf nicht ohne mögliche Entscheidung auf dem Collector gestrandet bleiben.
 - Bei normaler Mehrdeutigkeit bleibt die bestehende Regel erhalten: Wenn nach Ablehnungen exakt ein normaler Kandidat übrig bleibt, wird dieser automatisch aufgelöst.
+- Hat der Collector lokal `NO_MATCH`, während mindestens zwei passende Haushaltsprofile demselben Remote-Handy gehören, wird die Messung vollständig an dieses Besitzer-Handy zur dortigen Entscheidung übergeben. Der Collector bietet dabei keine eigene Benutzerentscheidung an und hält nur den dauerhaften Transportzustand bis zum Abschluss.
+- Kandidatenlisten für manuelle Rescue-Anfragen dürfen keine doppelten Profil-IDs enthalten.
 - Erneutes Drücken auf „Überwachen“ bei bereits laufendem Dienst darf die UI nicht fälschlich auf `STARTET`/nicht verbundene Waage setzen.
 - Transiente Zuordnungs- und Ergebnisbenachrichtigungen werden beim Öffnen der App entfernt, die Foreground-Überwachung bleibt sichtbar.
 

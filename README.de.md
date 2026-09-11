@@ -11,13 +11,13 @@
 
 > **Kurz erklärt:** ScaleLauncher verbindet sich per authentifiziertem BLE-GATT mit der Xiaomi S400 und empfängt vollständige Messungen. In einem Haushalt mit mehreren ScaleLauncher-Handys hält jeweils ein Gerät als **Collector** die Verbindung zur Waage. Gehört die Messung einem Benutzer auf einem anderen Handy, wird sie verschlüsselt an dessen **Besitzer-Handy** weitergeleitet. Dort werden die Körperwerte berechnet und in openScale sowie optional in Health Connect gespeichert.
 
-> **Stand dieser Dokumentation: 10. September 2026**
+> **Stand dieser Dokumentation: 11. September 2026**
 
 ## Status
 
 **ScaleLauncher 1.5.1** ist weiterhin der aktuelle veröffentlichte stabile Stand.
 
-Auf dem Entwicklungszweig `ui-v1.6.0` ist **ScaleLauncher 1.6.0** als nächster Release-Kandidat vorbereitet. Die geplanten Code-Arbeiten sind abgeschlossen. Vor der Veröffentlichung folgen noch der vollständige 1.6.0-Review und die praktische Endabnahme.
+Auf dem Entwicklungszweig `ui-v1.6.0` ist **ScaleLauncher 1.6.0** als nächster Release vorbereitet. Die geplanten Code-Arbeiten, der vollständige 1.6.0-Review und die praktische Endabnahme sind erfolgreich abgeschlossen. Bis zur Veröffentlichung des Tags `v1.6.0` bleibt 1.5.1 der aktuelle stabile Release.
 
 Für 1.6.0 wurden insbesondere die dauerhafte Speicherung kritischer Zustände über Room, die openScale-Schreibsicherheit, die Wiederherstellung nach Prozess- und Bluetooth-Unterbrechungen sowie die Peer-Kommunikation weiter abgesichert. Die openScale-Anbindung verwendet nun verbindlich **Provider API 3**.
 
