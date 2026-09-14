@@ -2160,6 +2160,74 @@ final class PeerMeasurementTransport {
                 }
             };
 
+    boolean recoverVisibilityAfterPresenceLoss() {
+        if (!transportActive
+                || adapter == null
+                || !adapter.isEnabled()
+                || !hasBlePermissions()
+                || advertisingStarting
+                || sendPeer != null
+                || sendScanActive
+                || sendGatt != null
+                || !serverReceiveStates.isEmpty()
+                || !replyStates.isEmpty()) {
+            return false;
+        }
+
+        EventLog.debug(
+                context,
+                "Peer-Diagnose: Sichtbarkeits-Recovery nach verlorener Collector-Präsenz");
+
+        stopPresenceScan();
+
+        handler.removeCallbacks(
+                advertisingRetryTask);
+        advertisingRetryScheduled =
+                false;
+        advertisingRetryAttempt =
+                0;
+
+        if (advertiser != null) {
+            try {
+                advertiser.stopAdvertising(
+                        advertiseCallback);
+            } catch (RuntimeException ignored) {
+            }
+        }
+
+        advertisingActive =
+                false;
+        advertisingStarting =
+                false;
+        advertisingUpdatePending =
+                false;
+        advertisingStartedElapsedMs =
+                0L;
+        lastAdvertisingProofElapsedMs =
+                0L;
+        lastPresenceResultElapsedMs =
+                0L;
+        lastMatchedPresenceElapsedMs =
+                0L;
+
+        advertiser =
+                adapter.getBluetoothLeAdvertiser();
+        scanner =
+                adapter.getBluetoothLeScanner();
+
+        if (advertiser == null
+                || scanner == null) {
+            reportError(
+                    "BLE-Peer-Sichtbarkeits-Recovery nicht möglich");
+            return false;
+        }
+
+        startAdvertising();
+        startPresenceScan();
+
+        return true;
+    }
+
     void ensureAdvertising() {
         if (!transportActive
                 || adapter == null

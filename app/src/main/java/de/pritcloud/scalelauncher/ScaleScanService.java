@@ -54,6 +54,8 @@ public final class ScaleScanService extends Service {
     private static final int LEGACY_NOTIFICATION_TRANSFER_FAILURE = 13;
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
     private static final long REMOTE_COLLECTOR_REACHABLE_MS = 60_000L;
+    private static final long PEER_VISIBILITY_RECOVERY_COOLDOWN_MS =
+            5L * 60_000L;
     private static final long GATT_RECONNECT_BASE_MS = 5_000L;
     private static final long GATT_RECONNECT_MAX_MS = 60_000L;
     private static final long USER_SYNC_INTERVAL_MS = 15 * 60_000L;
@@ -78,6 +80,10 @@ public final class ScaleScanService extends Service {
             new java.util.HashSet<>();
 
     private final Runnable watchdogRunnable = this::runWatchdog;
+    private final Runnable peerVisibilityRecoveryRunnable =
+            () ->
+                    recoverPeerVisibilityAfterCollectorLoss(
+                            SystemClock.elapsedRealtime());
     private final Runnable gattReconnectRunnable = this::runGattReconnect;
     private boolean userSyncCompletedOnce;
 
@@ -198,6 +204,7 @@ public final class ScaleScanService extends Service {
     private int gattReconnectAttempt;
     private long lastGattFinalTimestampSeconds;
     private long lastPeerDiagnosticLogMs;
+    private long lastPeerVisibilityRecoveryMs;
     private boolean explicitStop;
     private boolean terminalError;
     private String monitorText = "";
@@ -5402,7 +5409,78 @@ public final class ScaleScanService extends Service {
                     false,
                     currentSource);
             notifyMonitor();
+
+            if (previousSource == ServiceState.CollectorSource.REMOTE
+                    && currentSource == ServiceState.CollectorSource.NONE) {
+                recoverPeerVisibilityAfterCollectorLoss(
+                        now);
+            }
         }
+    }
+
+    private void recoverPeerVisibilityAfterCollectorLoss(
+            long now) {
+        if (peerTransport == null
+                || explicitStop) {
+            return;
+        }
+
+        if (collectorSource()
+                != ServiceState.CollectorSource.NONE) {
+            handler.removeCallbacks(
+                    peerVisibilityRecoveryRunnable);
+            return;
+        }
+
+        if (lastPeerVisibilityRecoveryMs > 0L
+                && now >= lastPeerVisibilityRecoveryMs
+                && now - lastPeerVisibilityRecoveryMs
+                        < PEER_VISIBILITY_RECOVERY_COOLDOWN_MS) {
+            long remainingCooldownMs =
+                    PEER_VISIBILITY_RECOVERY_COOLDOWN_MS
+                            - (now - lastPeerVisibilityRecoveryMs);
+
+            EventLog.debug(
+                    this,
+                    "Peer-Diagnose: Sichtbarkeits-Recovery verschoben – Cooldown noch "
+                            + (remainingCooldownMs / 1000L)
+                            + " s");
+
+            handler.removeCallbacks(
+                    peerVisibilityRecoveryRunnable);
+            handler.postDelayed(
+                    peerVisibilityRecoveryRunnable,
+                    remainingCooldownMs);
+            return;
+        }
+
+        if (!peerTransport.recoverVisibilityAfterPresenceLoss()) {
+            EventLog.debug(
+                    this,
+                    "Peer-Diagnose: Sichtbarkeits-Recovery verschoben – Peer-Transport beschäftigt");
+
+            handler.removeCallbacks(
+                    peerVisibilityRecoveryRunnable);
+            handler.postDelayed(
+                    peerVisibilityRecoveryRunnable,
+                    WATCHDOG_INTERVAL_MS);
+            return;
+        }
+
+        handler.removeCallbacks(
+                peerVisibilityRecoveryRunnable);
+
+        lastPeerVisibilityRecoveryMs =
+                now;
+
+        handler.removeCallbacks(
+                peerVisibilityRecoveryRunnable);
+        handler.postDelayed(
+                peerVisibilityRecoveryRunnable,
+                PEER_VISIBILITY_RECOVERY_COOLDOWN_MS);
+
+        schedulePeerSync(
+                1_000L);
     }
 
     private void runWatchdog() {
