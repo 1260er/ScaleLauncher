@@ -2161,6 +2161,44 @@ final class PeerMeasurementTransport {
             };
 
     boolean recoverVisibilityAfterPresenceLoss() {
+        return recoverVisibility(
+                "Sichtbarkeits-Recovery nach verlorener Collector-Präsenz");
+    }
+
+    void ensureVisibilityHealth() {
+        if (!transportActive
+                || presencePeers.isEmpty()
+                || lastMatchedPresenceElapsedMs <= 0L) {
+            return;
+        }
+
+        long now =
+                SystemClock.elapsedRealtime();
+
+        if (!PeerVisibilityHealthPolicy.shouldRecover(
+                now,
+                lastMatchedPresenceElapsedMs)) {
+            return;
+        }
+
+        long silenceSeconds =
+                Math.max(
+                        0L,
+                        (now - lastMatchedPresenceElapsedMs)
+                                / 1000L);
+
+        if (!recoverVisibility(
+                "Sichtbarkeits-Recovery nach Peer-Stille ("
+                        + silenceSeconds
+                        + " s)")) {
+            EventLog.debug(
+                    context,
+                    "Peer-Diagnose: Peer-Health-Recovery verschoben – Peer-Transport beschäftigt");
+        }
+    }
+
+    private boolean recoverVisibility(
+            String reason) {
         if (!transportActive
                 || adapter == null
                 || !adapter.isEnabled()
@@ -2176,7 +2214,8 @@ final class PeerMeasurementTransport {
 
         EventLog.debug(
                 context,
-                "Peer-Diagnose: Sichtbarkeits-Recovery nach verlorener Collector-Präsenz");
+                "Peer-Diagnose: "
+                        + reason);
 
         stopPresenceScan();
 
