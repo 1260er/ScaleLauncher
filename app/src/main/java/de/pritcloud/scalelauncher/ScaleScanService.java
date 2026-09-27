@@ -196,7 +196,10 @@ public final class ScaleScanService extends Service {
     private S400GattClient gattClient;
     private PeerMeasurementTransport peerTransport;
     private boolean peerSendInFlight;
+    private boolean peerCriticalSendInFlight;
+    private int peerCriticalFailureCount;
     private int peerErrorRetryAttempt;
+    private long lastPeerTransportRestartMs;
     private boolean gattMonitoringActive;
     private boolean gattCollectorOwned;
     private boolean collectorStatusAnnounced;
@@ -340,6 +343,8 @@ public final class ScaleScanService extends Service {
                                     String messageId) {
                                 peerSendInFlight =
                                         false;
+                                peerCriticalSendInFlight =
+                                        false;
                                 peerErrorRetryAttempt = 0;
 
                                 DirectPeerMessage direct =
@@ -430,8 +435,17 @@ public final class ScaleScanService extends Service {
                             @Override
                             public void onError(
                                     String message) {
+                                boolean criticalFailure =
+                                        peerCriticalSendInFlight;
+
                                 peerSendInFlight =
                                         false;
+                                peerCriticalSendInFlight =
+                                        false;
+
+                                if (criticalFailure) {
+                                    peerCriticalFailureCount++;
+                                }
 
                                 long retryDelayMs =
                                         peerErrorRetryDelayMs();
@@ -449,6 +463,29 @@ public final class ScaleScanService extends Service {
                                     EventLog.debug(
                                             ScaleScanService.this,
                                             logMessage);
+                                }
+
+                                long now =
+                                        SystemClock.elapsedRealtime();
+
+                                if (criticalFailure
+                                        && PeerTransportRecoveryPolicy.shouldRestart(
+                                                peerCriticalFailureCount,
+                                                now,
+                                                lastPeerTransportRestartMs)) {
+                                    EventLog.warning(
+                                            ScaleScanService.this,
+                                            "Peer-Diagnose: Vollständiger Peer-Transport-Neustart nach "
+                                                    + peerCriticalFailureCount
+                                                    + " fehlgeschlagenen kritischen Sendungen");
+
+                                    lastPeerTransportRestartMs =
+                                            now;
+                                    peerErrorRetryAttempt =
+                                            0;
+
+                                    restartPeerTransport();
+                                    return;
                                 }
 
                                 schedulePeerSync(
@@ -549,6 +586,8 @@ public final class ScaleScanService extends Service {
 
         remoteCollectorLastSeenMs.clear();
         peerSendInFlight = false;
+        peerCriticalSendInFlight = false;
+        peerCriticalFailureCount = 0;
 
         if (updateCollectorState) {
             ServiceState.CollectorSource currentSource =
@@ -1033,6 +1072,9 @@ public final class ScaleScanService extends Service {
                         && peer.deviceId.equals(
                                 pending.selectedOwnerDeviceId)
                         && routeStillPending) {
+                    peerCriticalFailureCount =
+                            0;
+
                     EventLog.debug(
                             this,
                             getString(
@@ -1077,10 +1119,33 @@ public final class ScaleScanService extends Service {
                 }
             }
 
+            boolean criticalAcknowledgement =
+                    false;
+
+            for (PeerOutboxStore.Item item :
+                    PeerOutboxRoomStore.forPeer(
+                            this,
+                            peer.deviceId)) {
+                if (item != null
+                        && ack.acknowledgedMessageId.equals(
+                                item.messageId)
+                        && PeerTransportRecoveryPolicy.isCriticalKind(
+                                item.kind)) {
+                    criticalAcknowledgement =
+                            true;
+                    break;
+                }
+            }
+
             if (PeerOutboxRoomStore.remove(
                     this,
                     peer.deviceId,
                     ack.acknowledgedMessageId)) {
+                if (criticalAcknowledgement) {
+                    peerCriticalFailureCount =
+                            0;
+                }
+
                 EventLog.debug(
                         this,
                         getString(
@@ -2711,6 +2776,9 @@ public final class ScaleScanService extends Service {
                 continue;
             }
 
+            peerCriticalSendInFlight =
+                    false;
+
             if (peerTransport.send(
                     peer,
                     direct.messageId,
@@ -2761,14 +2829,23 @@ public final class ScaleScanService extends Service {
                 continue;
             }
 
+            boolean critical =
+                    PeerTransportRecoveryPolicy.isCriticalKind(
+                            item.kind);
+
             if (peerTransport.send(
                     peer,
                     item.messageId,
                     item.payload)) {
+                peerCriticalSendInFlight =
+                        critical;
                 peerSendInFlight =
                         true;
                 return;
             }
+
+            peerCriticalSendInFlight =
+                    false;
 
             schedulePeerSync(
                     PEER_SYNC_RETRY_MS);
