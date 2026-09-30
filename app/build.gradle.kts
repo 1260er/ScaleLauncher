@@ -42,8 +42,8 @@ android {
         applicationId = "de.pritcloud.scalelauncher"
         minSdk = 31
         targetSdk = 35
-        versionCode = providers.environmentVariable("SCALELAUNCHER_VERSION_CODE").orNull?.toIntOrNull() ?: 9
-        versionName = "1.7.0"
+        versionCode = providers.environmentVariable("SCALELAUNCHER_VERSION_CODE").orNull?.toIntOrNull() ?: 10
+        versionName = "1.8.0"
 
         javaCompileOptions {
             annotationProcessorOptions {
