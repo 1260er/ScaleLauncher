@@ -11,15 +11,15 @@
 
 > **In short:** ScaleLauncher connects to the Xiaomi S400 through authenticated BLE GATT and receives complete measurements. In a household with multiple ScaleLauncher phones, one device at a time acts as the **collector** and holds the scale connection. If the measurement belongs to a user on another phone, it is encrypted and forwarded to that user's **owner phone**, where body values are calculated and stored in openScale and optionally Health Connect.
 
-> **Documentation status: September 11, 2026**
+> **Documentation status: September 30, 2026**
 
 ## Status
 
-**ScaleLauncher 1.6.0** is the current published stable release.
+**ScaleLauncher 1.7.0** is the current published stable release.
 
-Version 1.6.0 completed full technical review and practical final acceptance on September 11, 2026. The stable release is published as tag `v1.6.0`.
+Version 1.7.0 completed technical review and practical final acceptance on September 30, 2026. The stable release is published as tag `v1.7.0`.
 
-For 1.6.0, durable Room storage of critical state, openScale write safety, recovery after process and Bluetooth interruptions, and peer communication have been further hardened. The openScale integration requires **Provider API 3**.
+For 1.7.0, peer visibility and transport recovery have been further hardened. The release also adds the new adaptive and monochrome launcher icon and uses English as the Android default language while retaining the German localization. The openScale integration requires **Provider API 3**.
 
 The monitoring notification also reflects the current collector and scale reachability status.
 

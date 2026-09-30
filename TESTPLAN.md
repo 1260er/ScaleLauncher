@@ -1,16 +1,29 @@
 # ScaleLauncher – Abnahme- und Regressionstestplan
 
-Stand: 11. September 2026
-Branch: `ui-v1.6.0`
-Status: **Praktische Release-Abnahme 1.6.0 erfolgreich abgeschlossen**
+Stand: 30. September 2026
+Branch: `ui-v1.7.0`
+Status: **Praktische Release-Abnahme 1.7.0 erfolgreich abgeschlossen**
 
-Abnahme-Build: `dev-311`
-Technischer Abnahme-Commit: `f508576`
-Abnahmedatum: 11. September 2026
+Abnahme-Build: `dev-318`
+Technischer Abnahme-Commit: `81aa450`
+Abnahmedatum: 30. September 2026
 
-Technische Regressionsbasis: 1.5.1 und vollständige 1.6.0-RC-Abnahme
+Technische Regressionsbasis: vollständige 1.6.0-Abnahme plus gezielte 1.7.0-Regressions- und Praxistests
 
 Für 1.6.0 wurden alle neun Testblöcke einschließlich der Mehrgeräte-, Pending-, Retry-, Collector-Failover- und Benachrichtigungspfade praktisch abgedeckt. Im Verlauf der RC-Abnahme gefundene Fehler wurden jeweils reproduziert, gezielt korrigiert und die direkt betroffenen Pfade anschließend erneut geprüft. Die abschließende Nachprüfung auf `dev-311` bestätigte insbesondere die vollständige Übergabe einer lokal nicht passenden, aber auf einem Remote-Handy mehrdeutigen Messung an dieses Besitzer-Handy sowie die unveränderte Funktion der NO_MATCH-/Rescue-Pfade.
+
+## 1.7.0 – Freigabeergänzung
+
+Die vollständige 1.6.0-Abnahme bleibt die Regressionsbasis. Für 1.7.0 wurden die geänderten Bereiche zusätzlich gezielt nachgeprüft:
+
+- Messungen am 29. und 30. September wurden trotz zwischenzeitlicher BLE-Peer-Transportfehler selbstständig vom Collector an das Besitzer-Handy übertragen und dort vollständig in openScale sowie optional Health Connect verarbeitet.
+- Für die geprüften Messungsabläufe war kein manueller Neustart der Überwachung oder des Peer-Transports erforderlich.
+- Der neue normale und monochrome Launcher wurde praktisch geprüft. Leichtes Abschneiden durch einzelne Launcher-Masken wurde als rein optisch akzeptiert; das Symbol bleibt eindeutig erkennbar.
+- Deutsch und Englisch wurden praktisch geprüft. Bei polnischer Gerätesprache wurde korrekt die englische Standardsprache verwendet.
+- `./gradlew testDebugUnitTest assembleDebug` war erfolgreich.
+- GitHub Dev Release `dev-318` auf Commit `81aa450` war erfolgreich.
+
+Die neue Eskalation nach mehreren aufeinanderfolgenden kritischen Peer-Sendefehlern wurde in den untersuchten Praxisprotokollen nicht eindeutig ausgelöst. Die Protokolle bestätigen jedoch die selbstständige Ende-zu-Ende-Erholung des Messungsflusses unter der beobachteten Transportinstabilität.
 
 ## Zweck
 

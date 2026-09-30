@@ -1,5 +1,14 @@
 # Änderungsprotokoll
 
+## 1.7.0
+
+- Peer-Sichtbarkeit nach Collector-Verlust und bei veralteten Sichtbarkeitszuständen weiter selbstheilend gemacht
+- bei wiederholten Transportfehlern kritischer persistenter Messungsnachrichten kann der Peer-Transport kontrolliert vollständig neu gestartet werden; erfolgreiche Bestätigungen setzen die Fehlerfolge zurück
+- adaptives Launcher-Icon erneuert und monochrome Material-Themed-Icon-Unterstützung ergänzt
+- Englisch als Android-Standardsprache eingerichtet; Deutsch bleibt als eigene Lokalisierung erhalten und nicht übersetzte Gerätesprachen fallen auf Englisch zurück
+- Mehrgeräte-Messungsrouting unter realer BLE-Transportinstabilität erneut praktisch geprüft
+- Sprachdarstellung und Launcher-Icon vor der Freigabe praktisch geprüft
+
 ## 1.6.0
 
 - Zeitstempel vollständiger Live-GATT-Messungen verwenden die Uhrzeit des Collector-Handys als kanonischen Messzeitpunkt; der Waagenzeitstempel bleibt nur für Diagnose und Deduplizierung relevant
