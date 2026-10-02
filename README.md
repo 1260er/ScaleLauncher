@@ -11,7 +11,7 @@
 
 > **In short:** ScaleLauncher connects to the Xiaomi S400 through authenticated BLE GATT and receives complete measurements. In a household with multiple ScaleLauncher phones, one device at a time acts as the **collector** and holds the scale connection. If the measurement belongs to a user on another phone, it is encrypted and forwarded to that user's **owner phone**, where body values are calculated and stored in openScale and optionally Health Connect.
 
-> **Documentation status: September 30, 2026**
+> **Documentation status: October 2, 2026**
 
 ## Status
 
@@ -154,7 +154,7 @@ https://github.com/1260er/ScaleLauncher
 
 ## openScale integration
 
-ScaleLauncher owns the Bluetooth connection to the S400. openScale is used as the local measurement database through **Provider API 3**. ScaleLauncher 1.6.0 accepts Provider API 3 only; Provider API 2 is deliberately rejected.
+ScaleLauncher owns the Bluetooth connection to the S400. openScale is used as the local measurement database through **Provider API 3**. ScaleLauncher 1.7.0 accepts Provider API 3 only; Provider API 2 is deliberately rejected.
 
 Therefore:
 
@@ -359,7 +359,7 @@ Acceptance date: 2026-09-02
 
 This entry remains as the historical practically tested baseline.
 
-**ScaleLauncher 1.6.0 is currently a release candidate and has not yet received final acceptance.** The full 1.6.0 review will be followed by practical final acceptance. The final acceptance build and commit will then be recorded here.
+**ScaleLauncher 1.7.0 has completed practical final acceptance.** The accepted app code was tested with `dev-318` at commit `81aa450` on September 30, 2026. The stable tag `v1.7.0` points to release commit `6a1c423`, which changed documentation only. The complete 1.6.0 acceptance remains the regression baseline. See [TESTPLAN.md](TESTPLAN.md).
 
 ## Building
 
@@ -392,7 +392,7 @@ The release source build does not require the private ScaleLauncher signing key.
 
 The official GitHub workflow for stable releases requires the private, permanently used release signing data before it can produce a signed APK.
 
-Current Android configuration of the 1.6.0 branch:
+Current Android configuration of the published 1.7.0 release:
 
 ```text
 minSdk 31
@@ -401,8 +401,8 @@ compileSdk 35
 Java source 17
 Java target 17
 Build-JDK 21
-versionCode 8
-versionName 1.6.0
+versionCode 9
+versionName 1.7.0
 ```
 
 ## License

@@ -1,0 +1,1 @@
+Peer-Sichtbarkeit und Transport-Wiederherstellung nach Bluetooth-Unterbrechungen verbessert. Kontrollierte Wiederherstellung bei wiederholten kritischen Transportfehlern ergänzt. Adaptives Launcher-Icon erneuert, monochromes Themed-Icon hinzugefügt und Englisch als Standardsprache eingerichtet. Deutsch bleibt als Übersetzung erhalten.

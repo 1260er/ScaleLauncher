@@ -64,46 +64,39 @@ Werte:
 
 Bei PKCS12 ist das Schlüsselpasswort üblicherweise identisch mit dem Keystore-Passwort.
 
-## 4. Stabile Veröffentlichung 1.4.0
+## 4. Aktueller stabiler Release
 
-Nach abgeschlossener Endabnahme und Push von Version 1.4.0:
+Der aktuelle veröffentlichte stabile Stand ist `v1.7.0` mit
+`versionName = "1.7.0"` und `versionCode = 9`.
 
-```bash
-git tag -a v1.4.0 -m "ScaleLauncher 1.4.0"
-git push origin v1.4.0
-```
+Der stabile Release-Tag zeigt auf Commit `6a1c423` und darf
+nachträglich nicht verändert werden.
 
-Der Workflow `Signed release` erzeugt:
+Der Workflow `Signed release` erzeugt für freigegebene Versionen
+eine signierte APK und die zugehörige SHA-256-Prüfsummendatei.
+Beide werden über GitHub Releases veröffentlicht.
 
-- `ScaleLauncher-1.4.0.apk`
-- `ScaleLauncher-1.4.0.apk.sha256`
-- eine GitHub Release-Seite für Obtainium und manuelle Downloads
+## 5. Weitere stabile Veröffentlichungen
 
-## 5. Jede weitere Veröffentlichung
+Vor einem neuen Release müssen `versionName` und der monoton
+steigende `versionCode` in `app/build.gradle.kts` aktualisiert werden.
 
-Vor jeder Veröffentlichung in `app/build.gradle.kts` beide Werte erhöhen, zum Beispiel:
+Ein neuer stabiler Tag darf erst nach erfolgreichem Build,
+Regressionstest und praktischer Endabnahme erstellt werden.
 
-```kotlin
-versionCode = 6
-versionName = "1.5.0"
-```
+Die Tag-Version muss exakt mit `versionName` übereinstimmen.
+Der Release-Workflow prüft dies und bricht bei Abweichungen ab.
 
-Dann committen, pushen und den passenden Tag setzen:
-
-```bash
-git tag -a v1.5.0 -m "ScaleLauncher 1.5.0"
-git push origin v1.5.0
-```
-
-Die Tag-Version muss exakt mit `versionName` übereinstimmen. Der Release-Workflow bricht
-ansonsten absichtlich ab.
+Reine Dokumentationsänderungen nach einem stabilen Release
+dürfen weder dessen Tag verändern noch einen neuen Release
+auslösen.
 
 ## 6. Unabhängiger F-Droid-Quellbuild
 
 Vor dem stabilen Tag muss der Release-Build ohne private Signierschlüssel erfolgreich durchlaufen:
 
 ```bash
-env -u SCALELAUNCHER_KEYSTORE_PATH -u SCALELAUNCHER_KEYSTORE_PASSWORD -u SCALELAUNCHER_KEY_ALIAS -u SCALELAUNCHER_KEY_PASSWORD -u SCALELAUNCHER_REQUIRE_RELEASE_SIGNING gradle --no-daemon clean testDebugUnitTest assembleRelease
+env -u SCALELAUNCHER_KEYSTORE_PATH -u SCALELAUNCHER_KEYSTORE_PASSWORD -u SCALELAUNCHER_KEY_ALIAS -u SCALELAUNCHER_KEY_PASSWORD -u SCALELAUNCHER_REQUIRE_RELEASE_SIGNING ./gradlew --no-daemon clean testDebugUnitTest assembleRelease
 ```
 
 Dieser Build darf keinen privaten ScaleLauncher-Signierschlüssel voraussetzen. Die offizielle GitHub-Veröffentlichung verwendet dagegen weiterhin die dauerhaft hinterlegte Release-Signatur.

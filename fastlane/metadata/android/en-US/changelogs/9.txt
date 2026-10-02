@@ -1,0 +1,1 @@
+Improved peer visibility and transport recovery after Bluetooth interruptions. Added controlled recovery after repeated critical transport failures, a refreshed adaptive launcher icon, monochrome themed icon support, and English as the default language while retaining German localization.

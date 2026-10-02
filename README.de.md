@@ -11,7 +11,7 @@
 
 > **Kurz erklärt:** ScaleLauncher verbindet sich per authentifiziertem BLE-GATT mit der Xiaomi S400 und empfängt vollständige Messungen. In einem Haushalt mit mehreren ScaleLauncher-Handys hält jeweils ein Gerät als **Collector** die Verbindung zur Waage. Gehört die Messung einem Benutzer auf einem anderen Handy, wird sie verschlüsselt an dessen **Besitzer-Handy** weitergeleitet. Dort werden die Körperwerte berechnet und in openScale sowie optional in Health Connect gespeichert.
 
-> **Stand dieser Dokumentation: 30. September 2026**
+> **Stand dieser Dokumentation: 2. Oktober 2026**
 
 ## Status
 
@@ -154,7 +154,7 @@ https://github.com/1260er/ScaleLauncher
 
 ## openScale-Integration
 
-ScaleLauncher übernimmt die Bluetooth-Verbindung zur S400. openScale dient über **Provider API 3** als lokale Messdatenbank. ScaleLauncher 1.6.0 akzeptiert ausschließlich Provider API 3; Provider API 2 wird bewusst abgelehnt.
+ScaleLauncher übernimmt die Bluetooth-Verbindung zur S400. openScale dient über **Provider API 3** als lokale Messdatenbank. ScaleLauncher 1.7.0 akzeptiert ausschließlich Provider API 3; Provider API 2 wird bewusst abgelehnt.
 
 Deshalb gilt:
 
@@ -359,7 +359,7 @@ Abnahmedatum: 2026-09-02
 
 Dieser Eintrag bleibt als historische praktisch getestete Basis erhalten.
 
-**ScaleLauncher 1.6.0 ist derzeit Release-Kandidat und noch nicht final abgenommen.** Nach dem vollständigen 1.6.0-Review folgt die praktische Endabnahme. Der endgültige Abnahme-Build und Commit werden anschließend hier eingetragen.
+**ScaleLauncher 1.7.0 wurde praktisch final abgenommen.** Der abgenommene App-Code wurde am 30. September 2026 mit `dev-318` auf Commit `81aa450` getestet. Der stabile Tag `v1.7.0` zeigt auf Release-Commit `6a1c423`, der ausschließlich die Dokumentation änderte. Die vollständige Abnahme von 1.6.0 bleibt die Regressionsbasis. Siehe [TESTPLAN.md](TESTPLAN.md).
 
 ## Projekt bauen
 
@@ -392,7 +392,7 @@ Der Release-Quellbuild benötigt keinen privaten ScaleLauncher-Signierschlüssel
 
 Der offizielle GitHub-Workflow für stabile Releases verlangt die privaten, dauerhaft verwendeten Release-Signierdaten, bevor eine signierte APK erzeugt werden kann.
 
-Aktuelle Android-Konfiguration des 1.6.0-Zweigs:
+Aktuelle Android-Konfiguration des veröffentlichten Releases 1.7.0:
 
 ```text
 minSdk 31
@@ -401,8 +401,8 @@ compileSdk 35
 Java source 17
 Java target 17
 Build-JDK 21
-versionCode 8
-versionName 1.6.0
+versionCode 9
+versionName 1.7.0
 ```
 
 ## Lizenz
