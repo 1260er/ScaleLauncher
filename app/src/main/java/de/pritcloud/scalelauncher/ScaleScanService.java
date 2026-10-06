@@ -198,6 +198,7 @@ public final class ScaleScanService extends Service {
     private boolean peerSendInFlight;
     private boolean peerCriticalSendInFlight;
     private int peerCriticalFailureCount;
+    private int peerTransportFailureCount;
     private int peerErrorRetryAttempt;
     private long lastPeerTransportRestartMs;
     private boolean gattMonitoringActive;
@@ -330,6 +331,7 @@ public final class ScaleScanService extends Service {
                             public void onMessageReceived(
                                     PeerTrustStore.Peer peer,
                                     String payload) {
+                                peerTransportFailureCount = 0;
                                 peerErrorRetryAttempt = 0;
 
                                 handlePeerMessage(
@@ -345,6 +347,7 @@ public final class ScaleScanService extends Service {
                                         false;
                                 peerCriticalSendInFlight =
                                         false;
+                                peerTransportFailureCount = 0;
                                 peerErrorRetryAttempt = 0;
 
                                 DirectPeerMessage direct =
@@ -435,6 +438,8 @@ public final class ScaleScanService extends Service {
                             @Override
                             public void onError(
                                     String message) {
+                                boolean sendFailure =
+                                        peerSendInFlight;
                                 boolean criticalFailure =
                                         peerCriticalSendInFlight;
 
@@ -442,6 +447,10 @@ public final class ScaleScanService extends Service {
                                         false;
                                 peerCriticalSendInFlight =
                                         false;
+
+                                if (sendFailure) {
+                                    peerTransportFailureCount++;
+                                }
 
                                 if (criticalFailure) {
                                     peerCriticalFailureCount++;
@@ -478,6 +487,26 @@ public final class ScaleScanService extends Service {
                                             "Peer-Diagnose: Vollständiger Peer-Transport-Neustart nach "
                                                     + peerCriticalFailureCount
                                                     + " fehlgeschlagenen kritischen Sendungen");
+
+                                    lastPeerTransportRestartMs =
+                                            now;
+                                    peerErrorRetryAttempt =
+                                            0;
+
+                                    restartPeerTransport();
+                                    return;
+                                }
+
+                                if (sendFailure
+                                        && PeerTransportRecoveryPolicy.shouldRestart(
+                                                peerTransportFailureCount,
+                                                now,
+                                                lastPeerTransportRestartMs)) {
+                                    EventLog.warning(
+                                            ScaleScanService.this,
+                                            "Peer-Diagnose: Vollständiger Peer-Transport-Neustart nach "
+                                                    + peerTransportFailureCount
+                                                    + " fehlgeschlagenen BLE-Sendungen");
 
                                     lastPeerTransportRestartMs =
                                             now;
@@ -588,6 +617,7 @@ public final class ScaleScanService extends Service {
         peerSendInFlight = false;
         peerCriticalSendInFlight = false;
         peerCriticalFailureCount = 0;
+        peerTransportFailureCount = 0;
 
         if (updateCollectorState) {
             ServiceState.CollectorSource currentSource =
