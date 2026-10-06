@@ -13,6 +13,7 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 
 import java.io.ByteArrayOutputStream;
 import java.security.SecureRandom;
@@ -33,6 +34,8 @@ import java.util.UUID;
 public final class S400GattClient {
     private static final long CONNECT_TIMEOUT_MS = 30_000L;
     private static final long AUTH_TIMEOUT_MS = 8_000L;
+    private static final long READY_LIVENESS_IDLE_MS = 2L * 60_000L;
+    private static final long READY_LIVENESS_TIMEOUT_MS = 15_000L;
     private static final long DEVICE_SETTLE_MS = 300L;
     private static final long PARCEL_FRAME_DELAY_MS = 50L;
 
@@ -122,6 +125,17 @@ public final class S400GattClient {
     private ByteArrayOutputStream cmtpBuffer = new ByteArrayOutputStream();
 
     private boolean intentionalDisconnect;
+    private long lastGattActivityElapsedMs;
+    private boolean livenessProbeInFlight;
+
+    private final Runnable livenessTimeoutRunnable = () -> {
+        if (!livenessProbeInFlight || !isReady()) {
+            return;
+        }
+
+        livenessProbeInFlight = false;
+        fail("GATT-Liveness-Prüfung hat das Zeitlimit überschritten");
+    };
 
     private final Runnable connectTimeoutRunnable = () -> {
         if (state != State.READY && state != State.DISCONNECTED) {
@@ -148,6 +162,10 @@ public final class S400GattClient {
         return state == State.READY
                 && authStep == AuthStep.READY
                 && sessionKeys != null;
+    }
+
+    public void ensureLiveness() {
+        handler.post(this::ensureLivenessInternal);
     }
 
     @SuppressLint("MissingPermission")
@@ -308,7 +326,90 @@ public final class S400GattClient {
                         safe);
             });
         }
+
+        @Override
+        public void onReadRemoteRssi(
+                BluetoothGatt callbackGatt,
+                int rssi,
+                int status) {
+            handler.post(() ->
+                    handleReadRemoteRssi(
+                            callbackGatt,
+                            status));
+        }
     };
+
+    @SuppressLint("MissingPermission")
+    private void ensureLivenessInternal() {
+        if (!isReady()
+                || gatt == null
+                || livenessProbeInFlight
+                || writeInProgress) {
+            return;
+        }
+
+        long now =
+                SystemClock.elapsedRealtime();
+
+        if (lastGattActivityElapsedMs > 0L
+                && now >= lastGattActivityElapsedMs
+                && now - lastGattActivityElapsedMs
+                        < READY_LIVENESS_IDLE_MS) {
+            return;
+        }
+
+        livenessProbeInFlight = true;
+
+        final boolean started;
+
+        try {
+            started =
+                    gatt.readRemoteRssi();
+        } catch (RuntimeException exception) {
+            livenessProbeInFlight = false;
+            fail("GATT-Liveness-Prüfung konnte nicht gestartet werden: "
+                    + exception.getClass().getSimpleName());
+            return;
+        }
+
+        if (!started) {
+            livenessProbeInFlight = false;
+            fail("Android hat die GATT-Liveness-Prüfung abgelehnt");
+            return;
+        }
+
+        handler.removeCallbacks(
+                livenessTimeoutRunnable);
+        handler.postDelayed(
+                livenessTimeoutRunnable,
+                READY_LIVENESS_TIMEOUT_MS);
+    }
+
+    private void handleReadRemoteRssi(
+            BluetoothGatt callbackGatt,
+            int status) {
+        if (callbackGatt != gatt
+                || !livenessProbeInFlight) {
+            return;
+        }
+
+        livenessProbeInFlight = false;
+        handler.removeCallbacks(
+                livenessTimeoutRunnable);
+
+        if (status != BluetoothGatt.GATT_SUCCESS) {
+            fail("GATT-Liveness-Prüfung fehlgeschlagen: "
+                    + status);
+            return;
+        }
+
+        touchGattActivity();
+    }
+
+    private void touchGattActivity() {
+        lastGattActivityElapsedMs =
+                SystemClock.elapsedRealtime();
+    }
 
     @SuppressLint("MissingPermission")
     private void handleConnectionState(BluetoothGatt callbackGatt,
@@ -496,6 +597,8 @@ public final class S400GattClient {
 
     private void handleCharacteristicChanged(UUID uuid, byte[] value) {
         if (value == null || value.length == 0) return;
+
+        touchGattActivity();
 
         if (S400GattProtocol.AVDTP.equals(uuid)) {
             handleAvdtp(value);
@@ -959,6 +1062,9 @@ public final class S400GattClient {
     private void closeGatt(boolean requestDisconnect) {
         handler.removeCallbacks(authTimeoutRunnable);
         handler.removeCallbacks(connectTimeoutRunnable);
+        handler.removeCallbacks(livenessTimeoutRunnable);
+        livenessProbeInFlight = false;
+        lastGattActivityElapsedMs = 0L;
 
         BluetoothGatt oldGatt = gatt;
         gatt = null;

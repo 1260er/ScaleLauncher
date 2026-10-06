@@ -5640,6 +5640,8 @@ public final class ScaleScanService extends Service {
                     connectGattCollector();
                 }
             } else {
+                gattClient.ensureLiveness();
+
                 boolean ready =
                         gattCollectorOwned && gattClient.isReady();
                 ServiceState.heartbeat(
