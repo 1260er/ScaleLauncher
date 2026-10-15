@@ -9,6 +9,7 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.BluetoothLeScanner;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -53,6 +54,11 @@ public final class ScaleScanService extends Service {
     private static final int NOTIFICATION_RESULT = 12;
     private static final int LEGACY_NOTIFICATION_TRANSFER_FAILURE = 13;
     private static final long WATCHDOG_INTERVAL_MS = 15_000L;
+    private static final long S400_PROBE_MIN_CONNECTING_MS =
+            10L * 60_000L;
+    private static final long S400_PROBE_DURATION_MS = 20_000L;
+    private static final long S400_PROBE_COOLDOWN_MS =
+            30L * 60_000L;
     private static final long REMOTE_COLLECTOR_REACHABLE_MS = 60_000L;
     private static final long PEER_VISIBILITY_RECOVERY_COOLDOWN_MS =
             5L * 60_000L;
@@ -194,6 +200,9 @@ public final class ScaleScanService extends Service {
     private boolean bluetoothStateReceiverRegistered;
 
     private S400GattClient gattClient;
+    private final S400PresenceProbe s400PresenceProbe =
+            new S400PresenceProbe();
+    private long lastS400ProbeAttemptMs;
     private long gattClientGeneration;
     private PeerMeasurementTransport peerTransport;
     private boolean peerSendInFlight;
@@ -2930,6 +2939,7 @@ public final class ScaleScanService extends Service {
     }
 
     private void scheduleGattReconnect(String reason) {
+        s400PresenceProbe.stop();
         if (!gattMonitoringActive
                 || explicitStop
                 || terminalError
@@ -2996,6 +3006,7 @@ public final class ScaleScanService extends Service {
     }
 
     private void stopGattCollector() {
+        s400PresenceProbe.stop();
         gattMonitoringActive = false;
         gattCollectorOwned = false;
         gattReconnectScheduled = false;
@@ -5722,12 +5733,132 @@ public final class ScaleScanService extends Service {
                 peerTransport.ensureAdvertising();
                 peerTransport.ensurePresenceScan();
             }
+
+            observeS400Connecting(adapter);
+        }
+
+        if (terminalError) {
+            s400PresenceProbe.stop();
         }
 
         handler.removeCallbacks(watchdogRunnable);
         handler.postDelayed(
                 watchdogRunnable,
                 WATCHDOG_INTERVAL_MS);
+    }
+
+    private void observeS400Connecting(
+            BluetoothAdapter adapter) {
+        S400GattClient observedClient = gattClient;
+
+        if (!gattMonitoringActive
+                || explicitStop
+                || terminalError
+                || gattReconnectScheduled
+                || collectorSource()
+                        != ServiceState.CollectorSource.NONE
+                || peerSendInFlight
+                || peerCriticalSendInFlight
+                || adapter == null
+                || !adapter.isEnabled()
+                || observedClient == null
+                || observedClient.getState()
+                        != S400GattClient.State.CONNECTING
+                || observedClient.getConnectingAgeMs()
+                        < S400_PROBE_MIN_CONNECTING_MS
+                || checkSelfPermission(
+                        Manifest.permission.BLUETOOTH_SCAN)
+                        != PackageManager.PERMISSION_GRANTED) {
+            s400PresenceProbe.stop();
+            return;
+        }
+
+        if (s400PresenceProbe.isActive()) {
+            return;
+        }
+
+        long now = SystemClock.elapsedRealtime();
+
+        if (lastS400ProbeAttemptMs > 0L
+                && now >= lastS400ProbeAttemptMs
+                && now - lastS400ProbeAttemptMs
+                        < S400_PROBE_COOLDOWN_MS) {
+            return;
+        }
+
+        String mac = getSharedPreferences(
+                "prefs", MODE_PRIVATE)
+                .getString("mac", "");
+
+        if (!S400GattProtocol.isValidMacAddress(mac)) {
+            return;
+        }
+
+        BluetoothLeScanner scanner =
+                adapter.getBluetoothLeScanner();
+
+        lastS400ProbeAttemptMs = now;
+        final boolean[] detected = {false};
+
+        boolean started = s400PresenceProbe.start(
+                scanner,
+                mac,
+                S400_PROBE_DURATION_MS,
+                new S400PresenceProbe.Listener() {
+                    @Override
+                    public void onSeen(long elapsedMs) {
+                        if (gattClient != observedClient
+                                || !gattMonitoringActive
+                                || collectorSource()
+                                        != ServiceState.CollectorSource.NONE
+                                || observedClient.getState()
+                                        != S400GattClient.State.CONNECTING) {
+                            s400PresenceProbe.stop();
+                            return;
+                        }
+
+                        if (!detected[0]) {
+                            detected[0] = true;
+                            long signalAgeMs = Math.max(
+                                    0L,
+                                    SystemClock.elapsedRealtime() - elapsedMs);
+                            EventLog.info(
+                                    ScaleScanService.this,
+                                    "S400-Probe: Waagensignal beobachtet"
+                                            + " – signalAgeMs="
+                                            + signalAgeMs
+                                            + " connectingAgeMs="
+                                            + observedClient.getConnectingAgeMs());
+                        }
+                    }
+
+                    @Override
+                    public void onScanFailed(int errorCode) {
+                        EventLog.debug(
+                                ScaleScanService.this,
+                                "S400-Probe: Scanfehler "
+                                        + errorCode);
+                    }
+
+                    @Override
+                    public void onCompleted(boolean scaleSeen) {
+                        EventLog.debug(
+                                ScaleScanService.this,
+                                (scaleSeen
+                                        ? "S400-Probe: Scan beendet – Waage erkannt"
+                                        : "S400-Probe: Scan beendet – kein passendes Signal")
+                                        + " scanElapsedMs="
+                                        + Math.max(
+                                                0L,
+                                                SystemClock.elapsedRealtime() - now));
+                    }
+                });
+
+        EventLog.debug(
+                this,
+                started
+                        ? "S400-Probe: Beobachtung gestartet"
+                        : "S400-Probe: Scanstart nicht möglich");
     }
 
     private void enterTerminalError(String reason) {
