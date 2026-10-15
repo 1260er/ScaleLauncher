@@ -97,6 +97,38 @@ public final class S400ConnectingRecoveryPolicyTest {
     }
 
     @Test
+    public void firstFreshProbeResultIsEligible() {
+        assertTrue(S400ConnectingRecoveryPolicy.shouldRecover(
+                false, true, 660_000L,
+                100L, 100L, Long.MAX_VALUE,
+                600_000L, 0L, 5_000L, 1_800_000L));
+    }
+
+    @Test
+    public void freshProbeCannotOverrideRemoteCollector() {
+        assertFalse(S400ConnectingRecoveryPolicy.shouldRecover(
+                true, true, 660_000L,
+                100L, 100L, Long.MAX_VALUE,
+                600_000L, 0L, 5_000L, 1_800_000L));
+    }
+
+    @Test
+    public void oldProbeResultCannotTriggerRecovery() {
+        assertFalse(S400ConnectingRecoveryPolicy.shouldRecover(
+                false, true, 660_000L,
+                6_000L, 6_000L, Long.MAX_VALUE,
+                600_000L, 0L, 5_000L, 1_800_000L));
+    }
+
+    @Test
+    public void freshProbeRespectsRecoveryCooldown() {
+        assertFalse(S400ConnectingRecoveryPolicy.shouldRecover(
+                false, true, 660_000L,
+                100L, 100L, 60_000L,
+                600_000L, 0L, 5_000L, 1_800_000L));
+    }
+
+    @Test
     public void unknownAgeOrInvalidThresholdBlocksRecovery() {
         assertFalse(decide(false, true, -1L,
                 8_000L, Long.MAX_VALUE));
