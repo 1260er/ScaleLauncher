@@ -77,6 +77,11 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <receiver
+            android:name=".S400WakeupReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <receiver android:name=".BootReceiver" android:enabled="true" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
