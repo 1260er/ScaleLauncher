@@ -33,6 +33,7 @@ import java.util.UUID;
  */
 public final class S400GattClient {
     private static final long CONNECT_TIMEOUT_MS = 30_000L;
+    private static long nextConnectAttemptId;
     private static final long AUTH_TIMEOUT_MS = 8_000L;
     private static final long READY_LIVENESS_IDLE_MS = 2L * 60_000L;
     private static final long READY_LIVENESS_TIMEOUT_MS = 15_000L;
@@ -125,6 +126,8 @@ public final class S400GattClient {
     private ByteArrayOutputStream cmtpBuffer = new ByteArrayOutputStream();
 
     private boolean intentionalDisconnect;
+    private long connectStartedElapsedMs;
+    private long connectAttemptId;
     private long lastGattActivityElapsedMs;
     private boolean livenessProbeInFlight;
 
@@ -156,6 +159,15 @@ public final class S400GattClient {
 
     public State getState() {
         return state;
+    }
+
+    public long getConnectingAgeMs() {
+        if (state != State.CONNECTING
+                || connectStartedElapsedMs == 0L) {
+            return -1L;
+        }
+        return Math.max(0L,
+                SystemClock.elapsedRealtime() - connectStartedElapsedMs);
     }
 
     public boolean isReady() {
@@ -201,7 +213,14 @@ public final class S400GattClient {
         resetProtocolState();
         token = S400GattProtocol.hex(loginTokenHex);
         intentionalDisconnect = false;
+        connectAttemptId = ++nextConnectAttemptId;
+        connectStartedElapsedMs = SystemClock.elapsedRealtime();
         setState(State.CONNECTING);
+
+        EventLog.debug(context,
+                "S400-GATT Diagnose: start attempt=" + connectAttemptId
+                        + " autoConnect=" + autoConnect
+                        + " elapsedMs=" + connectStartedElapsedMs);
 
         try {
             gatt = device.connectGatt(
@@ -416,6 +435,14 @@ public final class S400GattClient {
                                        int status,
                                        int newState) {
         if (callbackGatt != gatt) return;
+
+        EventLog.debug(context,
+                "S400-GATT Diagnose: callback attempt=" + connectAttemptId
+                        + " status=" + status
+                        + " newState=" + newState
+                        + " ageMs="
+                        + (SystemClock.elapsedRealtime()
+                                - connectStartedElapsedMs));
 
         if (status == BluetoothGatt.GATT_SUCCESS
                 && newState == BluetoothProfile.STATE_CONNECTED) {

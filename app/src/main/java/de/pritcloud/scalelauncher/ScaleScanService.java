@@ -5467,6 +5467,11 @@ public final class ScaleScanService extends Service {
                         ? "none"
                         : gattClient.getState().name();
 
+        long gattConnectingAgeMs =
+                gattClient == null
+                        ? -1L
+                        : gattClient.getConnectingAgeMs();
+
         EventLog.debug(
                 this,
                 "Collector-Diagnose: source="
@@ -5479,6 +5484,8 @@ public final class ScaleScanService extends Service {
                         + gattMonitoringActive
                         + " gattState="
                         + gattState
+                        + " gattConnectingAgeMs="
+                        + gattConnectingAgeMs
                         + " reconnectScheduled="
                         + gattReconnectScheduled
                         + " reconnectAttempt="
