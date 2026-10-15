@@ -40,7 +40,10 @@ public final class BootReceiver extends BroadcastReceiver {
 
             EventLog.info(
                     context,
-                    context.getString(R.string.boot_start_requested));
+                    context.getString(R.string.boot_start_requested)
+                            + " | action=" + action
+                            + " | pid=" + android.os.Process.myPid()
+                            + " | elapsedMs=" + android.os.SystemClock.elapsedRealtime());
         } catch (RuntimeException e) {
             String detail = e.getMessage();
 

@@ -255,12 +255,24 @@ public final class ScaleScanService extends Service {
                 1_000L);
 
         EventLog.info(this, getString(R.string.log_service_started));
+        EventLog.info(this, "Service-Diagnose: onCreate"
+                + " | pid=" + android.os.Process.myPid()
+                + " | elapsedMs=" + android.os.SystemClock.elapsedRealtime());
         updateAssignmentNotification();
         handler.post(userSyncRunnable);
         handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS);
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        String startAction = intent == null ? null : intent.getAction();
+        if (startAction == null || flags != 0) {
+            EventLog.info(this, "Service-Diagnose: onStartCommand"
+                    + " | action=" + startAction
+                    + " | flags=" + flags
+                    + " | startId=" + startId
+                    + " | pid=" + android.os.Process.myPid()
+                    + " | elapsedMs=" + android.os.SystemClock.elapsedRealtime());
+        }
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             explicitStop = true;
             invalidateVisibleStatusCallbacks();
