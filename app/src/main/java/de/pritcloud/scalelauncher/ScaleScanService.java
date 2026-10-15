@@ -5734,6 +5734,7 @@ public final class ScaleScanService extends Service {
                 peerTransport.ensurePresenceScan();
             }
 
+            s400PresenceProbe.expireIfOverdue();
             observeS400Connecting(adapter);
         }
 

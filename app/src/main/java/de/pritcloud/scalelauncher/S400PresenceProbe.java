@@ -26,6 +26,7 @@ final class S400PresenceProbe {
     private BluetoothLeScanner scanner;
     private ScanCallback callback;
     private Runnable stopTask;
+    private long deadlineElapsedMs;
 
     boolean isActive() {
         return callback != null;
@@ -84,20 +85,25 @@ final class S400PresenceProbe {
                         return;
                     }
 
+                    long receivedElapsedMs =
+                            SystemClock.elapsedRealtime();
+
+                    if (receivedElapsedMs >= deadlineElapsedMs) {
+                        stop();
+                        listener.onCompleted(false);
+                        return;
+                    }
+
                     if (address.equalsIgnoreCase(seenAddress)
                             && seenAt >= startedElapsedMs
-                            && seenAt <= deadlineElapsedMs) {
+                            && seenAt <= receivedElapsedMs
+                            && receivedElapsedMs - seenAt <= 5_000L) {
                         stop();
                         listener.onSeen(seenAt);
                         listener.onCompleted(true);
                         return;
                     }
 
-                    if (SystemClock.elapsedRealtime()
-                            >= deadlineElapsedMs) {
-                        stop();
-                        listener.onCompleted(false);
-                    }
                 });
             }
 
@@ -124,6 +130,7 @@ final class S400PresenceProbe {
 
         scanner = candidate;
         callback = nextCallback;
+        this.deadlineElapsedMs = deadlineElapsedMs;
         stopTask = () -> {
             if (callback != nextCallback) {
                 return;
@@ -133,6 +140,14 @@ final class S400PresenceProbe {
         };
         handler.postDelayed(stopTask, durationMs);
         return true;
+    }
+
+    void expireIfOverdue() {
+        if (stopTask != null
+                && SystemClock.elapsedRealtime()
+                        >= deadlineElapsedMs) {
+            stopTask.run();
+        }
     }
 
     void stop() {
@@ -145,6 +160,7 @@ final class S400PresenceProbe {
         ScanCallback previousCallback = callback;
         scanner = null;
         callback = null;
+        deadlineElapsedMs = 0L;
 
         if (previousScanner != null
                 && previousCallback != null) {
