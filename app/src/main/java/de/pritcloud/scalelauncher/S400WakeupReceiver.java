@@ -46,10 +46,21 @@ public final class S400WakeupReceiver extends BroadcastReceiver {
         }
 
         if (intent.hasExtra(BluetoothLeScanner.EXTRA_ERROR_CODE)) {
-            EventLog.debug(context,
-                    "S400-Wakeup: Scanfehler "
-                            + intent.getIntExtra(
-                                    BluetoothLeScanner.EXTRA_ERROR_CODE, -1));
+            int code = intent.getIntExtra(
+                    BluetoothLeScanner.EXTRA_ERROR_CODE, -1);
+
+            context.getSharedPreferences(
+                    "s400_wakeup_diagnostics",
+                    Context.MODE_PRIVATE)
+                    .edit()
+                    .putLong(
+                            "last_scan_error_elapsed_ms",
+                            SystemClock.elapsedRealtime())
+                    .apply();
+
+            EventLog.warning(
+                    context,
+                    "S400-Wakeup: Scanfehler " + code);
             return;
         }
 

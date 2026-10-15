@@ -185,6 +185,10 @@ public final class ScaleScanService extends Service {
                         gattReconnectScheduled = false;
                         gattReconnectAttempt = 0;
 
+                        if (s400WakeupScanStopPending) {
+                            stopS400WakeupScan();
+                        }
+
                         restartPeerTransport();
 
                         if (gattMonitoringActive
@@ -200,6 +204,12 @@ public final class ScaleScanService extends Service {
     private boolean bluetoothStateReceiverRegistered;
 
     private S400GattClient gattClient;
+    private static final long S400_WAKEUP_SCAN_RETRY_MS =
+            5L * 60_000L;
+    private boolean s400WakeupScanRegistered;
+    private boolean s400WakeupScanStopPending;
+    private long lastS400WakeupScanAttemptMs;
+
     private final S400PresenceProbe s400PresenceProbe =
             new S400PresenceProbe();
     private long lastS400ProbeAttemptMs;
@@ -238,6 +248,9 @@ public final class ScaleScanService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
+        // Retry cleanup if Bluetooth was unavailable after process death.
+        s400WakeupScanStopPending =
+                !S400WakeupScan.stop(this);
         createChannels();
 
         setMonitorText(
@@ -285,6 +298,7 @@ public final class ScaleScanService extends Service {
         }
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             explicitStop = true;
+            stopS400WakeupScan();
             invalidateVisibleStatusCallbacks();
             ServiceState.stopped(this, getString(R.string.service_stopped_by_user));
             stopSelf();
@@ -895,6 +909,7 @@ public final class ScaleScanService extends Service {
                     @Override public void onAuthenticated() {
                         if (generation != gattClientGeneration
                                 || gattClient == null) return;
+                        stopS400WakeupScan();
                         setCollectorOwned(
                                 true,
                                 false);
@@ -2940,6 +2955,7 @@ public final class ScaleScanService extends Service {
 
     private void scheduleGattReconnect(String reason) {
         s400PresenceProbe.stop();
+        stopS400WakeupScan();
         if (!gattMonitoringActive
                 || explicitStop
                 || terminalError
@@ -3007,6 +3023,7 @@ public final class ScaleScanService extends Service {
 
     private void stopGattCollector() {
         s400PresenceProbe.stop();
+        stopS400WakeupScan();
         gattMonitoringActive = false;
         gattCollectorOwned = false;
         gattReconnectScheduled = false;
@@ -5735,7 +5752,13 @@ public final class ScaleScanService extends Service {
             }
 
             s400PresenceProbe.expireIfOverdue();
-            observeS400Connecting(adapter);
+            updateS400WakeupScan(adapter);
+
+            if (s400WakeupScanRegistered) {
+                s400PresenceProbe.stop();
+            } else {
+                observeS400Connecting(adapter);
+            }
         }
 
         if (terminalError) {
@@ -5746,6 +5769,139 @@ public final class ScaleScanService extends Service {
         handler.postDelayed(
                 watchdogRunnable,
                 WATCHDOG_INTERVAL_MS);
+    }
+
+    private void stopS400WakeupScan() {
+        if (!s400WakeupScanRegistered
+                && !s400WakeupScanStopPending) {
+            return;
+        }
+
+        boolean stopped = S400WakeupScan.stop(this);
+
+        if (!stopped) {
+            s400WakeupScanStopPending = true;
+            EventLog.debug(
+                    this,
+                    "S400-Wakeup: Scan-Abmeldung ausstehend");
+            return;
+        }
+
+        s400WakeupScanRegistered = false;
+        s400WakeupScanStopPending = false;
+
+        EventLog.debug(
+                this,
+                "S400-Wakeup: Scan abgemeldet");
+    }
+
+    private void updateS400WakeupScan(
+            BluetoothAdapter adapter) {
+
+        if (s400WakeupScanStopPending) {
+            if (adapter != null && adapter.isEnabled()) {
+                stopS400WakeupScan();
+            }
+
+            if (s400WakeupScanStopPending) {
+                return;
+            }
+        }
+
+        S400GattClient current = gattClient;
+
+        boolean eligible =
+                gattMonitoringActive
+                && !explicitStop
+                && !terminalError
+                && !gattReconnectScheduled
+                && collectorSource()
+                        == ServiceState.CollectorSource.NONE
+                && current != null
+                && current.getState()
+                        == S400GattClient.State.CONNECTING
+                && current.getConnectingAgeMs()
+                        >= S400_PROBE_MIN_CONNECTING_MS
+                && adapter != null
+                && adapter.isEnabled()
+                && checkSelfPermission(
+                        Manifest.permission.BLUETOOTH_SCAN)
+                        == PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(
+                        Manifest.permission.BLUETOOTH_CONNECT)
+                        == PackageManager.PERMISSION_GRANTED;
+
+        if (!eligible) {
+            stopS400WakeupScan();
+            return;
+        }
+
+        if (s400WakeupScanRegistered) {
+            long errorAt = getSharedPreferences(
+                    "s400_wakeup_diagnostics",
+                    MODE_PRIVATE)
+                    .getLong(
+                            "last_scan_error_elapsed_ms",
+                            -1L);
+
+            long checkedAt = SystemClock.elapsedRealtime();
+
+            if (errorAt >= lastS400WakeupScanAttemptMs
+                    && errorAt <= checkedAt) {
+                EventLog.warning(
+                        this,
+                        "S400-Wakeup: Scanfehler erkannt"
+                                + " – Registrierung wird zurückgesetzt");
+                stopS400WakeupScan();
+            } else {
+                return;
+            }
+        }
+
+        long now = SystemClock.elapsedRealtime();
+
+        if (lastS400WakeupScanAttemptMs > 0L
+                && now >= lastS400WakeupScanAttemptMs
+                && now - lastS400WakeupScanAttemptMs
+                        < S400_WAKEUP_SCAN_RETRY_MS) {
+            return;
+        }
+
+        String mac = getSharedPreferences(
+                "prefs", MODE_PRIVATE)
+                .getString("mac", "");
+
+        if (!S400GattProtocol.isValidMacAddress(mac)) {
+            return;
+        }
+
+        getSharedPreferences(
+                "s400_wakeup_diagnostics",
+                MODE_PRIVATE)
+                .edit()
+                .remove("last_scan_error_elapsed_ms")
+                .apply();
+
+        lastS400WakeupScanAttemptMs = now;
+
+        int result = S400WakeupScan.start(this, mac);
+
+        if (result == 0
+                || result == android.bluetooth.le.ScanCallback
+                        .SCAN_FAILED_ALREADY_STARTED) {
+            s400WakeupScanRegistered = true;
+            s400PresenceProbe.stop();
+
+            EventLog.debug(
+                    this,
+                    "S400-Wakeup: Scan registriert – code="
+                            + result);
+        } else {
+            EventLog.debug(
+                    this,
+                    "S400-Wakeup: Registrierung nicht möglich – code="
+                            + result);
+        }
     }
 
     private void observeS400Connecting(
