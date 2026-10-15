@@ -194,6 +194,7 @@ public final class ScaleScanService extends Service {
     private boolean bluetoothStateReceiverRegistered;
 
     private S400GattClient gattClient;
+    private long gattClientGeneration;
     private PeerMeasurementTransport peerTransport;
     private boolean peerSendInFlight;
     private boolean peerCriticalSendInFlight;
@@ -842,11 +843,15 @@ public final class ScaleScanService extends Service {
                 this,
                 getString(R.string.log_gatt_standby));
 
+        final long generation = ++gattClientGeneration;
+
         gattClient = new S400GattClient(
                 this,
                 new S400GattClient.Listener() {
                     @Override public void onStateChanged(
                             S400GattClient.State state) {
+                        if (generation != gattClientGeneration
+                                || gattClient == null) return;
                         EventLog.debug(
                                 ScaleScanService.this,
                                 getString(
@@ -879,6 +884,8 @@ public final class ScaleScanService extends Service {
                     }
 
                     @Override public void onAuthenticated() {
+                        if (generation != gattClientGeneration
+                                || gattClient == null) return;
                         setCollectorOwned(
                                 true,
                                 false);
@@ -896,10 +903,14 @@ public final class ScaleScanService extends Service {
 
                     @Override public void onMeasurement(
                             S400GattMeasurement measurement) {
+                        if (generation != gattClientGeneration
+                                || gattClient == null) return;
                         handleGattMeasurement(measurement);
                     }
 
                     @Override public void onDisconnected(int status) {
+                        if (generation != gattClientGeneration
+                                || gattClient == null) return;
                         EventLog.warning(
                                 ScaleScanService.this,
                                 getString(
@@ -908,6 +919,8 @@ public final class ScaleScanService extends Service {
                     }
 
                     @Override public void onError(String message) {
+                        if (generation != gattClientGeneration
+                                || gattClient == null) return;
                         if (gattCollectorOwned) {
                             EventLog.error(
                                     ScaleScanService.this,
