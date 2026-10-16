@@ -24,6 +24,11 @@ final class S400WakeupScan {
 
     private S400WakeupScan() {}
 
+    static boolean shouldFallbackToAllMatches(int code) {
+        return code == ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED
+                || code == ScanCallback.SCAN_FAILED_OUT_OF_HARDWARE_RESOURCES;
+    }
+
     static int start(Context context, String address) {
         BluetoothLeScanner scanner = scanner(context);
 
@@ -37,12 +42,21 @@ final class S400WakeupScan {
                         .setDeviceAddress(address)
                         .build();
 
-        ScanSettings settings =
+        ScanSettings trackingSettings =
                 new ScanSettings.Builder()
                         .setScanMode(
                                 ScanSettings.SCAN_MODE_LOW_POWER)
                         .setCallbackType(
-                                ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
+                                ScanSettings.CALLBACK_TYPE_FIRST_MATCH
+                                        | ScanSettings.CALLBACK_TYPE_MATCH_LOST)
+                        .build();
+
+        ScanSettings fallbackSettings =
+                new ScanSettings.Builder()
+                        .setScanMode(
+                                ScanSettings.SCAN_MODE_LOW_POWER)
+                        .setCallbackType(
+                                ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                         .build();
 
         PendingIntent callbackIntent =
@@ -51,10 +65,32 @@ final class S400WakeupScan {
                         PendingIntent.FLAG_UPDATE_CURRENT);
 
         try {
+            boolean useAllMatches =
+                    context.getSharedPreferences(
+                            "s400_wakeup_diagnostics",
+                            Context.MODE_PRIVATE)
+                            .getBoolean(
+                                    "force_all_matches", false);
+
             int result = scanner.startScan(
                     List.of(filter),
-                    settings,
+                    useAllMatches
+                            ? fallbackSettings
+                            : trackingSettings,
                     callbackIntent);
+
+            if (!useAllMatches
+                    && shouldFallbackToAllMatches(result)) {
+                EventLog.warning(
+                        context,
+                        "S400-Wakeup: Hardware-Tracking nicht verfügbar"
+                                + " – ALL_MATCHES-Fallback");
+
+                result = scanner.startScan(
+                        List.of(filter),
+                        fallbackSettings,
+                        callbackIntent);
+            }
 
             if (result != 0
                     && result

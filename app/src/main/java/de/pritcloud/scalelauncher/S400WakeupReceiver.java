@@ -3,6 +3,7 @@ package de.pritcloud.scalelauncher;
 import android.Manifest;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -15,10 +16,36 @@ import java.util.ArrayList;
 
 /** Diagnostic receiver for filtered S400 PendingIntent scan results. */
 public final class S400WakeupReceiver extends BroadcastReceiver {
+    interface Listener {
+        void onWakeup(String mac, long signalElapsedMs);
+    }
+
+    private static volatile Listener listener;
+
+    static void setListener(Listener value) {
+        listener = value;
+    }
+
+    static void clearListener(Listener value) {
+        if (listener == value) {
+            listener = null;
+        }
+    }
     static final String ACTION =
             "de.pritcloud.scalelauncher.S400_WAKEUP_SCAN";
     private static final long MAX_SIGNAL_AGE_MS = 5_000L;
     private static final long LOG_COOLDOWN_MS = 60_000L;
+    private static final long SIGNAL_INTERVAL_MS = 2_000L;
+
+    static boolean shouldHandleSignal(
+            long previousElapsedMs,
+            long signalElapsedMs) {
+        return signalElapsedMs >= 0L
+                && (previousElapsedMs < 0L
+                    || signalElapsedMs < previousElapsedMs
+                    || signalElapsedMs - previousElapsedMs
+                            >= SIGNAL_INTERVAL_MS);
+    }
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -49,18 +76,35 @@ public final class S400WakeupReceiver extends BroadcastReceiver {
             int code = intent.getIntExtra(
                     BluetoothLeScanner.EXTRA_ERROR_CODE, -1);
 
-            context.getSharedPreferences(
-                    "s400_wakeup_diagnostics",
-                    Context.MODE_PRIVATE)
-                    .edit()
-                    .putLong(
-                            "last_scan_error_elapsed_ms",
-                            SystemClock.elapsedRealtime())
-                    .apply();
+            SharedPreferences.Editor diagnostics =
+                    context.getSharedPreferences(
+                            "s400_wakeup_diagnostics",
+                            Context.MODE_PRIVATE)
+                            .edit();
+
+            diagnostics.putLong(
+                    "last_scan_error_elapsed_ms",
+                    SystemClock.elapsedRealtime());
+
+            if (S400WakeupScan.shouldFallbackToAllMatches(code)) {
+                diagnostics.putBoolean(
+                        "force_all_matches", true);
+            }
+
+            diagnostics.apply();
 
             EventLog.warning(
                     context,
                     "S400-Wakeup: Scanfehler " + code);
+            return;
+        }
+
+        int callbackType = intent.getIntExtra(
+                BluetoothLeScanner.EXTRA_CALLBACK_TYPE,
+                ScanSettings.CALLBACK_TYPE_ALL_MATCHES);
+
+        // A lost device is not a new S400 wakeup event.
+        if ((callbackType & ScanSettings.CALLBACK_TYPE_MATCH_LOST) != 0) {
             return;
         }
 
@@ -106,6 +150,33 @@ public final class S400WakeupReceiver extends BroadcastReceiver {
                     context.getSharedPreferences(
                             "s400_wakeup_diagnostics",
                             Context.MODE_PRIVATE);
+
+            long previousSignalMs =
+                    state.getLong(
+                            "last_valid_signal_elapsed_ms", -1L);
+
+            if (!shouldHandleSignal(
+                    previousSignalMs, signalElapsedMs)) {
+                return;
+            }
+
+            // Keep accepted observations even during log cooldown.
+            state.edit()
+                    .putLong(
+                            "last_valid_signal_elapsed_ms",
+                            signalElapsedMs)
+                    .putLong(
+                            "last_valid_signal_wall_ms",
+                            System.currentTimeMillis())
+                    .putString(
+                            "last_valid_signal_mac",
+                            target)
+                    .apply();
+
+            Listener currentListener = listener;
+            if (currentListener != null) {
+                currentListener.onWakeup(target, signalElapsedMs);
+            }
 
             long previous =
                     state.getLong("last_log_elapsed_ms", -1L);

@@ -214,6 +214,10 @@ public final class ScaleScanService extends Service {
             new S400PresenceProbe();
     private long lastS400ProbeAttemptMs;
     private long gattClientGeneration;
+    private long lastS400RecoveryElapsedMs;
+    private boolean s400RecoveryPending;
+    private final S400WakeupReceiver.Listener s400WakeupListener =
+            this::onS400Wakeup;
     private PeerMeasurementTransport peerTransport;
     private boolean peerSendInFlight;
     private boolean peerCriticalSendInFlight;
@@ -248,6 +252,7 @@ public final class ScaleScanService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
+        S400WakeupReceiver.setListener(s400WakeupListener);
         // Retry cleanup if Bluetooth was unavailable after process death.
         s400WakeupScanStopPending =
                 !S400WakeupScan.stop(this);
@@ -5771,6 +5776,99 @@ public final class ScaleScanService extends Service {
                 WATCHDOG_INTERVAL_MS);
     }
 
+    private void onS400Wakeup(
+            String mac,
+            long signalElapsedMs) {
+        if (s400RecoveryPending) {
+            return;
+        }
+
+        S400GattClient expectedClient = gattClient;
+        long expectedGeneration = gattClientGeneration;
+
+        if (!canRecoverS400(
+                mac, signalElapsedMs, expectedClient,
+                expectedGeneration, 5_000L)) {
+            return;
+        }
+
+        s400RecoveryPending = true;
+
+        // Stable per-device delay reduces simultaneous attempts.
+        long delayMs = 2_000L
+                + Math.floorMod(
+                        PeerTrustStore.localDeviceId(this).hashCode(),
+                        4_000);
+
+        handler.postDelayed(() -> {
+            s400RecoveryPending = false;
+
+            if (!canRecoverS400(
+                    mac, signalElapsedMs, expectedClient,
+                    expectedGeneration, 15_000L)) {
+                return;
+            }
+
+            lastS400RecoveryElapsedMs =
+                    SystemClock.elapsedRealtime();
+
+            EventLog.warning(
+                    this,
+                    "S400-Recovery: frisches Waagensignal"
+                            + " bei festhängendem CONNECTING");
+
+            scheduleGattReconnect(
+                    "S400-Wakeup bei festhängendem CONNECTING");
+        }, delayMs);
+    }
+
+    private boolean canRecoverS400(
+            String mac,
+            long signalElapsedMs,
+            S400GattClient expectedClient,
+            long expectedGeneration,
+            long maximumSignalAgeMs) {
+        long now = SystemClock.elapsedRealtime();
+        long signalAgeMs = now - signalElapsedMs;
+
+        if (!gattMonitoringActive
+                || explicitStop
+                || terminalError
+                || gattReconnectScheduled
+                || collectorSource()
+                        != ServiceState.CollectorSource.NONE
+                || expectedClient == null
+                || gattClient != expectedClient
+                || gattClientGeneration != expectedGeneration
+                || signalAgeMs < 0L
+                || signalAgeMs > maximumSignalAgeMs
+                || !mac.equalsIgnoreCase(
+                        getSharedPreferences("prefs", MODE_PRIVATE)
+                                .getString("mac", ""))) {
+            return false;
+        }
+
+        long lastRecoveryAgeMs =
+                lastS400RecoveryElapsedMs == 0L
+                        ? Long.MAX_VALUE
+                        : now >= lastS400RecoveryElapsedMs
+                                ? now - lastS400RecoveryElapsedMs
+                                : -1L;
+
+        return S400ConnectingRecoveryPolicy.shouldRecover(
+                false,
+                expectedClient.getState()
+                        == S400GattClient.State.CONNECTING,
+                expectedClient.getConnectingAgeMs(),
+                signalAgeMs,
+                signalAgeMs,
+                lastRecoveryAgeMs,
+                S400_PROBE_MIN_CONNECTING_MS,
+                0L,
+                maximumSignalAgeMs,
+                30L * 60_000L);
+    }
+
     private void stopS400WakeupScan() {
         if (!s400WakeupScanRegistered
                 && !s400WakeupScanStopPending) {
@@ -5820,8 +5918,6 @@ public final class ScaleScanService extends Service {
                 && current != null
                 && current.getState()
                         == S400GattClient.State.CONNECTING
-                && current.getConnectingAgeMs()
-                        >= S400_PROBE_MIN_CONNECTING_MS
                 && adapter != null
                 && adapter.isEnabled()
                 && checkSelfPermission(
@@ -5853,6 +5949,12 @@ public final class ScaleScanService extends Service {
                         "S400-Wakeup: Scanfehler erkannt"
                                 + " – Registrierung wird zurückgesetzt");
                 stopS400WakeupScan();
+
+                // Never register a replacement until cleanup succeeds.
+                if (s400WakeupScanRegistered
+                        || s400WakeupScanStopPending) {
+                    return;
+                }
             } else {
                 return;
             }
@@ -6292,6 +6394,7 @@ public final class ScaleScanService extends Service {
     }
 
     @Override public void onDestroy() {
+        S400WakeupReceiver.clearListener(s400WakeupListener);
         openScaleProcessingMeasurements.clear();
         openScaleQueueRequests.clear();
         openScaleActiveProfiles.clear();
