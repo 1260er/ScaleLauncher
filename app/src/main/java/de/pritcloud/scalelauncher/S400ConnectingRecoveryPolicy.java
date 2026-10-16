@@ -38,4 +38,23 @@ final class S400ConnectingRecoveryPolicy {
                 && lastSightingAgeMs <= sightingWindowMs
                 && lastRecoveryAgeMs >= recoveryCooldownMs;
     }
+    static boolean shouldRecoverAfterCollectorLoss(
+            boolean remoteCollectorLost,
+            boolean collectorPresent,
+            boolean connecting,
+            long connectingAgeMs,
+            long lastRecoveryAgeMs,
+            long minimumConnectingMs,
+            long recoveryCooldownMs) {
+
+        return remoteCollectorLost
+                && !collectorPresent
+                && connecting
+                && connectingAgeMs >= 0L
+                && lastRecoveryAgeMs >= 0L
+                && minimumConnectingMs >= 0L
+                && recoveryCooldownMs >= 0L
+                && connectingAgeMs >= minimumConnectingMs
+                && lastRecoveryAgeMs >= recoveryCooldownMs;
+    }
 }

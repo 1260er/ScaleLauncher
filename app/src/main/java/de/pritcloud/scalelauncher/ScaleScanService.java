@@ -59,6 +59,9 @@ public final class ScaleScanService extends Service {
     private static final long S400_PROBE_DURATION_MS = 20_000L;
     private static final long S400_PROBE_COOLDOWN_MS =
             30L * 60_000L;
+    private static final long S400_HANDOVER_MIN_CONNECTING_MS = 15_000L;
+    private static final long S400_HANDOVER_COOLDOWN_MS = 120_000L;
+    private static final long S400_HANDOVER_SETTLE_MS = 2_000L;
     private static final long REMOTE_COLLECTOR_REACHABLE_MS = 60_000L;
     private static final long PEER_VISIBILITY_RECOVERY_COOLDOWN_MS =
             5L * 60_000L;
@@ -216,6 +219,8 @@ public final class ScaleScanService extends Service {
     private long gattClientGeneration;
     private long lastS400RecoveryElapsedMs;
     private boolean s400RecoveryPending;
+    private long lastS400HandoverRecoveryElapsedMs;
+    private boolean s400HandoverRecoveryPending;
     private final S400WakeupReceiver.Listener s400WakeupListener =
             this::onS400Wakeup;
     private PeerMeasurementTransport peerTransport;
@@ -473,6 +478,12 @@ public final class ScaleScanService extends Service {
                                             false,
                                             currentSource);
                                     notifyMonitor();
+
+                                    if (previousSource == ServiceState.CollectorSource.REMOTE
+                                            && currentSource == ServiceState.CollectorSource.NONE) {
+                                        handler.post(
+                                                ScaleScanService.this::recoverGattAfterCollectorLoss);
+                                    }
                                 }
                             }
 
@@ -5586,8 +5597,88 @@ public final class ScaleScanService extends Service {
                     && currentSource == ServiceState.CollectorSource.NONE) {
                 recoverPeerVisibilityAfterCollectorLoss(
                         now);
+                handler.post(this::recoverGattAfterCollectorLoss);
             }
         }
+    }
+
+    private void recoverGattAfterCollectorLoss() {
+        if (!gattMonitoringActive
+                || explicitStop
+                || terminalError
+                || gattReconnectScheduled
+                || s400HandoverRecoveryPending
+                || collectorSource() != ServiceState.CollectorSource.NONE) {
+            return;
+        }
+
+        final S400GattClient expectedClient = gattClient;
+        if (expectedClient == null) {
+            return;
+        }
+
+        final long expectedGeneration = gattClientGeneration;
+        long now = SystemClock.elapsedRealtime();
+
+        long recoveryAge = lastS400HandoverRecoveryElapsedMs == 0L
+                ? Long.MAX_VALUE
+                : now >= lastS400HandoverRecoveryElapsedMs
+                        ? now - lastS400HandoverRecoveryElapsedMs
+                        : -1L;
+
+        if (!S400ConnectingRecoveryPolicy.shouldRecoverAfterCollectorLoss(
+                true,
+                false,
+                expectedClient.getState() == S400GattClient.State.CONNECTING,
+                expectedClient.getConnectingAgeMs(),
+                recoveryAge,
+                S400_HANDOVER_MIN_CONNECTING_MS,
+                S400_HANDOVER_COOLDOWN_MS)) {
+            return;
+        }
+
+        s400HandoverRecoveryPending = true;
+
+        handler.postDelayed(() -> {
+            s400HandoverRecoveryPending = false;
+
+            if (!gattMonitoringActive
+                    || explicitStop
+                    || terminalError
+                    || gattReconnectScheduled
+                    || collectorSource() != ServiceState.CollectorSource.NONE
+                    || gattClient != expectedClient
+                    || gattClientGeneration != expectedGeneration) {
+                return;
+            }
+
+            long confirmedNow = SystemClock.elapsedRealtime();
+            long confirmedRecoveryAge = lastS400HandoverRecoveryElapsedMs == 0L
+                    ? Long.MAX_VALUE
+                    : confirmedNow >= lastS400HandoverRecoveryElapsedMs
+                            ? confirmedNow - lastS400HandoverRecoveryElapsedMs
+                            : -1L;
+
+            if (!S400ConnectingRecoveryPolicy.shouldRecoverAfterCollectorLoss(
+                    true,
+                    false,
+                    expectedClient.getState() == S400GattClient.State.CONNECTING,
+                    expectedClient.getConnectingAgeMs(),
+                    confirmedRecoveryAge,
+                    S400_HANDOVER_MIN_CONNECTING_MS,
+                    S400_HANDOVER_COOLDOWN_MS)) {
+                return;
+            }
+
+            lastS400HandoverRecoveryElapsedMs = confirmedNow;
+
+            EventLog.warning(this,
+                    "Collector-Handover: Remote-Collector verloren,"
+                            + " festhaengendes CONNECTING wird neu gestartet");
+
+            scheduleGattReconnect(
+                    "Collector-Handover nach Remote-Collector-Verlust");
+        }, S400_HANDOVER_SETTLE_MS);
     }
 
     private void recoverPeerVisibilityAfterCollectorLoss(

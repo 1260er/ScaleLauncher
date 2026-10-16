@@ -137,4 +137,49 @@ public final class S400ConnectingRecoveryPolicyTest {
                 Long.MAX_VALUE, MIN_WAIT,
                 WINDOW + 1L, WINDOW, COOLDOWN));
     }
+    private boolean handover(
+            boolean lost, boolean collector, boolean connecting,
+            long connectingAge, long recoveryAge) {
+        return S400ConnectingRecoveryPolicy.shouldRecoverAfterCollectorLoss(
+                lost, collector, connecting, connectingAge,
+                recoveryAge, 15_000L, 120_000L);
+    }
+
+    @Test
+    public void lostCollectorRecoversStuckConnecting() {
+        assertTrue(handover(true, false, true,
+                450_000L, Long.MAX_VALUE));
+    }
+
+    @Test
+    public void noCollectorLossDoesNotTriggerRecovery() {
+        assertFalse(handover(false, false, true,
+                450_000L, Long.MAX_VALUE));
+    }
+
+    @Test
+    public void activeCollectorOrReadyGattBlocksRecovery() {
+        assertFalse(handover(true, true, true,
+                450_000L, Long.MAX_VALUE));
+        assertFalse(handover(true, false, false,
+                450_000L, Long.MAX_VALUE));
+    }
+
+    @Test
+    public void newConnectingAttemptIsProtected() {
+        assertFalse(handover(true, false, true,
+                5_000L, Long.MAX_VALUE));
+        assertFalse(handover(true, false, true,
+                -1L, Long.MAX_VALUE));
+    }
+
+    @Test
+    public void handoverRecoveryHasCooldown() {
+        assertFalse(handover(true, false, true,
+                450_000L, 30_000L));
+        assertTrue(handover(true, false, true,
+                450_000L, 120_000L));
+        assertFalse(handover(true, false, true,
+                450_000L, -1L));
+    }
 }
