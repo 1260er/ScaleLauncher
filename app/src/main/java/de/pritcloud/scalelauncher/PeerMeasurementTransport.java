@@ -144,6 +144,27 @@ final class PeerMeasurementTransport {
     private boolean sendAwaitingReply;
     private String sendStage = "idle";
 
+    // BT-Diagnose 3.3.0: ausschließlich passive Zähler.
+    private long diagPresenceResults;
+    private long diagPresenceValid;
+    private long diagPresenceTrusted;
+    private long diagSendScanResults;
+    private long diagSendScanMatched;
+    private long diagPresenceErrors;
+    private long diagSendScanErrors;
+    private long diagAdvertisingErrors;
+    private long diagServerConnected;
+    private long diagServerDisconnected;
+    private long diagClientConnected;
+    private long diagClientDisconnected;
+    private long diagSendStarted;
+    private long diagSendCompleted;
+    private long diagSendFailed;
+    private long diagSendStartedMs;
+    private long diagLastSendResultMs;
+    private int diagLastTrustedRssi;
+    private int diagLastSendRssi;
+
     PeerMeasurementTransport(
             Context context,
             Listener listener) {
@@ -377,6 +398,15 @@ final class PeerMeasurementTransport {
             sendConnecting = false;
             sendLastChunkFinal = false;
             sendAwaitingReply = false;
+
+            diagSendStarted++;
+            diagSendStartedMs = SystemClock.elapsedRealtime();
+
+            EventLog.debug(context,
+                    "BT-Diag: Sendeversuch"
+                            + " elapsedMs=" + diagSendStartedMs
+                            + " bytes=" + bytes.length
+                            + " reuse=" + reuseSession);
 
             if (reuseSession) {
                 handler.removeCallbacks(
@@ -764,6 +794,19 @@ final class PeerMeasurementTransport {
                         int newState) {
                     runOnTransportThread(
                             () -> {
+                                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                                    diagServerConnected++;
+                                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                                    diagServerDisconnected++;
+                                }
+
+                                EventLog.debug(context,
+                                        "BT-Diag: Server-GATT"
+                                                + " status=" + status
+                                                + " state=" + newState
+                                                + " elapsedMs="
+                                                + SystemClock.elapsedRealtime());
+
                                 if (device != null
                                         && newState
                                         == BluetoothProfile.STATE_DISCONNECTED) {
@@ -1027,6 +1070,7 @@ final class PeerMeasurementTransport {
                         int errorCode) {
                     runOnTransportThread(
                             () -> {
+                                diagAdvertisingErrors++;
                                 advertisingStarting =
                                         false;
                                 advertisingUpdatePending =
@@ -1053,6 +1097,8 @@ final class PeerMeasurementTransport {
                         ScanResult result) {
                     runOnTransportThread(
                             () -> {
+                                diagPresenceResults++;
+
                                 if (result == null
                                         || result.getScanRecord() == null) {
                                     return;
@@ -1073,6 +1119,8 @@ final class PeerMeasurementTransport {
                                     return;
                                 }
 
+                                diagPresenceValid++;
+
                                 for (PresencePeer presence :
                                         presencePeers) {
                                     if (!matchesFingerprint(
@@ -1086,6 +1134,9 @@ final class PeerMeasurementTransport {
 
                                     lastMatchedPresenceElapsedMs =
                                             lastPresenceResultElapsedMs;
+
+                                    diagPresenceTrusted++;
+                                    diagLastTrustedRssi = result.getRssi();
 
                                     handler.post(
                                             () -> listener.onPeerPresence(
@@ -1104,6 +1155,7 @@ final class PeerMeasurementTransport {
                             () -> {
                                 presenceScanActive =
                                         false;
+                                diagPresenceErrors++;
 
                                 EventLog.debug(
                                         context,
@@ -1121,6 +1173,10 @@ final class PeerMeasurementTransport {
                         ScanResult result) {
                     runOnTransportThread(
                             () -> {
+                                diagSendScanResults++;
+                                diagLastSendResultMs =
+                                        SystemClock.elapsedRealtime();
+
                                 if (sendPeer == null
                                         || sendConnecting
                                         || result == null
@@ -1138,6 +1194,9 @@ final class PeerMeasurementTransport {
                                         sendTargetFingerprint)) {
                                     return;
                                 }
+
+                                diagSendScanMatched++;
+                                diagLastSendRssi = result.getRssi();
 
                                 sendConnecting = true;
                                 sendStage = "connecting";
@@ -1179,6 +1238,7 @@ final class PeerMeasurementTransport {
                             () -> {
                                 sendScanActive =
                                         false;
+                                diagSendScanErrors++;
 
                                 failSend(
                                         "BLE-Peer-Suche Fehler "
@@ -1200,6 +1260,20 @@ final class PeerMeasurementTransport {
                                         || gatt != sendGatt) {
                                     return;
                                 }
+
+                                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                                    diagClientConnected++;
+                                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                                    diagClientDisconnected++;
+                                }
+
+                                EventLog.debug(context,
+                                        "BT-Diag: Client-GATT"
+                                                + " status=" + status
+                                                + " state=" + newState
+                                                + " stage=" + sendStage
+                                                + " elapsedMs="
+                                                + SystemClock.elapsedRealtime());
 
                                 if (status
                                         != BluetoothGatt.GATT_SUCCESS) {
@@ -1824,6 +1898,17 @@ final class PeerMeasurementTransport {
     }
 
     private void finishSend() {
+        diagSendCompleted++;
+
+        EventLog.debug(context,
+                "BT-Diag: Transport-Schreibabschluss"
+                        + " durationMs="
+                        + Math.max(0L,
+                                SystemClock.elapsedRealtime()
+                                        - diagSendStartedMs)
+                        + " stage=" + sendStage
+                        + " (kein Anwendungs-ACK)");
+
         PeerTrustStore.Peer peer =
                 sendPeer;
 
@@ -1879,6 +1964,17 @@ final class PeerMeasurementTransport {
 
     private void failSend(
             String message) {
+        diagSendFailed++;
+
+        EventLog.debug(context,
+                "BT-Diag: Sendefehler"
+                        + " durationMs="
+                        + Math.max(0L,
+                                SystemClock.elapsedRealtime()
+                                        - diagSendStartedMs)
+                        + " stage=" + sendStage
+                        + " cause=" + message);
+
         cleanupSendConnection();
         clearSendState();
         startPresenceScan();
@@ -2073,6 +2169,35 @@ final class PeerMeasurementTransport {
                         + sendStage
                         + " sendGatt="
                         + (sendGatt != null));
+
+        EventLog.debug(context,
+                "BT-Diag: Scan-Zähler"
+                        + " elapsedMs=" + now
+                        + " presenceResults=" + diagPresenceResults
+                        + " valid=" + diagPresenceValid
+                        + " trusted=" + diagPresenceTrusted
+                        + " presenceErrors=" + diagPresenceErrors
+                        + " trustedRssi=" + diagLastTrustedRssi
+                        + " sendResults=" + diagSendScanResults
+                        + " sendMatched=" + diagSendScanMatched
+                        + " sendErrors=" + diagSendScanErrors
+                        + " sendRssi=" + diagLastSendRssi
+                        + " sendResultAge="
+                        + elapsedAge(now, diagLastSendResultMs));
+
+        EventLog.debug(context,
+                "BT-Diag: Transport-Zähler"
+                        + " btEnabled="
+                        + (adapter != null && adapter.isEnabled())
+                        + " permissions=" + hasBlePermissions()
+                        + " advErrors=" + diagAdvertisingErrors
+                        + " serverConnected=" + diagServerConnected
+                        + " serverDisconnected=" + diagServerDisconnected
+                        + " clientConnected=" + diagClientConnected
+                        + " clientDisconnected=" + diagClientDisconnected
+                        + " sendStarted=" + diagSendStarted
+                        + " writeCompleted=" + diagSendCompleted
+                        + " sendFailed=" + diagSendFailed);
     }
 
     private static String elapsedAge(

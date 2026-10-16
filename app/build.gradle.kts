@@ -43,7 +43,7 @@ android {
         minSdk = 31
         targetSdk = 35
         versionCode = providers.environmentVariable("SCALELAUNCHER_VERSION_CODE").orNull?.toIntOrNull() ?: 10
-        versionName = "1.8.0"
+        versionName = "3.3.0"
 
         javaCompileOptions {
             annotationProcessorOptions {

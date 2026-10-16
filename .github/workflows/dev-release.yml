@@ -106,7 +106,7 @@ jobs:
             "$APK_FILE" "$APK_FILE.sha256" \
             --target "$GITHUB_SHA" \
             --title "ScaleLauncher Dev ${GITHUB_RUN_NUMBER}" \
-            --notes "Automatischer Test-Build aus dem Branch ui-v1.8.0." \
+            --notes "Automatischer Test-Build aus dem Branch ${GITHUB_REF_NAME} | BT-Diagnose 3.3.0." \
             --prerelease \
             --latest=false
 

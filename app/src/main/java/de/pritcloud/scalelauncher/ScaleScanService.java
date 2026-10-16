@@ -62,7 +62,7 @@ public final class ScaleScanService extends Service {
     private static final long PEER_SYNC_RETRY_MS = 30_000L;
     private static final long PEER_ACK_RETRY_MS = 10_000L;
     private static final long OPEN_SCALE_RETRY_DELAY_MS = 2_000L;
-    private static final long PEER_DIAGNOSTIC_INTERVAL_MS = 15 * 60_000L;
+    private static final long PEER_DIAGNOSTIC_INTERVAL_MS = 2 * 60_000L;
     private static final boolean ENABLE_REVERSE_ACK_FALLBACK = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -5470,7 +5470,9 @@ public final class ScaleScanService extends Service {
                         + " reconnectScheduled="
                         + gattReconnectScheduled
                         + " reconnectAttempt="
-                        + gattReconnectAttempt);
+                        + gattReconnectAttempt
+                        + " elapsedMs="
+                        + SystemClock.elapsedRealtime());
     }
 
     private void expireRemoteCollectorPresence() {
